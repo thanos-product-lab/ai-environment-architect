@@ -47,3 +47,14 @@ None yet. They are added with the scaffold commit. Don't guess commands.
 - Unit and contract tests never call a live model. Live runs are manual, against development repositories only.
 - Before finishing a change, have the `spec-reviewer` agent review the diff.
 - Commit messages cite the spec section, for example `context: tier 5 test reserve (IMPL §1.5)`.
+
+## Commits
+
+- One short, plain sentence per commit message. No body unless something truly needs explaining.
+- The developer is the only author. Never add `Co-Authored-By` or any other attribution line.
+- Keep commits small and focused: one logical change each. Split unrelated changes into separate commits.
+
+## Explaining the work
+
+- After finishing a milestone or an important task, explain the implementation in simple language: what was built, how the pieces fit together, and why it was done that way.
+- The goal is that the developer understands everything in the codebase. Prefer plain words and short examples over jargon.
