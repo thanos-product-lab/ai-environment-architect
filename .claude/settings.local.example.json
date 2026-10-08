@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(//ABSOLUTE/PATH/TO/citizenship-workspace/**)",
+      "Read(//ABSOLUTE/PATH/TO/citizenship-eval/**)",
+      "Edit(//ABSOLUTE/PATH/TO/citizenship-workspace/**)",
+      "Edit(//ABSOLUTE/PATH/TO/citizenship-eval/**)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "filesystem": {
+      "denyRead": [
+        "/ABSOLUTE/PATH/TO/citizenship-workspace",
+        "/ABSOLUTE/PATH/TO/citizenship-eval"
+      ]
+    }
+  }
+}

@@ -1,0 +1,39 @@
+# Claude Code setup for this repository
+
+This folder configures Claude Code for developing AI Environment Architect. It is hand-written and deliberately small, following the product's own principle of minimal, scoped guidance.
+
+| File | Loaded | Purpose |
+|---|---|---|
+| `../CLAUDE.md` | Every session | What the project is, where the specs are, evaluation isolation, invariants, layout, working style |
+| `rules/core.md` | When working in `src/core/` | Determinism, no I/O, immutable records, validation events |
+| `rules/model-contracts.md` | When working on validators, schemas, prompts or recorded responses | Stable rule IDs, versioning, no repair beyond `CIT-R01` |
+| `rules/cli.md` | When working in `src/cli/` | Screen conventions and approval safety from IMPL §2 |
+| `rules/tests.md` | When working on tests | Synthetic fixtures, no live model, verification items mapped to tests |
+| `skills/implement-spec/` | `/implement-spec IMPL 1.6` | Tests-first workflow for one spec section |
+| `skills/validation-rule/` | `/validation-rule CIT-004`, or automatically | Procedure for changing validators, schemas and prompts |
+| `agents/spec-reviewer.md` | Delegated | Read-only review of a change against the specs |
+| `agents/fixture-adversary.md` | Delegated | Adversarial fixtures written from the spec, without reading `src/` |
+| `settings.json` | Always | Auto memory off; file reads blocked outside the working directory; `.env` reads denied |
+
+## Evaluation isolation on your machine
+
+`settings.json` blocks Claude's file tools from reading outside this repository. That doesn't cover every route: a script Claude runs outside the sandbox can still open any file your user account can read. On a machine that also has the evaluation materials:
+
+1. Copy `settings.local.example.json` to `settings.local.json` (git-ignored) and replace the placeholder paths. Read and Edit rules use `//` for absolute paths; sandbox paths use a single `/`.
+2. The sandbox in that file also restricts what shell commands can read. It runs on macOS, Linux and WSL2. It may need `sandbox.network.allowedDomains` for the npm registry once dependencies are installed.
+3. Check that `~/.claude/CLAUDE.md` and any user-level skills contain nothing about the evaluation.
+
+The strongest boundary is to keep the evaluation materials off the account you develop with.
+
+## Why auto memory is off
+
+Guidance for this repository lives in reviewed, versioned files. That keeps development reproducible, and it gives a clean baseline for dogfooding: once the first slice works, run the tool on this repository and compare its proposal with this hand-written setup.
+
+## Still to add
+
+Hooks need real commands, so they come with the scaffold commit:
+
+- a `PostToolUse` hook on `Edit|Write` that typechecks and runs the tests for the changed file;
+- a `Stop` hook that runs the full test suite.
+
+After that, update the Commands section in `../CLAUDE.md`.

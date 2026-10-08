@@ -54,6 +54,7 @@ The product's central claim, that this setup reduces the corrections developers 
 | [ADR 0001: Standalone TypeScript CLI](docs/decisions/0001-standalone-typescript-cli.md) | Why a CLI with a reusable core rather than a Claude Code plugin |
 | [Domain Model](docs/architecture/DOMAIN_MODEL.md) | Records, evidence rules, review and approval, application and recovery, export |
 | [Implementation Specification](docs/architecture/IMPLEMENTATION_SPEC.md) | Context selection, CLI interaction, model calls and validation. Persistence and export are still to be written. |
+| [Milestones](docs/MILESTONES.md) | Build order for the first slice, and current progress |
 
 ## Part of Thanos Product Lab
 
