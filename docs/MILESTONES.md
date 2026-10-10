@@ -19,7 +19,7 @@ The order is set by dependencies. Deterministic parts come first and are tested 
 
 | # | Milestone | Model calls? | Status |
 |---|---|---|---|
-| M0 | Scaffold and development repositories | No | In progress |
+| M0 | Scaffold and development repositories | No | Done |
 | M1 | Snapshot and destination parsing | No | Not started |
 | M2 | Context selection and "What we read" | No | Not started |
 | M3 | Validation core | No (recorded responses) | Not started |
@@ -45,7 +45,7 @@ The order is set by dependencies. Deterministic parts come first and are tested 
   - one with mixed conventions and little documentation;
   - one with an existing `CLAUDE.md`.
   Record them, with pinned commits, in `docs/DEVELOPMENT_REPOSITORIES.md`.
-- [ ] Set up local evaluation isolation if the evaluation materials are on this machine ([`.claude/README.md`](../.claude/README.md#evaluation-isolation-on-your-machine)).
+- [x] Set up local evaluation isolation if the evaluation materials are on this machine ([`.claude/README.md`](../.claude/README.md#evaluation-isolation-on-your-machine)).
 
 **Done when:** CI passes on a clean clone, the hooks fire on an edit, and the development repositories are recorded.
 
