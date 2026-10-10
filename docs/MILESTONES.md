@@ -19,7 +19,7 @@ The order is set by dependencies. Deterministic parts come first and are tested 
 
 | # | Milestone | Model calls? | Status |
 |---|---|---|---|
-| M0 | Scaffold and development repositories | No | Not started |
+| M0 | Scaffold and development repositories | No | In progress |
 | M1 | Snapshot and destination parsing | No | Not started |
 | M2 | Context selection and "What we read" | No | Not started |
 | M3 | Validation core | No (recorded responses) | Not started |
@@ -35,7 +35,7 @@ The order is set by dependencies. Deterministic parts come first and are tested 
 
 **Goal:** a working toolchain, and real repositories to develop against that are not evaluation materials.
 
-- [ ] Decide the toolchain and record it as ADR 0002: Node version, package manager, test runner, linter and formatter, Zod version, module format.
+- [x] Decide the toolchain and record it as [ADR 0002](decisions/0002-toolchain.md): Node version, package manager, test runner, linter and formatter, Zod version, module format.
 - [ ] Create the layout in [`CLAUDE.md`](../CLAUDE.md#layout) with an empty passing test.
 - [ ] Add CI that runs typecheck, lint and tests on every push.
 - [ ] Fill in the Commands section of `CLAUDE.md`.
