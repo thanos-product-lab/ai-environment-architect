@@ -49,7 +49,7 @@ pnpm always refuses to install this project on a Node outside its own `engines` 
 
 **Alternative.** Node 26. It is the Current release today (26.11.1) and becomes LTS on 28 October 2026.
 
-**Why.** Node 24 is a stable LTS line today and is supported until 30 April 2028, which outlasts the first slice. It enters maintenance on 20 October 2026, which means security and critical fixes only. That is acceptable for a CLI. Node 26 would give a longer runway, but it isn't LTS yet, and a pre-LTS major is the wrong base for a determinism-sensitive tool. Move to 26 in a later ADR once it has been LTS for a while.
+**Why.** Node 24 is a stable LTS line today and is supported until 30 April 2028, which outlasts the first slice. It enters maintenance on 20 October 2026, which means security and critical fixes only. That is acceptable for a CLI. Node 26 would give a longer runway, but it isn't LTS yet, and a pre-LTS major is the wrong base for a determinism-sensitive tool. Move to 26 in a later ADR once it has been LTS for a while. That ADR also has to replace Corepack, which Node 26 doesn't bundle (see the package manager section).
 
 ### Package manager: pnpm 12.8.2
 
@@ -61,6 +61,8 @@ pnpm always refuses to install this project on a Node outside its own `engines` 
 - CI installs with `pnpm install --frozen-lockfile`.
 
 **Getting the pinned pnpm.** Run pnpm through Corepack, which ships with Node 24: `corepack pnpm <command>`, or `corepack enable pnpm` once so that plain `pnpm` resolves through it. Corepack reads `packageManager`, checks the downloaded package against its hash and runs exactly that version. Don't rely on an older global pnpm switching itself: pnpm 10.25's self-switch (`pmOnFail: download`) fails to start pnpm 12, because pnpm 12 is a native binary installed by a script that the switch doesn't run. pnpm 12's Corepack wrapper downloads that native binary on first use; its own comments say the download is verified by `get-pnpm`, the installer behind get.pnpm.io. We haven't audited that check.
+
+**Corepack ends with Node 24.** The Node.js Technical Steering Committee voted in March 2025 to stop bundling Corepack from Node 25. Node 24 still includes it, marked experimental. On Node 26, `corepack pnpm` won't work out of the box. The ADR that moves us off Node 24 must choose another way to get the pinned pnpm, for example the standalone `corepack` package from npm, or pnpm's own installer, and it must update CI, the Commands section of `CLAUDE.md` and the hooks to match.
 
 **Urgent security fixes.** Sometimes a fix has to be installed before it is 7 days old. To do that:
 
@@ -177,7 +179,8 @@ Checked on 8 October 2026:
 1. [Node.js release schedule](https://github.com/nodejs/Release/blob/main/schedule.json) and [release index](https://nodejs.org/dist/index.json)
 2. [pnpm settings](https://pnpm.io/settings): [dependency resolution](https://pnpm.io/settings/dependency-resolution), [build](https://pnpm.io/settings/build), [CLI](https://pnpm.io/settings/cli)
 3. [Biome `noFloatingPromises`](https://biomejs.dev/linter/rules/no-floating-promises/)
-4. npm registry metadata (`npm view`) for every version, engine range and peer range quoted above
+4. [Node.js Corepack documentation](https://nodejs.org/dist/latest/docs/api/corepack.html) and the [Corepack phase-out vote](https://github.com/nodejs/corepack/issues/688), checked 10 October 2026
+5. npm registry metadata (`npm view`) for every version, engine range and peer range quoted above
 
 ## Changes
 
@@ -185,3 +188,4 @@ Checked on 8 October 2026:
 - **9 October 2026:** before acceptance. The CLI runs from compiled `dist/`, not with type stripping. Reproducibility means the same versions verified by hashes, not the same bytes. Added supported platforms, the CI matrix with a second time zone and locale run, the build smoke test, `.gitattributes`, the separation of the development Node pin from the runtime range, the correct scope of `engineStrict`, and the release-age bypass procedure.
 - **10 October 2026:** accepted.
 - **10 October 2026:** at the scaffold. Added `@types/node` 24.19.1 for Node's API types, matching the Node 24 line, and `types: ["node"]` in the tsconfig. `skipLibCheck` is off. The CI locale run also sets `LC_ALL` and checks that it took effect. Building `schemas/` and shipping `prompts/` is recorded as open for M3. pnpm is run through Corepack, because an older global pnpm can't switch itself to pnpm 12. Recorded Vite as a lockfile-pinned peer of Vitest.
+- **10 October 2026:** after M0. Recorded that Corepack is not bundled from Node 25, so the ADR for the move to Node 26 must choose another way to get pnpm.
