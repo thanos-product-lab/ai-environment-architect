@@ -1,0 +1,12 @@
+# Settings from ADR 0002. pnpm reads only auth and registry settings from .npmrc.
+
+# Refuse versions published less than 7 days ago (in minutes).
+# Urgent security fixes: add the exact version below and record it in ADR 0002's Changes list.
+minimumReleaseAge: 10080
+minimumReleaseAgeExclude: []
+
+# Dependency install scripts are blocked unless listed here.
+allowBuilds: {}
+
+# Refuse dependencies whose engines field excludes the running Node.
+engineStrict: true

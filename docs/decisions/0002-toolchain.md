@@ -60,7 +60,7 @@ pnpm always refuses to install this project on a Node outside its own `engines` 
 - `engineStrict: true`. pnpm refuses dependencies whose own `engines` field excludes the running Node (see the Node section for what this does and doesn't cover).
 - CI installs with `pnpm install --frozen-lockfile`.
 
-If the running pnpm differs from the declared version, pnpm's default behaviour (`pmOnFail: download`) is to download and run the declared version. Every machine therefore runs the same pnpm.
+**Getting the pinned pnpm.** Run pnpm through Corepack, which ships with Node 24: `corepack pnpm <command>`, or `corepack enable pnpm` once so that plain `pnpm` resolves through it. Corepack reads `packageManager`, checks the downloaded package against its hash and runs exactly that version. Don't rely on an older global pnpm switching itself: pnpm 10.25's self-switch (`pmOnFail: download`) fails to start pnpm 12, because pnpm 12 is a native binary installed by a script that the switch doesn't run. pnpm 12's Corepack wrapper downloads that native binary on first use; its own comments say the download is verified by `get-pnpm`, the installer behind get.pnpm.io. We haven't audited that check.
 
 **Urgent security fixes.** Sometimes a fix has to be installed before it is 7 days old. To do that:
 
@@ -86,9 +86,12 @@ If the running pnpm differs from the declared version, pnpm's default behaviour 
 
 - `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`, `noImplicitReturns`, `noPropertyAccessFromIndexSignature`, `noFallthroughCasesInSwitch`, `useUnknownInCatchVariables`;
 - `verbatimModuleSyntax`, `isolatedModules`, `erasableSyntaxOnly`;
+- `types: ["node"]`, so that Node's API types (`process`, the `node:` modules) come from `@types/node` explicitly;
 - `module` and `moduleResolution` set to `nodenext`, and `target` and `lib` set to `es2024`.
 
 **Alternative.** Extend `@tsconfig/strictest` and `@tsconfig/node24`.
+
+`skipLibCheck` is off, so dependency type declarations are checked too.
 
 A second file, `tsconfig.build.json`, extends it and emits only `src/` to `dist/`.
 
@@ -146,7 +149,9 @@ CI checks the build too: it builds `dist/` and runs the built CLI with `--versio
 
 - **Terminal prompt library:** M7, with the CLI screens.
 - **Claude API SDK:** M6, with the adapter.
+- **Vite:** Vitest needs it as a peer dependency. pnpm installs it automatically, and the lockfile pins the version (8.3.2 at the scaffold). It isn't listed in `package.json` because nothing imports it directly.
 - **Coverage tool:** add when a coverage target is set.
+- **Building `schemas/` and shipping `prompts/`.** The layout puts schemas in `schemas/` and prompts in `prompts/`, outside `src/`. The build has `rootDir: src`, so it will fail the first time `src/` imports a schema, and the published `files` list leaves out `prompts/`. Decide how both are built and shipped when the first schema is imported (M3), keeping `bin` at `dist/cli/main.js` if possible.
 
 ## Continuous integration
 
@@ -155,7 +160,7 @@ GitHub Actions runs on every push and pull request, on both `ubuntu-latest` and 
 1. `pnpm install --frozen-lockfile`
 2. Typecheck, then lint (`biome ci`)
 3. The test suite, with the runner's default time zone and locale
-4. The test suite again with `TZ=Pacific/Chatham` and `LANG=tr_TR.UTF-8`. Chatham has a UTC+12:45 offset, and Turkish has unusual rules for upper and lower case `i`. Code that leaks the local time zone or locale into output will fail here.
+4. The test suite again with `TZ=Pacific/Chatham`, and with both `LANG` and `LC_ALL` set to `tr_TR.UTF-8`, because `LC_ALL` overrides `LANG`. The step first checks that Node reports `Pacific/Chatham` and `tr-TR`, and fails if it doesn't. Chatham has a UTC+12:45 offset. Under Turkish, `localeCompare` sorts differently (`ı` comes before `i`), numbers format as `1.234,5`, and dates print in Turkish. Code that leaks the local time zone or locale into output will fail here. Calls that pass a locale explicitly, such as `toLocaleUpperCase("tr-TR")`, aren't affected; the default-locale versions are what this run is for.
 5. `pnpm build`, then the built CLI with `--version`
 
 ## Keeping it reproducible
@@ -179,3 +184,4 @@ Checked on 8 October 2026:
 - **8 October 2026:** first version.
 - **9 October 2026:** before acceptance. The CLI runs from compiled `dist/`, not with type stripping. Reproducibility means the same versions verified by hashes, not the same bytes. Added supported platforms, the CI matrix with a second time zone and locale run, the build smoke test, `.gitattributes`, the separation of the development Node pin from the runtime range, the correct scope of `engineStrict`, and the release-age bypass procedure.
 - **10 October 2026:** accepted.
+- **10 October 2026:** at the scaffold. Added `@types/node` 24.19.1 for Node's API types, matching the Node 24 line, and `types: ["node"]` in the tsconfig. `skipLibCheck` is off. The CI locale run also sets `LC_ALL` and checks that it took effect. Building `schemas/` and shipping `prompts/` is recorded as open for M3. pnpm is run through Corepack, because an older global pnpm can't switch itself to pnpm 12. Recorded Vite as a lockfile-pinned peer of Vitest.

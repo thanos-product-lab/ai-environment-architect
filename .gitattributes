@@ -1,0 +1,5 @@
+# Sources check out with LF on every platform (ADR 0002).
+* text=auto eol=lf
+
+# Fixtures are exact bytes: Git never converts their line endings.
+test/fixtures/** -text

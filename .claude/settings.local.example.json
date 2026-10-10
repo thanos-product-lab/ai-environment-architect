@@ -10,10 +10,7 @@
   "sandbox": {
     "enabled": true,
     "filesystem": {
-      "denyRead": [
-        "/ABSOLUTE/PATH/TO/citizenship-workspace",
-        "/ABSOLUTE/PATH/TO/citizenship-eval"
-      ]
+      "denyRead": ["/ABSOLUTE/PATH/TO/citizenship-workspace", "/ABSOLUTE/PATH/TO/citizenship-eval"]
     }
   }
 }

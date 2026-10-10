@@ -36,10 +36,10 @@ The order is set by dependencies. Deterministic parts come first and are tested 
 **Goal:** a working toolchain, and real repositories to develop against that are not evaluation materials.
 
 - [x] Decide the toolchain and record it as [ADR 0002](decisions/0002-toolchain.md): Node version, package manager, test runner, linter and formatter, Zod version, module format.
-- [ ] Create the layout in [`CLAUDE.md`](../CLAUDE.md#layout) with an empty passing test.
-- [ ] Add CI that runs typecheck, lint and tests on every push.
-- [ ] Fill in the Commands section of `CLAUDE.md`.
-- [ ] Add the hooks listed in [`.claude/README.md`](../.claude/README.md#still-to-add).
+- [x] Create the layout in [`CLAUDE.md`](../CLAUDE.md#layout) with an empty passing test.
+- [ ] Add CI that runs typecheck, lint and tests on every push. *(Workflow added; tick after the first green run on both platforms.)*
+- [x] Fill in the Commands section of `CLAUDE.md`.
+- [x] Add the hooks described in [`.claude/README.md`](../.claude/README.md#hooks).
 - [ ] Choose two or three development repositories, none of them Citizenship Workspace:
   - one small and well documented;
   - one with mixed conventions and little documentation;

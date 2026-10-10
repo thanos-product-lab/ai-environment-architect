@@ -14,6 +14,9 @@ This folder configures Claude Code for developing AI Environment Architect. It i
 | `agents/spec-reviewer.md` | Delegated | Read-only review of a change against the specs |
 | `agents/fixture-adversary.md` | Delegated | Adversarial fixtures written from the spec, without reading `src/` |
 | `settings.json` | Always | Auto memory off; file reads blocked outside the working directory; `.env` reads denied |
+| `hooks/after-edit.sh` | After every Edit or Write | For a `.ts` file in `src/`, `test/` or `schemas/`: typechecks and runs `vitest related` for the file. For `tsconfig*.json`, `vitest.config.ts` or `package.json`: typechecks and runs the full suite. Other files are skipped. A failure is shown to Claude (exit 2) |
+| `hooks/on-stop.sh` | When Claude finishes a turn | Typechecks and runs the full test suite. A failure sends Claude back to fix it, once (`stop_hook_active` prevents a loop) |
+| `hooks/node-env.sh` | Sourced by both hooks | Uses the Node from `.node-version` (active, or installed by nvm, fnm or mise) even if Claude Code started under another Node |
 
 ## Evaluation isolation on your machine
 
@@ -29,11 +32,6 @@ The strongest boundary is to keep the evaluation materials off the account you d
 
 Guidance for this repository lives in reviewed, versioned files. That keeps development reproducible, and it gives a clean baseline for dogfooding: once the first slice works, run the tool on this repository and compare its proposal with this hand-written setup.
 
-## Still to add
+## Hooks
 
-Hooks need real commands, so they come with the scaffold commit:
-
-- a `PostToolUse` hook on `Edit|Write` that typechecks and runs the tests for the changed file;
-- a `Stop` hook that runs the full test suite.
-
-After that, update the Commands section in `../CLAUDE.md`.
+Both hooks call `node_modules/.bin` directly, not pnpm, so they stay fast: the edit hook takes under a second on the scaffold. They need dependencies installed (`corepack pnpm install --frozen-lockfile`) and say so if they aren't. Fixture files under `test/fixtures/` never trigger the edit hook.

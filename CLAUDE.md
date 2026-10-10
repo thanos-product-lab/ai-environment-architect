@@ -38,7 +38,19 @@ Created by the scaffold commit:
 
 ## Commands
 
-None yet. They are added with the scaffold commit. Don't guess commands.
+Setup: Node from `.node-version` (for example `nvm install 24.21.0`), and pnpm through Corepack, which reads the pinned version from `package.json`. Use `corepack pnpm …`, or run `corepack enable pnpm` once and then plain `pnpm`. Don't use an older global pnpm (ADR 0002).
+
+- `corepack pnpm install --frozen-lockfile`: install exactly what the lockfile says
+- `corepack pnpm typecheck`: `tsc --noEmit` over sources and tests
+- `corepack pnpm lint`: Biome lint and format check, no writes
+- `corepack pnpm format`: apply Biome fixes and formatting
+- `corepack pnpm test`: the full Vitest suite
+- `corepack pnpm test:related <file>`: only the tests affected by a file
+- `corepack pnpm build`: compile `src/` to `dist/`
+- `corepack pnpm check`: typecheck, lint, test and build. CI also repeats the tests under another time zone and locale, and runs the `--version` smoke test
+- `node dist/cli/main.js --version`: the built CLI, after a build
+
+Hooks in `.claude/settings.json` typecheck and run the related tests after each edit to a `.ts` file in `src/`, `test/` or `schemas/` (the full suite after edits to `tsconfig*.json`, `vitest.config.ts` or `package.json`), and typecheck and run the full suite when Claude stops. They find the pinned Node if it is active or installed by nvm, fnm or mise.
 
 ## Working style
 

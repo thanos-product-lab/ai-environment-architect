@@ -3,9 +3,31 @@
   "autoMemoryEnabled": false,
   "permissions": {
     "blockReadsOutsideWorkingDirectories": true,
-    "deny": [
-      "Read(./.env)",
-      "Read(./.env.*)"
+    "deny": ["Read(./.env)", "Read(./.env.*)"]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/after-edit.sh",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/on-stop.sh",
+            "timeout": 120
+          }
+        ]
+      }
     ]
   }
 }

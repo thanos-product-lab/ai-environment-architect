@@ -1,0 +1,35 @@
+{
+  "name": "ai-environment-architect",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Inspects a repository and proposes evidence-backed changes to its root CLAUDE.md.",
+  "type": "module",
+  "bin": {
+    "ai-environment-architect": "dist/cli/main.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@12.8.2+sha512.a5941679663d952c5f0ecc38ba98af98b4dc01b95780354f6894f2f873973cef2f7e2989d7db3ee5393938ae21f62fe06bcdf685d475ddad829a62095d2b8b11",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "biome ci .",
+    "format": "biome check --write .",
+    "test": "vitest run",
+    "test:related": "vitest related --run --passWithNoTests",
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc --noEmit && biome ci . && vitest run && tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@types/node": "24.19.1",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  }
+}
