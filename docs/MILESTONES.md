@@ -37,7 +37,7 @@ The order is set by dependencies. Deterministic parts come first and are tested 
 
 - [x] Decide the toolchain and record it as [ADR 0002](decisions/0002-toolchain.md): Node version, package manager, test runner, linter and formatter, Zod version, module format.
 - [x] Create the layout in [`CLAUDE.md`](../CLAUDE.md#layout) with an empty passing test.
-- [ ] Add CI that runs typecheck, lint and tests on every push. *(Workflow added; tick after the first green run on both platforms.)*
+- [x] Add CI that runs typecheck, lint and tests on every push.
 - [x] Fill in the Commands section of `CLAUDE.md`.
 - [x] Add the hooks described in [`.claude/README.md`](../.claude/README.md#hooks).
 - [x] Choose two or three development repositories, none of them Citizenship Workspace:
