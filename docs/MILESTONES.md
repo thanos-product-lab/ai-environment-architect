@@ -40,7 +40,7 @@ The order is set by dependencies. Deterministic parts come first and are tested 
 - [ ] Add CI that runs typecheck, lint and tests on every push. *(Workflow added; tick after the first green run on both platforms.)*
 - [x] Fill in the Commands section of `CLAUDE.md`.
 - [x] Add the hooks described in [`.claude/README.md`](../.claude/README.md#hooks).
-- [ ] Choose two or three development repositories, none of them Citizenship Workspace:
+- [x] Choose two or three development repositories, none of them Citizenship Workspace:
   - one small and well documented;
   - one with mixed conventions and little documentation;
   - one with an existing `CLAUDE.md`.
