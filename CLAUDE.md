@@ -58,7 +58,7 @@ Hooks in `.claude/settings.json` typecheck and run the related tests after each 
 - One spec subsection per change. Start from its verification list and write the tests first.
 - Unit and contract tests never call a live model. Live runs are manual, against development repositories only.
 - Before finishing a change, have the `spec-reviewer` agent review the diff.
-- Commit messages cite the spec section, for example `context: tier 5 test reserve (IMPL §1.5)`.
+- Commit messages cite the spec section, for example `add the tier 5 test reserve (IMPL §1.5)`. No `area:` prefix.
 
 ## Commits
 
