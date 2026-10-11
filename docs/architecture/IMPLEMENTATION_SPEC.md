@@ -2,8 +2,13 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 11 October 2026  
-**Version:** 0.6  
+**Version:** 0.7  
 **Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
+
+### Changes from v0.6
+
+- **Tree markers (§1.6).** `[>]` marks a symbolic link, shown with its target. `[U]` marks an unreadable entry. Removed from the open points.
+- **`@path` imports (§1.5).** Imports in tier 1 files are followed recursively, inside the repository only, ignoring imports in code blocks, and safely through cycles. Imported files join tier 1 as `existing_guidance`. An import that points outside the repository creates a deterministic `gap` finding. Removed from the open points.
 
 ### Changes from v0.5
 
@@ -190,6 +195,15 @@ The explanation names the reason and the options (shorten the file, or raise the
 
 **Other agent configuration**, in order of path depth then path order, fills the remaining tier 1 budget. It is included as `existing_guidance` evidence and is never a target. Items that don't fit are skipped. A deterministic `gap` finding is then created: "Some existing agent configuration was not read because of the analysis budget," listing the skipped paths.
 
+**`@path` imports.** Tier 1 files, the destination included, can import other files with `@path`. Imports are resolved before tier 1 is filled:
+
+- Each import is resolved relative to the file that contains it, and resolution is recursive: imports in imported files are followed too.
+- Imports inside code blocks are ignored.
+- Only paths inside the repository are followed, and only to files in the snapshot. Imports are never followed through a symbolic link, and an imported file is still subject to exclusions and the secret scan (§1.7).
+- Resolution is cycle-safe: each path is visited at most once, so a file that imports itself, directly or through others, ends the chain.
+- Imported files join tier 1 as other agent configuration, `existing_guidance` evidence that is never a target, and are ordered and budgeted like it. A file that is already in tier 1 by its path is not added twice.
+- An import that points outside the repository, including absolute and home-directory paths, is not read. A deterministic `gap` finding is created that names the importing file and the import as written.
+
 #### Tier 2 — Project documentation
 
 Ranked groups, in this order:
@@ -287,7 +301,7 @@ CONTENT
 - Depth limit `treeDepth` (default 4). Directories beyond the limit show file counts.
 - Directories with more than `treeCollapseThreshold` entries (default 40) show the first entries in path order and a count of the rest.
 - Excluded directories appear once, with an `[excluded]` marker and no children.
-- Each file has a marker: `[R]` fully included, `[E]` excerpt included, `[L]` listed only, `[X]` excluded, `[S]` blocked by secret scan.
+- Each file has a marker: `[R]` fully included, `[E]` excerpt included, `[L]` listed only, `[X]` excluded, `[S]` blocked by secret scan, `[>]` symbolic link, shown with its target (`path -> target`), `[U]` unreadable.
 
 If the rendering exceeds its cap, `treeDepth` is reduced by one until it fits. The final depth is recorded. The tree is how the model knows what exists that it has not read.
 
@@ -506,9 +520,7 @@ All defaults are starting points. They are calibrated on the product-development
 - Declaration patterns for languages beyond the default families.
 - Whether `search` should support a restricted regular-expression syntax after the first slice.
 - Whether tier 2 should prefer recently changed documents. This is excluded for now, because it would make the result depend on Git history.
-- Tree markers (tier 4) for `symlink` and `unreadable` snapshot entries. To decide in M2.
 - How coverage-aware validation (§1.11) treats paths under a symbolic link or an excluded directory, which capture never enters. Probably `not_inspected`. To decide in M3.
-- Files that the root `CLAUDE.md` imports with `@path` are existing guidance, but the tier 1 paths don't include them unless they happen to match. Whether tier 1 follows these imports, and how far, is to be decided in M2.
 
 ---
 
