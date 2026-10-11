@@ -54,7 +54,7 @@ The order is set by dependencies. Deterministic parts come first and are tested 
 **Goal:** a reproducible record of what is in a repository, and a lossless, addressable parse of its `CLAUDE.md`.
 
 - [x] Synthetic fixture repositories in `test/fixtures/repos/`: empty, no `CLAUDE.md`, empty `CLAUDE.md`, nested packages, secret-named files, large and binary files, unusual Markdown.
-- [ ] File listing, exclusions, hashing, statuses and stability check. `/implement-spec DM 6.1`, with the candidate rules in `IMPL 1.4`.
+- [x] File listing, exclusions, hashing, statuses and stability check. `/implement-spec DM 6.1`, with the candidate rules in `IMPL 1.4`.
 - [ ] Guidance Block parsing with lossless round trip and fallback. `/implement-spec DM 7`
 - [ ] Git metadata: commit and dirty flag, as supporting data only.
 

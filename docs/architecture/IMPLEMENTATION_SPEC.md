@@ -1,15 +1,21 @@
 # Implementation Specification
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 5 October 2026  
-**Version:** 0.3  
+**Date:** 11 October 2026  
+**Version:** 0.4  
 **Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
+
+### Changes from v0.3
+
+- **Exclusion rules made exact (§1.4).** A pattern grammar, the binary and media extension list, case rules, secret-bearing names matching directories too, and no exclusion by `.gitignore`. The root `CLAUDE.md` is never excluded. Excluded directories are listed once and not entered, so the tree shows no count for them.
+- **Snapshot capture (§1.4).** The repository is observed twice and compared, with one retry, and is never written to. Symbolic links are listed, never followed. The remaining symbolic-link race is stated.
+- **Unavailable destination (§1.5).** A fourth reason to stop before any model call: the snapshot records the destination as `unavailable`.
 
 ### Changes from v0.2
 
 - Section 3, model calls and schemas, is new. It defines the split between model judgement and code-established facts, citation provenance with a narrow recorded line-range correction, support checks that are separate from provenance, per-call contracts for five calls, the validation pipeline, and retry policy.
 
-**Builds on:** [Domain Model](DOMAIN_MODEL.md) v0.3, [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md), [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md).
+**Builds on:** [Domain Model](DOMAIN_MODEL.md) v0.4, [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md), [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md).
 
 **Command name:** `<cli>` is a placeholder until the command name is chosen.
 
@@ -107,7 +113,23 @@ A file is a **candidate** for content inclusion when all of these hold:
 - The product's own session storage, if located inside the repository
 - Binary and media types by extension
 
-Exclusions are recorded in the snapshot and the manifest. Excluded directories appear in the tree as collapsed counts, never by content.
+Exclusions are recorded in the snapshot and the manifest. Excluded directories appear in the tree once, with no children and never by content (tier 4, §1.6); capture does not enter them, so there is no count.
+
+Files ignored by `.gitignore` are not excluded unless one of these rules matches them. Capture runs no `git` command.
+
+**Patterns.** Default and user exclusions use one grammar:
+
+- A trailing `/` matches directories and symbolic links only. Otherwise any entry matches.
+- A pattern that starts with `/` or contains another `/` is anchored at the repository root and matches that path. Otherwise it matches the entry's base name at any depth.
+- `*` matches any run of characters except `/`. There are no other wildcards.
+- The session storage location is always anchored, because it names one place. It must be relative to the repository root and inside it; a leading `./` is ignored.
+- Rules apply in order: defaults, then user exclusions, then the session storage location. The first match is recorded.
+
+Secret-bearing names and binary types compare ASCII letters case-insensitively, so `ID_RSA` and `logo.PNG` are excluded. Other rules are case-sensitive. Secret-bearing names match directories too: `secrets/` and `credentials.d/` are excluded whole. The root `CLAUDE.md` is never excluded, because it is the destination.
+
+**Binary and media types** are these extensions: images `png jpg jpeg gif bmp ico icns webp tif tiff psd heic avif svg`; audio and video `mp3 wav ogg flac m4a aac mp4 m4v mov avi mkv webm`; archives `zip gz tgz bz2 xz zst 7z rar tar jar war`; fonts `woff woff2 ttf otf eot`; documents `pdf doc docx xls xlsx ppt pptx`; compiled code and data `exe dll so dylib a o obj class pyc wasm bin sqlite db`.
+
+**Capture** ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.1) is read-only. Files are opened read-only and never through a symbolic link; nothing is written inside the repository, including `.git/`. Symbolic links are recorded with their targets and never followed. Special files such as named pipes are never opened, and are recorded as `unreadable`. A name that is not valid UTF-8 is recorded as `unreadable` and as a read failure. After a file is opened, its parent directory must still resolve to the expected path under the root, or nothing is read; a directory is listed only if it resolves to its expected path before and after listing. One race remains, because Node has no `openat`: a directory swapped for a link and back again between the open and the check. The tool doesn't defend against a repository being changed adversarially while it runs. The repository is observed twice, listing and hashing every file that is not excluded. If any path's entry differs between the two, both observations are repeated once. If they still differ, the snapshot is `unstable` with those paths, and the second observation of the retry is kept.
 
 ### 1.5 Tiers
 
@@ -139,7 +161,8 @@ Matched paths:
 
 - the destination is larger than `maxDestinationBytes` (default 40,000);
 - the destination matches the secret scan (§1.7);
-- the destination cannot fit within the model's input limit after all permitted reductions (§1.10).
+- the destination cannot fit within the model's input limit after all permitted reductions (§1.10);
+- the snapshot records the destination as `unavailable` ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.1).
 
 The explanation names the reason and the options (shorten the file, or raise the setting). The destination is never truncated, skipped or partially sent.
 
@@ -404,7 +427,7 @@ Every model call records an input manifest ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md)
     { "path": "docs/guide/long.md", "reason": "tier2:cap-reached" }
   ],
   "excluded": [
-    { "pattern": "node_modules/", "count": 18233 },
+    { "path": "node_modules", "rule": "node_modules/" },
     { "path": "config/local.ts", "reason": "secret-scan:generic-assignment" }
   ],
   "expansion": null
@@ -461,6 +484,8 @@ All defaults are starting points. They are calibrated on the product-development
 - Declaration patterns for languages beyond the default families.
 - Whether `search` should support a restricted regular-expression syntax after the first slice.
 - Whether tier 2 should prefer recently changed documents. This is excluded for now, because it would make the result depend on Git history.
+- Tree markers (tier 4) for `symlink` and `unreadable` snapshot entries. To decide in M2.
+- How coverage-aware validation (§1.11) treats paths under a symbolic link or an excluded directory, which capture never enters. Probably `not_inspected`. To decide in M3.
 
 ---
 

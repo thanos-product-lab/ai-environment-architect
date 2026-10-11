@@ -1,8 +1,8 @@
 # Domain Model
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 5 October 2026  
-**Version:** 0.3 — consolidated specification  
+**Date:** 11 October 2026  
+**Version:** 0.4 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,10 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.3
+
+1. **Snapshot statuses and destination states.** Files gain the statuses `excluded` and `symlink`, so excluded paths and symbolic links stay in the coverage list. Symbolic links are never followed. Files ignored by `.gitignore` are not excluded unless an exclusion matches them. A root `CLAUDE.md` that exists but can't be captured safely is `unavailable`, not absent, and the session stops before any model call. Capture compares two full observations of the repository (§6.1).
 
 ### Changes from v0.2
 
@@ -102,16 +106,24 @@ The bounded capture of repository content used for one analysis. Snapshots are i
 | `gitCommit?`, `workingTreeDirty` | Supporting metadata only; never a substitute for file hashes |
 | `scope` | Included roots and patterns |
 | `exclusions` | Default and user exclusions (secrets, dependencies, build output, lockfiles, binary files, session storage) |
-| `files` | One entry per file under scope: repository-relative path, content hash, byte size, status (`read`, `listed_only`, `unreadable`, `truncated`) |
-| `destination` | The captured target file: `absent`, or original bytes, hash and parsed Guidance Blocks (§7) |
+| `files` | One entry per path under scope: repository-relative path, content hash, byte size, status (`read`, `listed_only`, `unreadable`, `truncated`, `excluded`, `symlink`) |
+| `destination` | The captured target file: `absent`; original bytes, hash and parsed Guidance Blocks (§7); or `unavailable` with a reason, when a root `CLAUDE.md` exists but is a symbolic link, not a regular file, unreadable, larger than the readable-file limit, or present only under another letter case (such as `claude.md`) |
 | `readFailures` | Path and reason |
 | `stability` | `stable`, or `unstable` with the paths that changed during capture |
 
 **Coverage** is the `files` list itself: every path under the declared scope and exclusions, whether or not its content was sent to the model. Comparing a later file list with this one detects additions and removals.
 
+- An **excluded** path is listed with the rule that matched it, and is never opened: it has no hash or size. An excluded directory is one entry, and nothing inside it is listed.
+- A **symbolic link** is listed with its target, and is never followed, whether the target is inside the repository root or outside it. It has no hash or size.
+- Files ignored by `.gitignore` are not excluded for that reason alone. Only the default and user exclusions apply ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.4).
+- An entry whose name is not valid UTF-8 is listed as `unreadable` under an escaped name (`\xNN` for each byte outside printable ASCII). If it is a directory, nothing inside it is listed. Every `unreadable` entry records its kind: file, directory, symbolic link or other.
+- `truncated` is not produced at capture. Capture reads files whole or not at all.
+
+An `unavailable` destination stops the session before any model call, with the reason ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.5). Recommendation, review and apply therefore only ever see `absent` or a captured destination.
+
 **Content retention:** full file content is not stored. The snapshot keeps hashes for every file, excerpts for cited evidence (§6.2), and the full bytes of the destination file only. Line ranges are validated against the live file at capture time. This keeps sensitive source out of session storage.
 
-A working-tree snapshot may include permitted uncommitted files. Capture is not atomic: if a file's hash changes between listing and reading, retry once, then record the snapshot as unstable and show it.
+A working-tree snapshot may include permitted uncommitted files. Capture is not atomic: the repository is observed twice, and if any path differs between the two, both observations are repeated once. If they still differ, the snapshot is recorded as unstable with those paths, and shown ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.4).
 
 ### 6.2 Evidence
 
