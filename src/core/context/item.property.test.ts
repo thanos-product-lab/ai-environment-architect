@@ -54,7 +54,8 @@ function contentLines(item: RenderedItem): Map<number, string> {
   const lines = new Map<number, string>();
   for (const row of body.split("\n").slice(0, -1)) {
     if (row === " …") continue;
-    const match = /^ *(\d+) \|(?: (.*))?$/.exec(row);
+    // `s`, because `.` does not otherwise match U+2028 or U+2029, which a line can contain.
+    const match = /^ *(\d+) \|(?: (.*))?$/s.exec(row);
     expect(match).not.toBeNull();
     lines.set(Number(match?.[1]), unescapeDelimiters(match?.[2] ?? ""));
   }
