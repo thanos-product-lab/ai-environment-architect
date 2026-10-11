@@ -251,6 +251,14 @@ describe("empty and whitespace-only destinations (DM §7)", () => {
   it("a file holding only a BOM has zero blocks", () => {
     expect(parseGuidanceBlocks(new Uint8Array([0xef, 0xbb, 0xbf])).blocks).toEqual([]);
   });
+
+  it("keeps a U+FEFF that starts heading text after the file's BOM", () => {
+    const parsed = parse("\uFEFF\uFEFFTitle\n===\n\n\uFEFFNext\n---\n");
+    expect(parsed.blocks.map((b) => [b.blockId, b.headingPath])).toEqual([
+      ["\uFEFFTitle/heading", []],
+      ["\uFEFFTitle/\uFEFFNext/heading", ["\uFEFFTitle"]],
+    ]);
+  });
 });
 
 describe("block fields (DM §7)", () => {

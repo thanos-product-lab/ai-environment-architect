@@ -282,7 +282,9 @@ interface Fence {
   readonly length: number;
 }
 
-const utf8 = new TextDecoder("utf-8");
+// Lines are decoded one at a time and the file's BOM is already skipped, so a U+FEFF that starts
+// a line is text.
+const utf8 = new TextDecoder("utf-8", { ignoreBOM: true });
 
 /** The default splitter: a CommonMark subset (DM §7). */
 export function splitBlocks(bytes: Uint8Array): RawBlock[] {
