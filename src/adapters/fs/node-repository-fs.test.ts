@@ -15,6 +15,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import { fingerprint } from "../../../test/support/fingerprint.js";
 import { fixedClock, fixedIds } from "../../../test/support/memory-fs.js";
 import { sha256 } from "../../core/hash.js";
 import {
@@ -60,19 +61,6 @@ async function snapshotOf(root: string): Promise<Snapshot> {
 
 const statusOf = (snapshot: Snapshot, path: string) =>
   snapshot.files.find((f) => f.path === path)?.status;
-
-/** Every entry under `dir` with its type, mode, size, modification time and content hash. */
-function fingerprint(dir: string, prefix = ""): string[] {
-  const lines: string[] = [];
-  for (const name of readdirSync(dir).sort()) {
-    const path = join(dir, name);
-    const stat = lstatSync(path);
-    const content = stat.isFile() ? sha256(readFileSync(path)) : "";
-    lines.push(`${prefix}${name} ${stat.mode} ${stat.size} ${stat.mtimeMs} ${content}`);
-    if (stat.isDirectory()) lines.push(...fingerprint(path, `${prefix}${name}/`));
-  }
-  return lines;
-}
 
 describe("snapshots of the fixture repositories", () => {
   it("no-claude-md has an absent destination", async () => {

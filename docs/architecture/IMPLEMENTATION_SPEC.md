@@ -2,8 +2,12 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 11 October 2026  
-**Version:** 0.4  
+**Version:** 0.5  
 **Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
+
+### Changes from v0.4
+
+- **Git metadata (§1.4).** How capture reads the commit and tree without trusting the repository: which commands run, the environment, the minimum git version, and how the working tree is compared.
 
 ### Changes from v0.3
 
@@ -15,7 +19,7 @@
 
 - Section 3, model calls and schemas, is new. It defines the split between model judgement and code-established facts, citation provenance with a narrow recorded line-range correction, support checks that are separate from provenance, per-call contracts for five calls, the validation pipeline, and retry policy.
 
-**Builds on:** [Domain Model](DOMAIN_MODEL.md) v0.4, [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md), [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md).
+**Builds on:** [Domain Model](DOMAIN_MODEL.md) v0.5, [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md), [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md).
 
 **Command name:** `<cli>` is a placeholder until the command name is chosen.
 
@@ -105,7 +109,7 @@ A file is a **candidate** for content inclusion when all of these hold:
 
 **Default exclusions** (user exclusions are added to these):
 
-- Version control and tooling state: `.git/`, `.hg/`, `.svn/`
+- Version control and tooling state: `.git` (a directory, or the `gitdir:` file of a linked worktree or submodule), `.hg/`, `.svn/`
 - Dependencies: `node_modules/`, `vendor/`, `.venv/`, `venv/`, `__pycache__/`, `.pnpm-store/`
 - Build output: `dist/`, `build/`, `out/`, `.next/`, `target/`, `coverage/`, `.turbo/`, `*.min.js`, `*.map`
 - Lockfiles: `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `poetry.lock`, `uv.lock`, `Cargo.lock`, `Gemfile.lock`
@@ -130,6 +134,16 @@ Secret-bearing names and binary types compare ASCII letters case-insensitively, 
 **Binary and media types** are these extensions: images `png jpg jpeg gif bmp ico icns webp tif tiff psd heic avif svg`; audio and video `mp3 wav ogg flac m4a aac mp4 m4v mov avi mkv webm`; archives `zip gz tgz bz2 xz zst 7z rar tar jar war`; fonts `woff woff2 ttf otf eot`; documents `pdf doc docx xls xlsx ppt pptx`; compiled code and data `exe dll so dylib a o obj class pyc wasm bin sqlite db`.
 
 **Capture** ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.1) is read-only. Files are opened read-only and never through a symbolic link; nothing is written inside the repository, including `.git/`. Symbolic links are recorded with their targets and never followed. Special files such as named pipes are never opened, and are recorded as `unreadable`. A name that is not valid UTF-8 is recorded as `unreadable` and as a read failure. After a file is opened, its parent directory must still resolve to the expected path under the root, or nothing is read; a directory is listed only if it resolves to its expected path before and after listing. One race remains, because Node has no `openat`: a directory swapped for a link and back again between the open and the check. The tool doesn't defend against a repository being changed adversarially while it runs. The repository is observed twice, listing and hashing every file that is not excluded. If any path's entry differs between the two, both observations are repeated once. If they still differ, the snapshot is `unstable` with those paths, and the second observation of the retry is kept.
+
+**Git metadata** ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.1) is read after the observations, by an adapter that treats the repository as untrusted:
+
+- Only `git --version`, `git rev-parse` (top level, object format, `HEAD^{commit}`), `git symbolic-ref` and `git show-ref` (to recognise a branch with no commits) and `git ls-tree -r -z -l --full-tree <commit>` run. None of them reads the working tree, refreshes the index, or runs hooks, filters or fsmonitor. `git status` is never used.
+- The environment is built from scratch: `PATH`, `LANG=C`, `LC_ALL=C`, `GIT_OPTIONAL_LOCKS=0`, `GIT_CONFIG_NOSYSTEM=1`, `GIT_CONFIG_GLOBAL=/dev/null`, `GIT_ATTR_NOSYSTEM=1`, `GIT_TERMINAL_PROMPT=0`, `GIT_NO_LAZY_FETCH=1`, `GIT_NO_REPLACE_OBJECTS=1`, and `GIT_CEILING_DIRECTORIES` set to the root's parent unless that path contains `:`. `HOME` and variables such as `GIT_DIR` from the user's shell are dropped. Every command except `--version` also gets `--no-lazy-fetch -c core.fsmonitor=false -c core.untrackedCache=false -c safe.bareRepository=explicit`.
+- Git older than 2.44 is refused (`git_too_old`), because it ignores `GIT_NO_LAZY_FETCH` and could fetch missing objects in a partial clone, running a command from the repository's config.
+- Git runs only when the root has a `.git` entry, so discovery stops at the root. The work tree git reports must be the root: a subfolder of a larger repository, a bare-repository layout, or a `core.worktree` pointing elsewhere is `not_a_repository`. Discovery is used rather than setting `GIT_DIR`, because git checks `safe.directory` ownership only during discovery.
+- `safe.directory` refusals are recorded as `unsafe_repository`. Global config is ignored, so a `safe.directory` entry there doesn't apply.
+- The commit is `HEAD^{commit}`. It is absent only when HEAD is a symbolic ref to a branch that doesn't exist yet; any other failure to resolve HEAD is `git_error`.
+- Core compares the tree with the snapshot. A file whose size differs is modified without being read again. Otherwise it is read again, streaming, and the adapter computes its blob ID (`blob <size>\0<bytes>`, SHA-1 or SHA-256 to match the repository) without buffering the file; the read must still have the snapshot hash, or the file is uncompared. Symbolic links are compared by their target.
 
 ### 1.5 Tiers
 

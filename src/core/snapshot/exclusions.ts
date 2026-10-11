@@ -31,7 +31,8 @@ const caseInsensitive = (pattern: string): ExclusionRule => ({
   ignoreCase: true,
 });
 
-const VERSION_CONTROL = [".git/", ".hg/", ".svn/"];
+// `.git` matches a file too: in a linked worktree or submodule it is a `gitdir:` file.
+const VERSION_CONTROL = [".git", ".hg/", ".svn/"];
 const DEPENDENCIES = [
   "node_modules/",
   "vendor/",

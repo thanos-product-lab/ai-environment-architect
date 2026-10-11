@@ -2,7 +2,7 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 11 October 2026  
-**Version:** 0.4 — consolidated specification  
+**Version:** 0.5 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,10 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.4
+
+1. **Git metadata.** `gitCommit?` and `workingTreeDirty` become one `git` field: known, with the commit, object format and a comparison of the working tree with the commit, or unknown with a reason. "Dirty" is defined as working-tree bytes differing from the commit, and is computed from the snapshot, never by `git status` (§6.1).
 
 ### Changes from v0.3
 
@@ -103,7 +107,7 @@ The bounded capture of repository content used for one analysis. Snapshots are i
 | Field | Notes |
 |---|---|
 | `id`, `capturedAt` | |
-| `gitCommit?`, `workingTreeDirty` | Supporting metadata only; never a substitute for file hashes |
+| `git` | Supporting metadata only; never a substitute for file hashes. Either `unknown` with a reason (not inspected, git missing or too old, not a repository, refused as unsafe, or a git error), or known: object format (`sha1` or `sha256`), commit (none when HEAD names a branch with no commits yet; any other HEAD that can't be resolved is a git error), `workingTreeDirty` (`true`, `false` or `unknown`), and the modified, deleted and uncompared paths, the untracked count and the submodules |
 | `scope` | Included roots and patterns |
 | `exclusions` | Default and user exclusions (secrets, dependencies, build output, lockfiles, binary files, session storage) |
 | `files` | One entry per path under scope: repository-relative path, content hash, byte size, status (`read`, `listed_only`, `unreadable`, `truncated`, `excluded`, `symlink`) |
@@ -116,10 +120,23 @@ The bounded capture of repository content used for one analysis. Snapshots are i
 - An **excluded** path is listed with the rule that matched it, and is never opened: it has no hash or size. An excluded directory is one entry, and nothing inside it is listed.
 - A **symbolic link** is listed with its target, and is never followed, whether the target is inside the repository root or outside it. It has no hash or size.
 - Files ignored by `.gitignore` are not excluded for that reason alone. Only the default and user exclusions apply ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.4).
-- An entry whose name is not valid UTF-8 is listed as `unreadable` under an escaped name (`\xNN` for each byte outside printable ASCII). If it is a directory, nothing inside it is listed. Every `unreadable` entry records its kind: file, directory, symbolic link or other.
+- An entry whose name is not valid UTF-8, or a symbolic link whose target is not, is listed as `unreadable` under an escaped name (`\xNN` for each byte outside printable ASCII). If it is a directory, nothing inside it is listed. Every `unreadable` entry records its kind: file, directory, symbolic link or other.
 - `truncated` is not produced at capture. Capture reads files whole or not at all.
 
 An `unavailable` destination stops the session before any model call, with the reason ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.5). Recommendation, review and apply therefore only ever see `absent` or a captured destination.
+
+**Git metadata** never fails a snapshot: when git can't answer, it is `unknown` with the reason.
+
+The working tree is **dirty** when its bytes differ from the commit: a tracked path's content (or link target) differs or has changed between file and link, a tracked path is missing, or a file the commit doesn't track is present. The comparison covers the snapshot's non-excluded paths only:
+
+- Excluded paths are never opened, so they are not compared, even when tracked. A changed lockfile doesn't make the tree dirty.
+- Submodules are listed but not compared, and files inside them are not counted as untracked.
+- A tracked path that can't be compared (unreadable, or changed since capture) is listed as uncompared, and so is any unreadable directory, tracked or not, because it may hide changes. If nothing else differs, `workingTreeDirty` is then `unknown`, never `false`.
+- Files ignored by `.gitignore` count as untracked, because ignore rules aren't applied (above).
+- Only bytes are compared. The executable bit and the index (staged changes) are not.
+- `.git` is excluded whether it is a directory or, in a linked worktree, a `gitdir:` file.
+
+Because the comparison uses the bytes on disk, not git's view of them, a checkout can read as dirty when `git status` would call it clean: files git converted on the way out (line-ending conversion through `core.autocrlf` or `eol` attributes, other clean/smudge filters, Git LFS pointers), and paths a sparse checkout or `skip-worktree` leaves out of the working tree, which read as deleted. A partial clone whose committed blobs aren't all present locally gives a git error, because missing objects are never fetched.
 
 **Content retention:** full file content is not stored. The snapshot keeps hashes for every file, excerpts for cited evidence (§6.2), and the full bytes of the destination file only. Line ranges are validated against the live file at capture time. This keeps sensitive source out of session storage.
 
@@ -456,7 +473,7 @@ A versioned projection generated from session records. It is never edited direct
 | Handoff section | Source records |
 |---|---|
 | Identity | Session ID, timestamps, `productVersion`, `adapter`, `outputScope` |
-| Inputs | Snapshot identity (commit, dirty flag, file hashes, scope, exclusions), initial destination state and hash, `generationConfig`, prompt and schema versions |
+| Inputs | Snapshot identity (git metadata as recorded, including `unknown` states and their reasons; file hashes, scope, exclusions), initial destination state and hash, `generationConfig`, prompt and schema versions |
 | Reasoning evidence | Findings (claims and gaps), evidence references and excerpts, conflicts, questions with every status, decisions including superseded ones |
 | Review | All recommendation revisions, including rejected and invalid ones; selection history; developer edits; reviews |
 | Outputs | Final diff, artifact revisions, applied file list, final configuration hash, unresolved gaps, conflicts and questions |

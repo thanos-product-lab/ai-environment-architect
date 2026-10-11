@@ -1,4 +1,5 @@
 import type { Hash } from "../hash.js";
+import type { ObjectFormat } from "./git.js";
 
 // Read-only view of one repository, injected into snapshot capture. Paths are repository-relative
 // with `/` separators; the root directory is "". Implementations never write and never follow
@@ -26,16 +27,26 @@ export type ReadResult =
       readonly hash: Hash;
       /** The full content, present only when `size` is at most the requested `maxBytes`. */
       readonly bytes?: Uint8Array;
+      /** Git's blob ID for the content, when an object format was requested. */
+      readonly gitBlobId?: string;
     }
   | { readonly ok: false; readonly reason: FailureReason };
 
 export type LinkResult =
-  | { readonly ok: true; readonly target: string }
+  | {
+      readonly ok: true;
+      /** When not valid UTF-8, a `\xNN`-escaped form. */
+      readonly target: string;
+      readonly targetIsUtf8: boolean;
+    }
   | { readonly ok: false; readonly reason: FailureReason };
 
 export interface RepositoryFs {
   list(directory: string): Promise<ListResult>;
-  /** Hashes the whole file, and returns its bytes too when it is at most `maxBytes` long. */
-  read(path: string, maxBytes: number): Promise<ReadResult>;
+  /**
+   * Hashes the whole file, and returns its bytes too when it is at most `maxBytes` long. With an
+   * object format, also computes git's blob ID while reading, so large files are never buffered.
+   */
+  read(path: string, maxBytes: number, gitObjectFormat?: ObjectFormat): Promise<ReadResult>;
   readLink(path: string): Promise<LinkResult>;
 }

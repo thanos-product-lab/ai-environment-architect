@@ -2,6 +2,7 @@ import type { Hash } from "../hash.js";
 import { comparePaths } from "../paths.js";
 import type { Clock, IdSource } from "../ports.js";
 import { buildExclusionRules, type ExclusionRule, findExclusion } from "./exclusions.js";
+import { type GitMetadata, type GitReader, readGitMetadata } from "./git.js";
 import type { EntryKind, FailureReason, ReadResult, RepositoryFs } from "./repository-fs.js";
 
 // Snapshot (DM §6.1) with the candidate rules of IMPL §1.4.
@@ -72,6 +73,8 @@ export interface Snapshot {
   readonly destination: Destination;
   readonly readFailures: readonly ReadFailure[];
   readonly stability: Stability;
+  /** Supporting metadata only; never a substitute for file hashes. */
+  readonly git: GitMetadata;
 }
 
 export interface SnapshotSettings {
@@ -94,6 +97,8 @@ export interface SnapshotDeps {
   readonly fs: RepositoryFs;
   readonly clock: Clock;
   readonly ids: IdSource;
+  /** Omitted when git isn't inspected; the metadata is then unknown. */
+  readonly git?: GitReader;
 }
 
 export async function captureSnapshot(
@@ -114,18 +119,20 @@ export async function captureSnapshot(
     changedPaths = differences(earlier, later);
   }
 
+  const files = [...later.files.values()].sort((a, b) => comparePaths(a.path, b.path));
   return {
     id,
     capturedAt,
     scope: { roots: ["."] },
     exclusions,
-    files: [...later.files.values()].sort((a, b) => comparePaths(a.path, b.path)),
+    files,
     destination: destinationOf(later),
     readFailures: [...later.failures]
       .map(([path, reason]) => ({ path, reason }))
       .sort((a, b) => comparePaths(a.path, b.path)),
     stability:
       changedPaths.length === 0 ? { state: "stable" } : { state: "unstable", changedPaths },
+    git: await readGitMetadata(deps.git, files, deps.fs),
   };
 }
 
@@ -185,8 +192,9 @@ async function observe(
         pending.push(path);
       } else if (entry.kind === "symlink") {
         const link = await fs.readLink(path);
-        if (link.ok) observation.files.set(path, { path, status: "symlink", target: link.target });
-        else unreadable(path, "symlink", link.reason);
+        if (!link.ok) unreadable(path, "symlink", link.reason);
+        else if (!link.targetIsUtf8) unreadable(path, "symlink", "path_not_utf8");
+        else observation.files.set(path, { path, status: "symlink", target: link.target });
       } else if (entry.kind === "other") {
         unreadable(path, "other", "not_regular_file");
       } else {

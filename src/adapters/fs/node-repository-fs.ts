@@ -3,6 +3,7 @@ import { constants, type Dirent } from "node:fs";
 import { lstat, open, readdir, readlink, realpath } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { Hash } from "../../core/hash.js";
+import type { ObjectFormat } from "../../core/snapshot/git.js";
 import type {
   DirectoryEntry,
   EntryKind,
@@ -57,7 +58,11 @@ export async function openRepositoryFs(root: string): Promise<RepositoryFs> {
       }
     },
 
-    async read(path: string, maxBytes: number): Promise<ReadResult> {
+    async read(
+      path: string,
+      maxBytes: number,
+      gitObjectFormat?: ObjectFormat,
+    ): Promise<ReadResult> {
       let handle: Awaited<ReturnType<typeof open>> | undefined;
       try {
         const file = absolute(path);
@@ -65,8 +70,13 @@ export async function openRepositoryFs(root: string): Promise<RepositoryFs> {
         if ((await realpath(dirname(file))) !== dirname(file)) {
           return { ok: false, reason: "not_regular_file" };
         }
-        if (!(await handle.stat()).isFile()) return { ok: false, reason: "not_regular_file" };
+        const stat = await handle.stat();
+        if (!stat.isFile()) return { ok: false, reason: "not_regular_file" };
         const hash = createHash("sha256");
+        // Git's header needs the size up front; if the file changes size while being read, the
+        // blob ID is dropped below and the caller can't use it.
+        const blob = gitObjectFormat === undefined ? undefined : createHash(gitObjectFormat);
+        blob?.update(`blob ${stat.size}\0`);
         const chunks: Buffer[] = [];
         let size = 0;
         const buffer = Buffer.alloc(CHUNK_BYTES);
@@ -75,11 +85,18 @@ export async function openRepositoryFs(root: string): Promise<RepositoryFs> {
           if (bytesRead === 0) break;
           const chunk = buffer.subarray(0, bytesRead);
           hash.update(chunk);
+          blob?.update(chunk);
           size += bytesRead;
           if (size <= maxBytes) chunks.push(Buffer.from(chunk));
           else chunks.length = 0;
         }
-        const result = { ok: true as const, size, hash: `sha256:${hash.digest("hex")}` as Hash };
+        const blobId = blob !== undefined && size === stat.size ? blob.digest("hex") : undefined;
+        const result = {
+          ok: true as const,
+          size,
+          hash: `sha256:${hash.digest("hex")}` as Hash,
+          ...(blobId === undefined ? {} : { gitBlobId: blobId }),
+        };
         return size <= maxBytes
           ? { ...result, bytes: new Uint8Array(Buffer.concat(chunks)) }
           : result;
@@ -92,7 +109,8 @@ export async function openRepositoryFs(root: string): Promise<RepositoryFs> {
 
     async readLink(path: string): Promise<LinkResult> {
       try {
-        return { ok: true, target: decodeName(await readlink(absolute(path), "buffer")).name };
+        const { name, isUtf8 } = decodeName(await readlink(absolute(path), "buffer"));
+        return { ok: true, target: name, targetIsUtf8: isUtf8 };
       } catch (error) {
         return { ok: false, reason: failureReason(error) };
       }
@@ -111,8 +129,13 @@ function toEntry(dirent: Dirent<Buffer>): DirectoryEntry {
 
 const strictUtf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
-/** Decodes a name as UTF-8, or escapes every byte outside printable ASCII as `\xNN`. */
-function decodeName(bytes: Buffer): { name: string; isUtf8: boolean } {
+/**
+ * Decodes a name as UTF-8, or escapes every byte outside printable ASCII (and `\`) as `\xNN`.
+ * A valid name that literally contains text such as `\xff` is left as it is, so it could equal
+ * the escaped form of a different name. Both are rare, and such a pair only ever makes a
+ * comparison uncompared or unreadable, never silently equal content.
+ */
+export function decodeName(bytes: Buffer): { name: string; isUtf8: boolean } {
   try {
     return { name: strictUtf8.decode(bytes), isUtf8: true };
   } catch {

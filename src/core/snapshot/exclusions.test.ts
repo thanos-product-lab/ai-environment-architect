@@ -7,8 +7,13 @@ const excludedBy = (path: string, kind: EntryKind = "file"): string | undefined 
   findExclusion(defaults, path, kind)?.pattern;
 
 describe("default exclusions (IMPL §1.4)", () => {
+  it("excludes .git whether it is a directory or a gitdir file", () => {
+    expect(excludedBy(".git", "directory")).toBe(".git");
+    expect(excludedBy(".git", "file")).toBe(".git");
+    expect(excludedBy("libs/ui/.git", "file")).toBe(".git");
+  });
+
   it.each([
-    ".git/",
     ".hg/",
     ".svn/",
     "node_modules/",

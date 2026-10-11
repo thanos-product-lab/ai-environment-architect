@@ -1,0 +1,331 @@
+import { execFileSync } from "node:child_process";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import { fingerprint } from "../../../test/support/fingerprint.js";
+import { fixedClock, fixedIds } from "../../../test/support/memory-fs.js";
+import type { GitMetadata } from "../../core/snapshot/git.js";
+import { captureSnapshot, DEFAULT_SNAPSHOT_SETTINGS } from "../../core/snapshot/snapshot.js";
+import { openRepositoryFs } from "../fs/node-repository-fs.js";
+import { type GitReaderOptions, openGitReader } from "./git-reader.js";
+
+const temporaryDirectories: string[] = [];
+afterEach(() => {
+  for (const dir of temporaryDirectories.splice(0)) rmSync(dir, { recursive: true, force: true });
+});
+
+function temporaryDirectory(): string {
+  const dir = mkdtempSync(join(tmpdir(), "aea-git-"));
+  temporaryDirectories.push(dir);
+  return dir;
+}
+
+/** Runs git for test setup, isolated from the developer's own git configuration. */
+function git(cwd: string, ...args: string[]): string {
+  return execFileSync(
+    "git",
+    [
+      "-c",
+      "user.name=Test",
+      "-c",
+      "user.email=test@example.invalid",
+      "-c",
+      "commit.gpgsign=false",
+      ...args,
+    ],
+    {
+      cwd,
+      encoding: "utf8",
+      env: { PATH: process.env["PATH"], GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" },
+    },
+  );
+}
+
+function repository(files: Record<string, string>, objectFormat = "sha1"): string {
+  const root = temporaryDirectory();
+  git(root, "init", "-q", "-b", "main", `--object-format=${objectFormat}`);
+  for (const [path, content] of Object.entries(files)) {
+    mkdirSync(join(root, path, ".."), { recursive: true });
+    writeFileSync(join(root, path), content);
+  }
+  if (Object.keys(files).length > 0) {
+    git(root, "add", "-A");
+    git(root, "commit", "-q", "-m", "initial");
+  }
+  return root;
+}
+
+async function gitMetadataOf(root: string, options: GitReaderOptions = {}): Promise<GitMetadata> {
+  const deps = {
+    fs: await openRepositoryFs(root),
+    clock: fixedClock,
+    ids: fixedIds,
+    git: openGitReader(root, options),
+  };
+  return (await captureSnapshot(deps, DEFAULT_SNAPSHOT_SETTINGS)).git;
+}
+
+/** Whether the git on PATH is new enough for the reader (2.44, for GIT_NO_LAZY_FETCH). */
+const gitIsRecent = (() => {
+  const match = /git version (\d+)\.(\d+)/.exec(
+    execFileSync("git", ["--version"], { encoding: "utf8" }),
+  );
+  return (
+    match !== null && (Number(match[1]) > 2 || (Number(match[1]) === 2 && Number(match[2]) >= 44))
+  );
+})();
+
+/** A fake git executable: answers --version, and otherwise prints to stderr and fails. */
+function fakeGit(version: string, stderr: string): string {
+  const path = join(temporaryDirectory(), "git");
+  writeFileSync(
+    path,
+    `#!/bin/sh\nif [ "$1" = "--version" ]; then echo "git version ${version}"; exit 0; fi\necho "${stderr}" >&2\nexit 128\n`,
+  );
+  chmodSync(path, 0o755);
+  return path;
+}
+
+describe.skipIf(!gitIsRecent)("commit and object format", () => {
+  it("reads the commit of a clean SHA-1 repository", async () => {
+    const root = repository({ "README.md": "# Demo\n", "src/a.ts": "export {};\n" });
+    const head = git(root, "rev-parse", "HEAD").trim();
+    expect(await gitMetadataOf(root)).toEqual({
+      state: "known",
+      objectFormat: "sha1",
+      commit: head,
+      workingTreeDirty: false,
+      modifiedPaths: [],
+      deletedPaths: [],
+      untrackedCount: 0,
+      uncomparedPaths: [],
+      submodules: [],
+    });
+  });
+
+  it("reads a SHA-256 repository", async () => {
+    const root = repository({ "README.md": "# Demo\n" }, "sha256");
+    const metadata = await gitMetadataOf(root);
+    expect(metadata).toMatchObject({
+      state: "known",
+      objectFormat: "sha256",
+      workingTreeDirty: false,
+    });
+    expect(metadata.state === "known" && metadata.commit?.length).toBe(64);
+  });
+
+  it("a repository with no commits has no commit, and its files are untracked", async () => {
+    const root = repository({});
+    writeFileSync(join(root, "a.txt"), "a");
+    expect(await gitMetadataOf(root)).toMatchObject({
+      state: "known",
+      commit: null,
+      workingTreeDirty: true,
+      untrackedCount: 1,
+    });
+  });
+});
+
+describe.skipIf(!gitIsRecent)("dirty working tree", () => {
+  it("a clean linked worktree is clean (its .git is a file)", async () => {
+    const main = repository({ "a.txt": "a\n" });
+    const worktree = join(temporaryDirectory(), "wt");
+    git(main, "worktree", "add", "-q", worktree);
+    expect(await gitMetadataOf(worktree)).toMatchObject({
+      state: "known",
+      workingTreeDirty: false,
+      untrackedCount: 0,
+    });
+  });
+
+  it("ignores the executable bit and staged changes: only bytes count", async () => {
+    const root = repository({ "run.sh": "echo\n", "a.txt": "a\n" });
+    chmodSync(join(root, "run.sh"), 0o755);
+    expect(await gitMetadataOf(root)).toMatchObject({ workingTreeDirty: false });
+    writeFileSync(join(root, "a.txt"), "staged\n");
+    git(root, "add", "a.txt");
+    writeFileSync(join(root, "a.txt"), "a\n");
+    expect(await gitMetadataOf(root)).toMatchObject({ workingTreeDirty: false });
+  });
+
+  it("counts a file ignored by .gitignore as untracked", async () => {
+    const root = repository({ ".gitignore": "*.log\n", "a.txt": "a\n" });
+    writeFileSync(join(root, "debug.log"), "x\n");
+    expect(await gitMetadataOf(root)).toMatchObject({ workingTreeDirty: true, untrackedCount: 1 });
+  });
+
+  it("parses paths with tabs and newlines, and submodule entries", async () => {
+    const root = repository({ "tab\there.txt": "t\n", "new\nline.txt": "n\n" });
+    const commit = git(root, "rev-parse", "HEAD").trim();
+    git(root, "update-index", "--add", "--cacheinfo", `160000,${commit},libs/ui`);
+    git(root, "commit", "-q", "-m", "submodule");
+    expect(await gitMetadataOf(root)).toMatchObject({
+      workingTreeDirty: false,
+      deletedPaths: [],
+      submodules: ["libs/ui"],
+    });
+  });
+
+  it("reports modified, deleted and untracked files", async () => {
+    const root = repository({ "a.txt": "a\n", "b.txt": "b\n", "c.txt": "c\n" });
+    writeFileSync(join(root, "a.txt"), "changed\n");
+    unlinkSync(join(root, "b.txt"));
+    writeFileSync(join(root, "new.txt"), "n\n");
+    expect(await gitMetadataOf(root)).toMatchObject({
+      workingTreeDirty: true,
+      modifiedPaths: ["a.txt"],
+      deletedPaths: ["b.txt"],
+      untrackedCount: 1,
+    });
+  });
+
+  it("compares symbolic links by target", async () => {
+    const root = repository({ "docs/a.md": "a\n" });
+    execFileSync("ln", ["-s", "docs/a.md", join(root, "link.md")]);
+    git(root, "add", "link.md");
+    git(root, "commit", "-q", "-m", "link");
+    expect(await gitMetadataOf(root)).toMatchObject({ workingTreeDirty: false });
+  });
+});
+
+describe.skipIf(!gitIsRecent)("untrusted repositories", () => {
+  it("writes nothing inside the repository, including .git", async () => {
+    const root = repository({ "a.txt": "a\n", "src/b.ts": "b\n" });
+    writeFileSync(join(root, "a.txt"), "changed\n");
+    const before = fingerprint(root);
+    await gitMetadataOf(root);
+    expect(fingerprint(root)).toEqual(before);
+  });
+
+  it("never runs an fsmonitor hook configured by the repository", async () => {
+    const root = repository({ "a.txt": "a\n" });
+    const marker = join(temporaryDirectory(), "ran");
+    const hook = join(temporaryDirectory(), "hook.sh");
+    writeFileSync(hook, `#!/bin/sh\ntouch "${marker}"\n`);
+    chmodSync(hook, 0o755);
+    git(root, "config", "core.fsmonitor", hook);
+    await gitMetadataOf(root);
+    expect(existsSync(marker)).toBe(false);
+  });
+
+  it("ignores GIT_DIR and global config from the environment", async () => {
+    const root = repository({ "a.txt": "a\n" });
+    const other = repository({ "other.txt": "o\n" });
+    // Git fails outright on an invalid config file it reads, so a known result proves it wasn't.
+    const globalConfig = join(temporaryDirectory(), "gitconfig");
+    writeFileSync(globalConfig, "[[[ not a config file\n");
+    const saved = { dir: process.env["GIT_DIR"], global: process.env["GIT_CONFIG_GLOBAL"] };
+    process.env["GIT_DIR"] = join(other, ".git");
+    process.env["GIT_CONFIG_GLOBAL"] = globalConfig;
+    try {
+      expect(await gitMetadataOf(root)).toMatchObject({
+        state: "known",
+        workingTreeDirty: false,
+        untrackedCount: 0,
+      });
+    } finally {
+      for (const [key, value] of [
+        ["GIT_DIR", saved.dir],
+        ["GIT_CONFIG_GLOBAL", saved.global],
+      ] as const) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
+  });
+
+  it("does not read a bare-repository layout at the root", async () => {
+    const root = temporaryDirectory();
+    git(root, "init", "-q", "--bare", ".");
+    expect(await gitMetadataOf(root)).toEqual({ state: "unknown", reason: "not_a_repository" });
+  });
+
+  it("a repository whose core.worktree points elsewhere is not this folder", async () => {
+    const root = repository({ "a.txt": "a\n" });
+    git(root, "config", "core.worktree", temporaryDirectory());
+    expect(await gitMetadataOf(root)).toEqual({ state: "unknown", reason: "not_a_repository" });
+  });
+});
+
+describe("unknown, with a reason, never a failure", () => {
+  it.skipIf(gitIsRecent)("the installed git is too old", async () => {
+    expect(await gitMetadataOf(repository({ "a.txt": "a\n" }))).toEqual({
+      state: "unknown",
+      reason: "git_too_old",
+    });
+  });
+
+  it.skipIf(!gitIsRecent)("a folder that is not a repository", async () => {
+    expect(await gitMetadataOf(temporaryDirectory())).toEqual({
+      state: "unknown",
+      reason: "not_a_repository",
+    });
+  });
+
+  it.skipIf(!gitIsRecent)(
+    "a subfolder of a repository is not treated as that repository",
+    async () => {
+      const root = repository({ "sub/a.txt": "a\n" });
+      expect(await gitMetadataOf(join(root, "sub"))).toEqual({
+        state: "unknown",
+        reason: "not_a_repository",
+      });
+    },
+  );
+
+  it("git is missing", async () => {
+    const root = repository({ "a.txt": "a\n" });
+    expect(await gitMetadataOf(root, { gitPath: "/nonexistent/git" })).toEqual({
+      state: "unknown",
+      reason: "git_missing",
+    });
+  });
+
+  it("git is too old to honour GIT_NO_LAZY_FETCH", async () => {
+    const root = repository({ "a.txt": "a\n" });
+    expect(await gitMetadataOf(root, { gitPath: fakeGit("2.39.5", "unused") })).toEqual({
+      state: "unknown",
+      reason: "git_too_old",
+    });
+  });
+
+  it("git refuses the repository because of safe.directory", async () => {
+    const root = repository({ "a.txt": "a\n" });
+    const refusing = fakeGit(
+      "2.50.0",
+      `fatal: detected dubious ownership in repository at '${root}'`,
+    );
+    expect(await gitMetadataOf(root, { gitPath: refusing })).toEqual({
+      state: "unknown",
+      reason: "unsafe_repository",
+    });
+  });
+
+  it.skipIf(!gitIsRecent)(
+    "a HEAD that points to a missing object is an error, not 'no commits'",
+    async () => {
+      const root = repository({ "a.txt": "a\n" });
+      writeFileSync(join(root, ".git/refs/heads/main"), `${"0123456789".repeat(4)}\n`);
+      expect(await gitMetadataOf(root)).toEqual({ state: "unknown", reason: "git_error" });
+    },
+  );
+
+  it("any other git failure is git_error", async () => {
+    const root = repository({ "a.txt": "a\n" });
+    expect(
+      await gitMetadataOf(root, { gitPath: fakeGit("2.50.0", "fatal: something else") }),
+    ).toEqual({
+      state: "unknown",
+      reason: "git_error",
+    });
+  });
+});

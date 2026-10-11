@@ -1,4 +1,5 @@
 import { sha256 } from "../../src/core/hash.js";
+import { gitBlobId, type ObjectFormat } from "../../src/core/snapshot/git.js";
 import type {
   DirectoryEntry,
   FailureReason,
@@ -16,7 +17,7 @@ export type MemoryNode =
   | { readonly kind: "file"; readonly content: (readCount: number) => Uint8Array | undefined }
   | { readonly kind: "unreadable_file"; readonly reason: FailureReason }
   | { readonly kind: "directory"; readonly failure?: FailureReason }
-  | { readonly kind: "symlink"; readonly target: string }
+  | { readonly kind: "symlink"; readonly target: string; readonly targetIsUtf8?: boolean }
   | { readonly kind: "other" }
   | { readonly kind: "invalid_name" };
 
@@ -62,7 +63,7 @@ export class MemoryFs implements RepositoryFs {
     return { ok: true, entries: ordered.map((name) => children.get(name) as DirectoryEntry) };
   }
 
-  async read(path: string, maxBytes: number): Promise<ReadResult> {
+  async read(path: string, maxBytes: number, gitObjectFormat?: ObjectFormat): Promise<ReadResult> {
     this.reads.push(path);
     const count = (this.readCounts.get(path) ?? 0) + 1;
     this.readCounts.set(path, count);
@@ -75,7 +76,12 @@ export class MemoryFs implements RepositoryFs {
     else if (node.kind === "unreadable_file") return { ok: false, reason: node.reason };
     else return { ok: false, reason: "not_regular_file" };
     if (bytes === undefined) return { ok: false, reason: "not_found" };
-    const result = { ok: true as const, size: bytes.length, hash: sha256(bytes) };
+    const result = {
+      ok: true as const,
+      size: bytes.length,
+      hash: sha256(bytes),
+      ...(gitObjectFormat === undefined ? {} : { gitBlobId: gitBlobId(bytes, gitObjectFormat) }),
+    };
     return bytes.length <= maxBytes ? { ...result, bytes } : result;
   }
 
@@ -87,7 +93,7 @@ export class MemoryFs implements RepositoryFs {
       "kind" in node &&
       node.kind === "symlink"
     ) {
-      return { ok: true, target: node.target };
+      return { ok: true, target: node.target, targetIsUtf8: node.targetIsUtf8 ?? true };
     }
     return { ok: false, reason: "not_found" };
   }
