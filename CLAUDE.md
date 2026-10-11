@@ -47,7 +47,7 @@ Setup: Node from `.node-version` (for example `nvm install 24.21.0`), and pnpm t
 - `corepack pnpm test`: the full Vitest suite
 - `corepack pnpm test:related <file>`: only the tests affected by a file
 - `corepack pnpm build`: compile `src/` to `dist/`
-- `corepack pnpm check`: typecheck, lint, test and build. CI also repeats the tests under another time zone and locale, and runs the `--version` smoke test
+- `corepack pnpm check`: typecheck, lint, test and build. CI also repeats the tests under another time zone and locale, and runs the `--version` smoke test. CI pins fast-check's seed with `FAST_CHECK_SEED`; set the same value locally to reproduce a failing property test
 - `node dist/cli/main.js --version`: the built CLI, after a build
 
 Hooks in `.claude/settings.json` typecheck and run the related tests after each edit to a `.ts` file in `src/`, `test/` or `schemas/` (the full suite after edits to `tsconfig*.json`, `vitest.config.ts` or `package.json`), and typecheck and run the full suite when Claude stops. They find the pinned Node if it is active or installed by nvm, fnm or mise.

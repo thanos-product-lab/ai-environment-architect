@@ -18,6 +18,8 @@ jobs:
     timeout-minutes: 15
     env:
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+      # Pins fast-check's inputs so a failing property test reproduces locally.
+      FAST_CHECK_SEED: "20261011"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
