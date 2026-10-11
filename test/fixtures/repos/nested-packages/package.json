@@ -1,0 +1,5 @@
+{
+  "name": "orchard",
+  "private": true,
+  "workspaces": ["packages/*"]
+}

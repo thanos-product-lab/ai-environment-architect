@@ -20,7 +20,7 @@ The order is set by dependencies. Deterministic parts come first and are tested 
 | # | Milestone | Model calls? | Status |
 |---|---|---|---|
 | M0 | Scaffold and development repositories | No | Done |
-| M1 | Snapshot and destination parsing | No | Not started |
+| M1 | Snapshot and destination parsing | No | In progress |
 | M2 | Context selection and "What we read" | No | Not started |
 | M3 | Validation core | No (recorded responses) | Not started |
 | M4 | Sessions and persistence | No | Not started |
@@ -53,7 +53,7 @@ The order is set by dependencies. Deterministic parts come first and are tested 
 
 **Goal:** a reproducible record of what is in a repository, and a lossless, addressable parse of its `CLAUDE.md`.
 
-- [ ] Synthetic fixture repositories in `test/fixtures/repos/`: empty, no `CLAUDE.md`, empty `CLAUDE.md`, nested packages, secret-named files, large and binary files, unusual Markdown.
+- [x] Synthetic fixture repositories in `test/fixtures/repos/`: empty, no `CLAUDE.md`, empty `CLAUDE.md`, nested packages, secret-named files, large and binary files, unusual Markdown.
 - [ ] File listing, exclusions, hashing, statuses and stability check. `/implement-spec DM 6.1`, with the candidate rules in `IMPL 1.4`.
 - [ ] Guidance Block parsing with lossless round trip and fallback. `/implement-spec DM 7`
 - [ ] Git metadata: commit and dirty flag, as supporting data only.
