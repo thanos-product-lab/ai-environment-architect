@@ -9,6 +9,7 @@
 
 - **List item shape (§3.3.5).** `REC-003`: a `revise` of a `list_item` block must keep the target's marker and indentation, which the snapshot records ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §7).
 - **`listed_only` reasons (§1.4).** Files containing a NUL byte or not valid UTF-8 are `listed_only` with that reason, as the snapshot already records them. A destination in that state is `unavailable`.
+- **Open point (§1.16).** Files that the root `CLAUDE.md` imports with `@path` are existing guidance, but tier 1 doesn't select them.
 
 ### Changes from v0.4
 
@@ -507,6 +508,7 @@ All defaults are starting points. They are calibrated on the product-development
 - Whether tier 2 should prefer recently changed documents. This is excluded for now, because it would make the result depend on Git history.
 - Tree markers (tier 4) for `symlink` and `unreadable` snapshot entries. To decide in M2.
 - How coverage-aware validation (§1.11) treats paths under a symbolic link or an excluded directory, which capture never enters. Probably `not_inspected`. To decide in M3.
+- Files that the root `CLAUDE.md` imports with `@path` are existing guidance, but the tier 1 paths don't include them unless they happen to match. Whether tier 1 follows these imports, and how far, is to be decided in M2.
 
 ---
 
