@@ -40,9 +40,10 @@ function temporaryDirectory(): string {
   return dir;
 }
 
-function chmodTree(dir: string): void {
-  for (const name of readdirSync(dir)) {
-    const path = join(dir, name);
+/** Restores permissions so cleanup can delete everything. Names stay bytes: some aren't UTF-8. */
+function chmodTree(dir: string | Buffer): void {
+  for (const name of readdirSync(dir, { encoding: "buffer" })) {
+    const path = Buffer.concat([Buffer.from(dir), Buffer.from("/"), name]);
     const stat = lstatSync(path);
     if (stat.isSymbolicLink()) continue;
     chmodSync(path, stat.isDirectory() ? 0o755 : 0o644);
@@ -234,15 +235,21 @@ describe("special files and failures", () => {
     "escapes a file name that is not valid UTF-8",
     async () => {
       const root = temporaryDirectory();
-      writeFileSync(
-        Buffer.concat([Buffer.from(`${root}/bad`), Buffer.from([0xff]), Buffer.from(".txt")]),
-        "x",
-      );
-      const fs = await openRepositoryFs(root);
-      expect(await fs.list("")).toEqual({
-        ok: true,
-        entries: [{ name: "bad\\xff.txt", kind: "file", nameIsUtf8: false }],
-      });
+      const file = Buffer.concat([
+        Buffer.from(`${root}/bad`),
+        Buffer.from([0xff]),
+        Buffer.from(".txt"),
+      ]);
+      writeFileSync(file, "x");
+      try {
+        const fs = await openRepositoryFs(root);
+        expect(await fs.list("")).toEqual({
+          ok: true,
+          entries: [{ name: "bad\\xff.txt", kind: "file", nameIsUtf8: false }],
+        });
+      } finally {
+        rmSync(file);
+      }
     },
   );
 });
