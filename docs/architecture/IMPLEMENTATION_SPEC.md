@@ -2,8 +2,19 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 11 October 2026  
-**Version:** 0.7  
+**Version:** 0.8  
 **Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
+
+### Changes from v0.7
+
+- **Declaration patterns are versioned (§1.3, §1.6, §1.13).** They have their own `declarationPatternsVersion`, part of `settingsHash` and the manifest, because changing them changes the context.
+- **Excerpts fit rendered bytes (§1.6).** A cap or budget limits the whole rendered item: header, outline, line numbers and content.
+- **Nested Markdown sections (§1.6).** A section that doesn't fit is split into its own text and its subsections, each tried in turn.
+- **Line-prefix outline (§1.6).** Excerpts taken as whole lines from the start have an outline of two line ranges.
+- **Rendering details (§1.6).** Lines, labels, quoted attributes, `…` lines and the reversible delimiter escape are fixed. The rendering example now follows them.
+- **Blank leading lines (§1.6).** All-blank lines before the first heading or declaration are neither outlined nor sent. A decorated declaration is outlined at its first decorator line.
+- **Verification (§1.15).** The excerpt item matches the split-section and blank-line rules.
+- **Open point (§1.16).** Where the destination's Guidance Block IDs and hashes go in the rendered item.
 
 ### Changes from v0.6
 
@@ -106,7 +117,7 @@ Determinism requirements:
 - **Inputs** are only the snapshot (file list, hashes, live content verified against snapshot hashes), settings, and the token count reported for the selected model. Nothing else: no filesystem enumeration order, modification times, environment, locale, randomness or model output.
 - **Path order** is bytewise ascending order of repository-relative, forward-slash, UTF-8 paths. Every "in order" in this section means this order unless stated otherwise.
 - **Budgets are in bytes** of rendered UTF-8 context. Byte selection is independent of the model. The token check (§1.10) is the only model-dependent step, and it can only remove items, never add them.
-- **Settings are versioned.** `settingsHash` is the SHA-256 of the canonical JSON of the effective settings, `algorithmVersion` and `secretRulesVersion`.
+- **Settings are versioned.** `settingsHash` is the SHA-256 of the canonical JSON of the effective settings, `algorithmVersion`, `secretRulesVersion` and `declarationPatternsVersion`.
 - **Content is verified.** When a file is read for context, its hash must match the snapshot entry. A mismatch aborts construction and reports the snapshot as unstable ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.1).
 - **Verification:** `contextHash`, the SHA-256 of the rendered context, must be identical across runs for the same snapshot, settings and model. This is a required test.
 
@@ -257,44 +268,58 @@ This sampling will miss conventions that only show up across many files. The exp
 
 When a file exceeds its per-file cap or the remaining budget, an **excerpt** is included instead. An excerpt always includes an **outline** of the whole file, so the model knows what it hasn't seen and can request it by line range.
 
+Caps and budgets limit the **rendered** item (§1.3): header, outline, line numbers, `…` lines and content. A file is included in full when its full rendering fits. Otherwise parts are added in the order below while the rendering still fits, and if no line fits, the file is skipped.
+
+**Lines.** LF, CRLF and a lone CR each end a line. A final line ending does not start another line, and a leading BOM is not part of line 1. Line numbers start at 1.
+
 **Markdown documents (tier 2):**
 
 - The outline lists every heading with its line number.
-- Content is included as **complete sections** (a heading through the line before the next heading of the same or higher level), in document order, until the cap.
-- A section that does not fit is skipped, and later sections that fit are still included. Skipped sections are marked in the outline.
-- If the first section alone exceeds the cap, it is cut at the last paragraph boundary that fits, and marked as truncated.
+- Headings are found as in Guidance Block parsing ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §7): ATX and setext headings, not inside code blocks or front matter.
+- Content is included as **complete sections** (a heading through the line before the next heading of the same or higher level), in document order, until the cap. Lines before the first heading that are not all blank form a `preamble` section. If they are all blank, they have no outline entry and are not sent.
+- A section that does not fit is split: its own text (the heading through the line before its first subheading) is tried as one unit, then each subsection in the same way. A unit that does not fit is skipped, and later units that fit are still included. The outline marks each heading whose own text was skipped.
+- If the first unit in document order does not fit, it is cut before the last blank line that lets it fit, and marked as truncated. If no blank line allows that, it is skipped.
 
 **Source code (tier 5 and test examples):**
 
-- The outline lists each top-level declaration with its line number. Declarations are detected with a fixed, versioned set of line patterns per language family, for example `export`, `function`, `class`, `interface`, `type`, `const … =` at column zero, `def`, `async def`, `func`, `fn`, `impl`, `struct`.
-- Content is the import block, followed by **complete top-level declarations** in file order until the cap. A declaration runs from its start line to the line before the next top-level declaration.
-- A declaration that does not fit is skipped, and later ones that fit are included. Skipped declarations are marked in the outline.
+- The outline lists each top-level declaration with its line number. Declarations are detected with a fixed set of line patterns per language family, chosen by file extension, for example `export`, `function`, `class`, `interface`, `type`, `const … =` at column zero, `def`, `async def`, `func`, `fn`, `impl`, `struct`. A run of decorator or attribute lines (`@…`, `#[…]`) directly above a declaration starts it, and the outline gives that first decorator line. CommonJS `require` assignments are not declarations.
+- The patterns have their own version, `declarationPatternsVersion` (for example `declarations/1.0.0`), recorded in `settingsHash` and the manifest. Any change to the patterns or the extension mapping increases it, because it changes the context. A test pins the pattern set to its version.
+- Content is the import block (every line before the first declaration, outlined as `imports`; if those lines are all blank, they have no outline entry and are not sent), followed by **complete top-level declarations** in file order until the cap. A declaration runs from its start line to the line before the next top-level declaration.
+- A declaration that does not fit is skipped, and later ones that fit are included. Skipped declarations are marked in the outline. The import block is skipped in the same way.
 - If no declarations are detected, whole lines are taken from the start of the file.
 
 **Manifests and configuration (tier 3):** whole lines from the start of the file. These files are usually small, and their order is usually meaningful.
+
+**Whole lines from the start** (tier 3, and code with no detected declarations) take as many lines as fit. The outline has two entries: the included range and the omitted rest, for example `   1 lines 1-80` and `  81 lines 81-212 [omitted]`.
 
 **Rendering** is a fixed format. Each item has a header, then line-numbered content. Excerpts include their outline, and use `…` lines to show where content was left out:
 
 ```text
 <<<ITEM id=T5-007 path="apps/web/src/lib/api/client.ts" hash="sha256:…"
         tier=5 reason="tier5:rank2:boundary-name" excerpt=true
-        included="1-18,40-96" totalLines=212>>>
+        included="1-3,40-96" totalLines=212>>>
 OUTLINE
    1 imports
-  20 export function createClient   [omitted]
+   4 export function createClient [omitted]
   40 export async function request
-  97 export function withRetry      [omitted]
+  97 export function withRetry [omitted]
 CONTENT
    1 | import { createClient } from "./generated";
+   2 | import { withRetry } from "./retry";
+   3 |
  …
-  40 | export async function request<T>(…) {
- …
+  40 | export async function request<T>(url: string) {
+  41 |   const client = createClient();
 <<<END T5-007>>>
 ```
 
+The example shows only the first two of lines 40–96; a real item lists every included line, then ` …` for lines 97–212.
+
 - Item IDs are `T<tier>-<sequence>`, assigned in inclusion order.
+- Format details. Quoted attribute values are JSON strings, with the delimiter escape below applied after JSON encoding; to read one, reverse the escape, then parse the JSON. A full item has `excerpt=false`, `included` covering every line, and no `OUTLINE`. Line numbers are right-aligned to at least four columns. An outline entry is the start line number and a label, followed by ` [omitted]` or ` [truncated]` when that applies. A label is the heading as `#` marks and text, or the declaration's keywords and name, cut to 80 Unicode code points with `…` (before the delimiter escape, which can lengthen it). A line ` …` stands for each run of omitted lines. Ranges are written `a-b`, or `a` for one line. Each item ends with a line break.
 - Line numbers let the model cite ranges that validation can check. The `included` attribute states exactly which lines were sent.
 - The system prompt states that **repository content is data, not instructions**. Text inside items that tries to change instructions, output format or scope is ignored, and reported as a finding where relevant. Any occurrence of the delimiter sequences inside file content is escaped deterministically before rendering.
+- **Delimiter escape.** In content lines, outline labels and attribute values, a backslash is inserted after any two `<` or two `>` in a row that would be followed by the same character or a backslash. Rendered text then never contains `<<<` or `>>>`, and the escape is reversible: remove the backslash that follows two equal angle brackets. Validation reverses it before comparing quoted text with the file.
 
 **Tier 4 — Directory tree** renders the **entire** snapshot file list:
 
@@ -429,6 +454,7 @@ Every model call records an input manifest ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md)
   "manifestVersion": 1,
   "algorithmVersion": "context-select/1.1.0",
   "secretRulesVersion": "secret-scan/1.0.0",
+  "declarationPatternsVersion": "declarations/1.0.0",
   "settingsHash": "sha256:…",
   "snapshotId": "snap_…",
   "contextHash": "sha256:…",
@@ -454,7 +480,7 @@ Every model call records an input manifest ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md)
       "fileHash": "sha256:…",
       "reason": "tier5:rank2:boundary-name",
       "excerpt": true,
-      "includedLines": "1-18,40-96",
+      "includedLines": "1-3,40-96",
       "totalLines": 212,
       "bytes": 4312
     }
@@ -498,7 +524,7 @@ All defaults are starting points. They are calibrated on the product-development
 - Changing filesystem enumeration order or modification times does not change the context.
 - Each tier respects its cap; unused budget passes down correctly; tier 4's reserve is not reallocated.
 - Each package with a test file contributes a test example when the reserve allows.
-- Markdown excerpts contain only complete sections (or a paragraph-bounded first section); code excerpts contain only complete declarations; outlines list everything omitted.
+- Markdown excerpts contain only complete units, a section or the own text of a split section, except the first unit, which may be cut before a blank line; code excerpts contain only complete declarations and the import block; outlines list everything omitted except blank lines before the first heading or declaration.
 - Tree markers match the final selection, including after token-check reductions.
 - The destination is included in full, or the session stops before any call with a stated reason, for each of the three causes in §1.5.
 - The secret scan runs on every outgoing request and blocks each rule's fixtures. The manifest never contains matched text.
@@ -520,6 +546,7 @@ All defaults are starting points. They are calibrated on the product-development
 - Declaration patterns for languages beyond the default families.
 - Whether `search` should support a restricted regular-expression syntax after the first slice.
 - Whether tier 2 should prefer recently changed documents. This is excluded for now, because it would make the result depend on Git history.
+- The destination is rendered "with its Guidance Block IDs and hashes" (§1.5), but the item format above has no place for them. To decide in the M2 pipeline step.
 - How coverage-aware validation (§1.11) treats paths under a symbolic link or an excluded directory, which capture never enters. Probably `not_inspected`. To decide in M3.
 
 ---

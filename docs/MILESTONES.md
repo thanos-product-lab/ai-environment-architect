@@ -64,7 +64,7 @@ The order is set by dependencies. Deterministic parts come first and are tested 
 
 **Goal:** the deterministic context the model will see, and a first command that shows it on a real repository.
 
-- [ ] Excerpting, outlines and item rendering. `/implement-spec IMPL 1.6`
+- [x] Excerpting, outlines and item rendering. `/implement-spec IMPL 1.6`
 - [ ] Tiers, including the test reserve. `/implement-spec IMPL 1.5`
 - [ ] Secret scan, with a fixture per rule. `/implement-spec IMPL 1.7`
 - [ ] The selection pipeline, the directory tree (IMPL §1.6, tier 4), `contextHash` and the input manifest. `/implement-spec IMPL 1.3`, then `IMPL 1.13`

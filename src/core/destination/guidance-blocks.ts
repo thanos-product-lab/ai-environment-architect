@@ -268,7 +268,7 @@ function escapeSegment(text: string): string {
 // ---------------------------------------------------------------------------------------------
 // Splitting
 
-interface Line {
+export interface Line {
   /** Byte offset of the first byte. */
   readonly start: number;
   /** Byte offset of the line ending, or of the end of the file. */
@@ -460,7 +460,7 @@ export function splitBlocks(bytes: Uint8Array): RawBlock[] {
 }
 
 /** Lines after the BOM. LF, CRLF and a lone CR each end a line. */
-function splitLines(bytes: Uint8Array): Line[] {
+export function splitLines(bytes: Uint8Array): Line[] {
   const view = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("latin1");
   const lines: Line[] = [];
   let start = hasBom(bytes) ? 3 : 0;
@@ -483,7 +483,7 @@ const LIST_MARKER = /^( {0,3})([-+*]|[0-9]{1,9}[.)])(?=[ \t]|$)/;
 const TABLE_DELIMITER =
   /^ {0,3}(?=[^|]*\|)\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/;
 
-function isBlank(line: string): boolean {
+export function isBlank(line: string): boolean {
   return /^[ \t]*$/.test(line);
 }
 
