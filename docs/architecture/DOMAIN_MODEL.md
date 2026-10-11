@@ -2,7 +2,7 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 11 October 2026  
-**Version:** 0.5 — consolidated specification  
+**Version:** 0.6 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,11 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.5
+
+1. **Guidance Block parsing made exact (§7).** A line-based CommonMark subset with no Markdown library; spans exclude the final line ending; a top-level list item is one block, nested items included, and records its marker and indentation; the parsed destination records its line endings; the block ID scheme, including how repeated headings stay unique; the round-trip checks, and the fallback to one whole-file `other` block. This settles the parser and block-identifier item in §18.
+2. **Destination unavailable for content reasons (§6.1, §7).** A root `CLAUDE.md` that would be `listed_only` because it is not valid UTF-8 or contains a NUL byte is `unavailable`, like one that is too large. It is never parsed.
 
 ### Changes from v0.4
 
@@ -111,7 +116,7 @@ The bounded capture of repository content used for one analysis. Snapshots are i
 | `scope` | Included roots and patterns |
 | `exclusions` | Default and user exclusions (secrets, dependencies, build output, lockfiles, binary files, session storage) |
 | `files` | One entry per path under scope: repository-relative path, content hash, byte size, status (`read`, `listed_only`, `unreadable`, `truncated`, `excluded`, `symlink`) |
-| `destination` | The captured target file: `absent`; original bytes, hash and parsed Guidance Blocks (§7); or `unavailable` with a reason, when a root `CLAUDE.md` exists but is a symbolic link, not a regular file, unreadable, larger than the readable-file limit, or present only under another letter case (such as `claude.md`) |
+| `destination` | The captured target file: `absent`; original bytes, hash and parsed Guidance Blocks (§7); or `unavailable` with a reason, when a root `CLAUDE.md` exists but is a symbolic link, not a regular file, unreadable, larger than the readable-file limit, not valid UTF-8, contains a NUL byte, or is present only under another letter case (such as `claude.md`) |
 | `readFailures` | Path and reason |
 | `stability` | `stable`, or `unstable` with the paths that changed during capture |
 
@@ -221,16 +226,39 @@ The captured `CLAUDE.md` is parsed into an ordered list of blocks so that recomm
 
 | Field | Notes |
 |---|---|
-| `blockId` | Stable within the snapshot: heading path plus ordinal, for example `Testing/list-item-2` |
+| `blockId` | Stable within the snapshot: heading path plus type and ordinal, for example `Testing/list-item-2` (below) |
 | `type` | `heading`, `paragraph`, `list_item`, `code_block`, `other` |
-| `headingPath` | Enclosing headings |
-| `sourceSpan` | Byte offsets in the original file |
+| `headingPath` | Text of the enclosing headings, outermost first. A heading block's path excludes the heading itself |
+| `sourceSpan` | Byte offsets in the original file, start inclusive and end exclusive. A block runs from the start of its first line to the end of its last line's content: it includes its indentation, its list marker and the line endings inside it, but not its final line ending |
 | `hash` | Hash of the block's exact bytes |
+| `listMarker` | `list_item` only: the exact indentation and marker of its first line, such as `-`, `*` or `2.` |
+
+The parsed destination also records its **line endings**: the number of LF, CRLF and lone CR endings, and the style (`lf`, `crlf`, `cr`, `mixed`, or `none` when there are none). Assembly (§9.3) converts new content to this style; how it treats `mixed` and `none` is decided with assembly.
+
+**Parsing** is a line-based subset of CommonMark, read on bytes, with no Markdown library:
+
+- LF, CRLF and a lone CR each end a line. A UTF-8 byte order mark at the start of the file belongs to no block.
+- Bytes outside every block are **separators**: the byte order mark, line endings, and blank lines (spaces and tabs only). A block never starts or ends with a blank line.
+- `heading`: ATX headings (`#` to `######`) and setext headings, where the paragraph lines and the `=` or `-` underline form one block.
+- `code_block`: fenced (backticks or tildes, closed only by the same character at least as long) or indented by four columns. A fence that is never closed runs to the end of the file. `#` lines inside a fence are not headings.
+- `list_item`: a **top-level item**, with everything nested in it: sub-items, continuation and lazy lines, and code inside it. Nested items are not separate blocks, so a `revise` replaces the whole item.
+- `paragraph`: consecutive lines that no other block interrupts.
+- `other`: front matter (a first line of exactly `---`, closed by `---` or `...`, with no blank line in between), HTML blocks, thematic breaks, block quotes and GFM tables.
+- HTML blocks follow CommonMark's start and end conditions. Comments, processing instructions, declarations, CDATA and `pre`, `script`, `style` and `textarea` run to their closing marker, even across blank lines. Block-level tags such as `div` or `details`, and a line holding only one complete tag, run to a blank line. A line that merely starts with inline HTML, such as `<b>Never</b> push`, is a paragraph. A line holding only one complete tag doesn't interrupt a paragraph; the other HTML blocks do.
+- A GFM table (a line containing `|`, followed by a delimiter row) is recognised only where a block starts. It does not interrupt a paragraph, so a table directly under a paragraph line stays part of that paragraph.
+
+**Block IDs.** A block's ID is its heading segments followed by `<type>-<n>`, joined with `/`. The type token is `paragraph`, `list-item`, `code-block` or `other`, and `n` counts blocks of that type directly in the section, from 1. Blocks before the first heading have no segments (`paragraph-1`). A heading block's ID is the segments of the section it opens, followed by `heading` (`Rules/Testing/heading`).
+
+- A **segment** is the heading's text, with an ATX closing sequence removed, setext lines joined by one space and surrounding spaces and tabs trimmed. `%`, `/`, `[`, `]` and control characters (C0, DEL and C1) are percent-encoded (`a/b` → `a%2Fb`).
+- **Repeated headings:** a heading whose segment matches an earlier sibling's, meaning a heading under the same parent section, gets `[k]` for its k-th occurrence: `Notes`, `Notes[2]`, `Notes[3]`. The same heading under different parents is already distinguished by its path.
+- IDs are therefore unique. Segment boundaries and suffixes are unambiguous because `/`, `[` and `]` are encoded. Every ID ends in a type token or `heading`, and each subsection adds a segment, so a section's own blocks never collide with its subsections' blocks. A repeated ID still fails the round trip (below), as a safeguard.
 
 Rules:
 
-- An absent destination has no blocks and is represented explicitly as `absent`. An existing empty file has zero blocks and is `present`.
-- Parsing must be lossless: concatenating untouched blocks with their original surrounding bytes reproduces the original file byte for byte. This is verified at capture; if it fails, revisions and removals are disabled for that session, and only additions in a new section at the end are allowed.
+- An absent destination has no blocks and is represented explicitly as `absent`. An existing empty file has zero blocks and is `present`. So does a file containing only separators.
+- The destination is `unavailable`, and is never parsed, whenever the candidate rules ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.4) would make it `listed_only`: for a content reason (`not_utf8`, `contains_nul`), as well as when it is too large (§6.1).
+- Parsing must be lossless: concatenating untouched blocks with their original surrounding bytes reproduces the original file byte for byte. This is verified at capture: the file is rebuilt from the separators and each block's bytes and compared byte for byte, spans must be in order and must not overlap, each hash must match its span, separators must contain nothing but the byte order mark, spaces, tabs and line endings, and IDs must be unique.
+- If verification fails, or the parser fails, the round trip is recorded as failed with the reason, and the blocks are replaced by one `other` block (`other-1`) covering the whole file, byte order mark included, so the destination can still be shown and sent in full. An empty file has no fallback block. Revisions and removals are then disabled for that session, and only additions in a new section at the end are allowed.
 - Content the parser cannot classify is kept as `other` blocks and preserved untouched.
 
 ## 8. Developer intent
@@ -529,7 +557,6 @@ The export always states whether its artifact content is proposed, approved or a
 
 ## 18. Remaining implementation choices
 
-- Markdown parser selection and the exact block-identifier scheme. The losslessness test (§7) is the acceptance criterion.
 - Default exclusion patterns and snapshot size limits.
 - Excerpt length limit and export option defaults.
 - Context selection for model calls: which files and excerpts are sent within the budget. It must be deterministic and recorded in each call's `inputManifest`.

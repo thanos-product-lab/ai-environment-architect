@@ -2,8 +2,13 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 11 October 2026  
-**Version:** 0.5  
+**Version:** 0.6  
 **Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
+
+### Changes from v0.5
+
+- **List item shape (§3.3.5).** `REC-003`: a `revise` of a `list_item` block must keep the target's marker and indentation, which the snapshot records ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §7).
+- **`listed_only` reasons (§1.4).** Files containing a NUL byte or not valid UTF-8 are `listed_only` with that reason, as the snapshot already records them. A destination in that state is `unavailable`.
 
 ### Changes from v0.4
 
@@ -19,7 +24,7 @@
 
 - Section 3, model calls and schemas, is new. It defines the split between model judgement and code-established facts, citation provenance with a narrow recorded line-range correction, support checks that are separate from provenance, per-call contracts for five calls, the validation pipeline, and retry policy.
 
-**Builds on:** [Domain Model](DOMAIN_MODEL.md) v0.5, [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md), [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md).
+**Builds on:** [Domain Model](DOMAIN_MODEL.md) v0.6, [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md), [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md).
 
 **Command name:** `<cli>` is a placeholder until the command name is chosen.
 
@@ -106,6 +111,8 @@ A file is a **candidate** for content inclusion when all of these hold:
 - it is in the snapshot and not matched by an exclusion;
 - it decodes as UTF-8 and contains no NUL bytes;
 - its size is at most `maxReadableFileBytes` (default 262,144). Larger files are `listed_only`: they appear in the tree, but their content is included only through a line-range expansion (§1.8).
+
+A file that is not excluded but fails the size or content rules is `listed_only`, with the reason `too_large`, `contains_nul` or `not_utf8`, checked in that order. A root `CLAUDE.md` that would be `listed_only` is recorded as an `unavailable` destination instead ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §7).
 
 **Default exclusions** (user exclusions are added to these):
 
@@ -1165,7 +1172,7 @@ type RecommendOutput = {
 1. Schema and aliases. All support must be current: not withdrawn, not superseded (`REC-001`).
 2. **Operation and target.** `revise` and `remove` need a `block` target; `add` needs `after`, `section` or `newSection`; `remove` has no content (`REC-002`). Code attaches block IDs and hashes.
 3. **Content shape**, by parsing the content (`REC-003`):
-   - `revise`: exactly one block, of the same type as the target block;
+   - `revise`: exactly one block, of the same type as the target block; for a `list_item`, with the same marker and indentation as the target ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §7);
    - `add` with `after` or `section`: one to five blocks, of types paragraph, list item or code block, with no headings;
    - `add` with `newSection`: the same, plus the heading, which code renders from `heading`.
 4. **Evidence rules** ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.4):

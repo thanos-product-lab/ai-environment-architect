@@ -75,7 +75,22 @@ describe("snapshots of the fixture repositories", () => {
 
   it("empty-claude-md has a present destination with zero bytes", async () => {
     const snapshot = await snapshotOf(join(fixtures, "empty-claude-md"));
-    expect(snapshot.destination).toMatchObject({ state: "present", bytes: new Uint8Array() });
+    expect(snapshot.destination).toMatchObject({
+      state: "present",
+      bytes: new Uint8Array(),
+      blocks: [],
+      roundTrip: { state: "verified" },
+    });
+  });
+
+  it("unusual-markdown parses its destination into verified Guidance Blocks", async () => {
+    const snapshot = await snapshotOf(join(fixtures, "unusual-markdown"));
+    expect(snapshot.destination).toMatchObject({
+      state: "present",
+      roundTrip: { state: "verified" },
+    });
+    const blocks = snapshot.destination.state === "present" ? snapshot.destination.blocks : [];
+    expect(blocks.map((b) => b.blockId)).toContain("Quill/Commands/list-item-2");
   });
 
   it("an empty repository has no files and an absent destination", async () => {

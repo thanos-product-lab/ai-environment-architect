@@ -6,6 +6,7 @@ import {
   type MemoryNode,
   seededShuffle,
 } from "../../../test/support/memory-fs.js";
+import { parseGuidanceBlocks } from "../destination/guidance-blocks.js";
 import { sha256 } from "../hash.js";
 import { buildExclusionRules } from "./exclusions.js";
 import {
@@ -251,14 +252,48 @@ describe("destination (DM §6.1, §7)", () => {
       state: "present",
       bytes: new Uint8Array(),
       hash: sha256(new Uint8Array()),
+      ...parseGuidanceBlocks(new Uint8Array()),
     });
+    expect(snapshot.destination).toMatchObject({ blocks: [], roundTrip: { state: "verified" } });
   });
 
   it("keeps the original bytes and hash of a present destination", async () => {
     const bytes = new Uint8Array([0xef, 0xbb, 0xbf, ...Buffer.from("# Rules\r\n")]);
     const snapshot = await capture(new MemoryFs({ "CLAUDE.md": bytes }));
-    expect(snapshot.destination).toEqual({ state: "present", bytes, hash: sha256(bytes) });
+    expect(snapshot.destination).toEqual({
+      state: "present",
+      bytes,
+      hash: sha256(bytes),
+      ...parseGuidanceBlocks(bytes),
+    });
     expect(fileOf(snapshot, "CLAUDE.md")?.status).toBe("read");
+  });
+
+  it("parses a present destination into Guidance Blocks with its line endings", async () => {
+    const snapshot = await capture(new MemoryFs({ "CLAUDE.md": "# Rules\r\n\r\n- one\r\n" }));
+    expect(snapshot.destination).toMatchObject({
+      state: "present",
+      lineEndings: { style: "crlf" },
+      roundTrip: { state: "verified" },
+    });
+    const blocks = snapshot.destination.state === "present" ? snapshot.destination.blocks : [];
+    expect(blocks.map((b) => b.blockId)).toEqual(["Rules/heading", "Rules/list-item-1"]);
+  });
+
+  it("distinguishes absent and empty destinations (DM §17)", async () => {
+    const absent = await capture(new MemoryFs({ "README.md": "x" }));
+    const empty = await capture(new MemoryFs({ "CLAUDE.md": "" }));
+    expect(absent.destination).toEqual({ state: "absent" });
+    expect(empty.destination).toMatchObject({ state: "present", blocks: [] });
+  });
+
+  it("a destination of blank lines only is present with zero blocks", async () => {
+    const snapshot = await capture(new MemoryFs({ "CLAUDE.md": "\n  \n\r\n" }));
+    expect(snapshot.destination).toMatchObject({
+      state: "present",
+      blocks: [],
+      roundTrip: { state: "verified" },
+    });
   });
 
   it("is unavailable when the destination is larger than maxReadableFileBytes", async () => {
@@ -269,10 +304,26 @@ describe("destination (DM §6.1, §7)", () => {
     expect(fileOf(snapshot, "CLAUDE.md")?.status).toBe("listed_only");
   });
 
-  it("keeps the bytes of a destination that is not valid UTF-8", async () => {
+  it("is unavailable when the destination is not valid UTF-8", async () => {
     const bytes = new Uint8Array([0x63, 0xe9, 0x0a]);
     const snapshot = await capture(new MemoryFs({ "CLAUDE.md": bytes }));
-    expect(snapshot.destination).toEqual({ state: "present", bytes, hash: sha256(bytes) });
+    expect(snapshot.destination).toEqual({ state: "unavailable", reason: "not_utf8" });
+    expect(fileOf(snapshot, "CLAUDE.md")).toMatchObject({
+      status: "listed_only",
+      reason: "not_utf8",
+    });
+  });
+
+  it("is unavailable when the destination contains a NUL byte", async () => {
+    const bytes = new Uint8Array([0x23, 0x20, 0x41, 0x00, 0x0a]);
+    const snapshot = await capture(new MemoryFs({ "CLAUDE.md": bytes }));
+    expect(snapshot.destination).toEqual({ state: "unavailable", reason: "contains_nul" });
+  });
+
+  it("accepts a destination that starts with a UTF-8 byte order mark", async () => {
+    const bytes = new Uint8Array([0xef, 0xbb, 0xbf, 0x78]);
+    const snapshot = await capture(new MemoryFs({ "CLAUDE.md": bytes }));
+    expect(snapshot.destination).toMatchObject({ state: "present" });
   });
 
   it("is unavailable when only a case variant such as claude.md exists at the root", async () => {

@@ -1,3 +1,4 @@
+import { type ParsedDestination, parseGuidanceBlocks } from "../destination/guidance-blocks.js";
 import type { Hash } from "../hash.js";
 import { comparePaths } from "../paths.js";
 import type { Clock, IdSource } from "../ports.js";
@@ -46,15 +47,23 @@ export interface ReadFailure {
 
 export type Destination =
   | { readonly state: "absent" }
-  | { readonly state: "present"; readonly bytes: Uint8Array; readonly hash: Hash }
+  /** Captured, with its Guidance Blocks (DM §7). */
+  | ({
+      readonly state: "present";
+      readonly bytes: Uint8Array;
+      readonly hash: Hash;
+    } & ParsedDestination)
   /** A root `CLAUDE.md` exists but can't be captured safely, so the session must stop. */
   | { readonly state: "unavailable"; readonly reason: DestinationUnavailableReason };
 
 export type DestinationUnavailableReason =
   /** The root `CLAUDE.md` is a symbolic link. */
   | "symlink"
-  /** It is larger than `maxReadableFileBytes`. */
-  | "too_large"
+  /**
+   * It would be `listed_only` under the candidate rules (IMPL §1.4): larger than
+   * `maxReadableFileBytes`, containing a NUL byte, or not valid UTF-8.
+   */
+  | ListedOnlyReason
   /** No `CLAUDE.md`, but a root entry whose name differs only in ASCII case, such as `claude.md`. */
   | "case_variant"
   | FailureReason;
@@ -277,8 +286,7 @@ function destinationOf(observation: Observation): Destination {
         reason: entry.reason === "path_not_utf8" ? "io_error" : entry.reason,
       };
     case "listed_only":
-      if (entry.reason === "too_large") return { state: "unavailable", reason: "too_large" };
-      return present(observation, entry.hash);
+      return { state: "unavailable", reason: entry.reason };
     case "read":
       return present(observation, entry.hash);
     case "excluded":
@@ -290,7 +298,8 @@ function present(observation: Observation, hash: Hash): Destination {
   if (observation.destinationBytes === undefined) {
     throw new Error("A readable destination was observed without its bytes.");
   }
-  return { state: "present", bytes: observation.destinationBytes, hash };
+  const bytes = observation.destinationBytes;
+  return { state: "present", bytes, hash, ...parseGuidanceBlocks(bytes) };
 }
 
 /** Lower-cases ASCII letters only, so the result never depends on locale or Unicode tables. */
