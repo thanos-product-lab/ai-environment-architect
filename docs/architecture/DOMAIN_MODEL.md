@@ -15,6 +15,7 @@
 
 1. **Guidance Block parsing made exact (§7).** A line-based CommonMark subset with no Markdown library; spans exclude the final line ending; a top-level list item is one block, nested items included, and records its marker and indentation; the parsed destination records its line endings; the block ID scheme, including how repeated headings stay unique; the round-trip checks, and the fallback to one whole-file `other` block. This settles the parser and block-identifier item in §18.
 2. **Destination unavailable for content reasons (§6.1, §7).** A root `CLAUDE.md` that would be `listed_only` because it is not valid UTF-8 or contains a NUL byte is `unavailable`, like one that is too large. It is never parsed.
+3. **Open point (§9.1, §18).** An `add` target of `section: headingPath` is ambiguous when sibling sections repeat a heading. To decide in M5.
 
 ### Changes from v0.4
 
@@ -562,5 +563,6 @@ The export always states whether its artifact content is proposed, approved or a
 - Context selection for model calls: which files and excerpts are sent within the budget. It must be deterministic and recorded in each call's `inputManifest`.
 - CLI interaction for answering questions, editing recommendation wording and reviewing the diff.
 - Handling of unsupported encodings.
+- **For M5:** how an `add` names its section (§9.1). `section: headingPath` is ambiguous when sibling sections repeat a heading, such as two `## Notes` under `# A`, which §7 tells apart only by block ID (`A/Notes`, `A/Notes[2]`). Probably target the section's heading block ID, or require the path to match exactly one section.
 
 Resolve these in the implementation specification without expanding the first slice to multiple repositories, other configuration files or a general policy engine.
