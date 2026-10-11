@@ -1,7 +1,7 @@
 # Milestones
 
 **AI Environment Architect · First slice**  
-**Last updated:** 8 October 2026
+**Last updated:** 11 October 2026
 
 This is the build order for the first slice: inspect → clarify → recommend → review → apply, for one repository and its root `CLAUDE.md`. It says *what to build when*. *How it behaves* is in the specs. Each step points to a spec section rather than repeating it.
 
@@ -64,11 +64,10 @@ The order is set by dependencies. Deterministic parts come first and are tested 
 
 **Goal:** the deterministic context the model will see, and a first command that shows it on a real repository.
 
-- [ ] Construction order and determinism. `/implement-spec IMPL 1.3`
+- [ ] Excerpting, outlines and item rendering. `/implement-spec IMPL 1.6`
 - [ ] Tiers, including the test reserve. `/implement-spec IMPL 1.5`
-- [ ] Excerpting, outlines, rendering and the directory tree. `/implement-spec IMPL 1.6`
 - [ ] Secret scan, with a fixture per rule. `/implement-spec IMPL 1.7`
-- [ ] Input manifest. `/implement-spec IMPL 1.13`
+- [ ] The selection pipeline, the directory tree (IMPL §1.6, tier 4), `contextHash` and the input manifest. `/implement-spec IMPL 1.3`, then `IMPL 1.13`
 - [ ] A minimal command that prints the "What we read" summary (IMPL §2.4) for a repository and sends nothing.
 - [ ] Run it on each development repository, and record proposed changes to the default caps (IMPL §1.16).
 
@@ -169,3 +168,4 @@ Maintenance checks for stale paths and commands; scoped rule files; a local web 
 ## Change log
 
 - **8 October 2026:** first version.
+- **11 October 2026:** M2 reordered: excerpting first, then tiers, the secret scan, and the pipeline with the tree and manifest. Selection needs the excerpt function, and the tree is rendered after selection.
