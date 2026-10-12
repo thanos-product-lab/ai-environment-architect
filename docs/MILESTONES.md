@@ -21,7 +21,7 @@ The order is set by dependencies. Deterministic parts come first and are tested 
 |---|---|---|---|
 | M0 | Scaffold and development repositories | No | Done |
 | M1 | Snapshot and destination parsing | No | Done |
-| M2 | Context selection and "What we read" | No | Not started |
+| M2 | Context selection and "What we read" | No | In progress |
 | M3 | Validation core | No (recorded responses) | Not started |
 | M4 | Sessions and persistence | No | Not started |
 | M5 | Recommendations, assembly, review and apply | No (recorded responses) | Not started |
@@ -65,7 +65,7 @@ The order is set by dependencies. Deterministic parts come first and are tested 
 **Goal:** the deterministic context the model will see, and a first command that shows it on a real repository.
 
 - [x] Excerpting, outlines and item rendering. `/implement-spec IMPL 1.6`
-- [ ] Tiers, including the test reserve. `/implement-spec IMPL 1.5`
+- [x] Tiers, including the test reserve. `/implement-spec IMPL 1.5`
 - [ ] Secret scan, with a fixture per rule. `/implement-spec IMPL 1.7`
 - [ ] The selection pipeline, the directory tree (IMPL §1.6, tier 4), `contextHash` and the input manifest. `/implement-spec IMPL 1.3`, then `IMPL 1.13`
 - [ ] A minimal command that prints the "What we read" summary (IMPL §2.4) for a repository and sends nothing.

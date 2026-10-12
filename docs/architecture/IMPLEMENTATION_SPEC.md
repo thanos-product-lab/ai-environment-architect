@@ -1,9 +1,20 @@
 # Implementation Specification
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 11 October 2026  
-**Version:** 0.8  
+**Date:** 12 October 2026  
+**Version:** 0.9  
 **Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
+
+### Changes from v0.8
+
+- **Tier filling (§1.5).** A tier tries every item in its order; later items that fit are still included. Each file belongs to the first tier that matches it. A file whose smallest possible rendering can't fit is skipped without being read. The five tier caps may not add up to more than `initialContextBytes`.
+- **Destination size (§1.5).** `maxDestinationBytes` limits the rendered item. A destination larger than the tier 1 cap is still included, and tier 1 passes nothing down.
+- **`@path` imports (§1.5).** Only Markdown files are scanned. The import syntax is defined, and code spans are ignored as well as code blocks. An imported file that a later tier matches stays in that tier.
+- **Name lists (§1.5).** Tier 2, 3 and 5 names, Markdown extensions, excluded documentation, test patterns and ranking stems are fixed, and part of `algorithmVersion`. Names in tiers 2, 3 and 5 match ASCII case-insensitively; tier 1 names match exactly.
+- **Packages (§1.5).** Workspace members are read from `package.json`, `lerna.json` and `pnpm-workspace.yaml`, with a defined glob syntax. A member directory must contain a `package.json`, as in npm and pnpm. Source files outside every package form a root package.
+- **Reasons (§1.5).** Item and skip reason strings are fixed.
+- **Import gaps (§1.5).** The import named in the gap statement is cut to 80 code points.
+- **Verification (§1.15).** The destination rule has four causes, not three.
 
 ### Changes from v0.7
 
@@ -173,9 +184,15 @@ Secret-bearing names and binary types compare ASCII letters case-insensitively, 
 
 Tiers 1, 2, 3 and 5 are filled in that order. Each has a byte cap. Unused bytes from tiers 1, 2 and 3 pass down to the next selected tier. Tier 4's cap is reserved up front and is not reallocated, because the tree is rendered after selection.
 
-Within a tier, items are added in the tier's order until the next item would exceed the remaining budget. That item is then excerpted (§1.6) to fit, if the tier allows it, or skipped and recorded.
+Within a tier, every item is tried in the tier's order. An item that exceeds its per-file cap or the remaining budget is excerpted (§1.6) to fit the smaller of the two, if the tier allows it, or skipped and recorded. Later items that fit are still included. A file whose smallest possible rendering (an empty file's) cannot fit is skipped without being read.
 
-**Default budget:** `initialContextBytes` = 240,000.
+**Each file belongs to one tier:** the first of tiers 1, 2, 3 and 5 that matches it, even if that tier skips it. A file is never sent twice.
+
+**Names.** Tier 1 names match exactly, because agents load those files by exact name. In tiers 2, 3 and 5, names and extensions compare ASCII letters case-insensitively, so `readme.md`, `makefile` and `App.TS` match. *Markdown* means the extensions `.md`, `.markdown` and `.mdx`. These lists and rules are part of `algorithmVersion`; any change to them increases it.
+
+**Reasons.** Items carry `tier1:destination`, `tier1:agent-config`, `tier1:import`, `tier2:group<N>:root-doc|decision-doc|docs|package-readme`, `tier3:group<N>:workspace|task-runner|ci|package-manifest|tooling`, `tier5:test-example` or `tier5:rank<N>:entry-point|boundary-name|other`. A file tried and never included is recorded with `tier<N>:cap-reached`.
+
+**Default budget:** `initialContextBytes` = 240,000. The five tier caps may not add up to more than it; settings that do are rejected.
 
 | Tier | Contents | Default cap | Per-file cap | Excerpting |
 |---|---|---|---|---|
@@ -197,23 +214,25 @@ Matched paths:
 
 **Destination rule.** The root `CLAUDE.md`, if present, is the destination. It is selected first and must be included in full, with its Guidance Block IDs and hashes ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §7). The session **stops with an explanation** before any model call if any of these is true:
 
-- the destination is larger than `maxDestinationBytes` (default 40,000);
+- the destination's rendered item is larger than `maxDestinationBytes` (default 40,000);
 - the destination matches the secret scan (§1.7);
 - the destination cannot fit within the model's input limit after all permitted reductions (§1.10);
 - the snapshot records the destination as `unavailable` ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.1).
 
-The explanation names the reason and the options (shorten the file, or raise the setting). The destination is never truncated, skipped or partially sent.
+The explanation names the reason and the options (shorten the file, or raise the setting). The destination is never truncated, skipped or partially sent. Its rendered bytes count against tier 1. If they exceed the tier 1 cap, the destination is still included, and tier 1 passes nothing down.
 
 **Other agent configuration**, in order of path depth then path order, fills the remaining tier 1 budget. It is included as `existing_guidance` evidence and is never a target. Items that don't fit are skipped. A deterministic `gap` finding is then created: "Some existing agent configuration was not read because of the analysis budget," listing the skipped paths.
 
-**`@path` imports.** Tier 1 files, the destination included, can import other files with `@path`. Imports are resolved before tier 1 is filled:
+**`@path` imports.** Tier 1 Markdown files, the destination included, can import other files with `@path`. Imports are resolved before tier 1 is filled:
 
-- Each import is resolved relative to the file that contains it, and resolution is recursive: imports in imported files are followed too.
-- Imports inside code blocks are ignored.
+- An import is `@` at the start of a line or after whitespace, followed by a run of non-whitespace characters, with trailing `.,;:!?)]}"'` removed.
+- Each import is resolved relative to the file that contains it, and resolution is recursive: imports in imported Markdown files are followed too. Other files are not scanned.
+- Imports inside code blocks and inline code spans are ignored, as Claude Code ignores them.
 - Only paths inside the repository are followed, and only to files in the snapshot. Imports are never followed through a symbolic link, and an imported file is still subject to exclusions and the secret scan (§1.7).
 - Resolution is cycle-safe: each path is visited at most once, so a file that imports itself, directly or through others, ends the chain.
-- Imported files join tier 1 as other agent configuration, `existing_guidance` evidence that is never a target, and are ordered and budgeted like it. A file that is already in tier 1 by its path is not added twice.
-- An import that points outside the repository, including absolute and home-directory paths, is not read. A deterministic `gap` finding is created that names the importing file and the import as written.
+- Imported files join tier 1 as other agent configuration, `existing_guidance` evidence that is never a target, and are ordered and budgeted like it. A file that is already in tier 1 by its path is not added twice. A file that tier 2, 3 or 5 matches stays in that tier, so `@package.json` is still a tier 3 manifest and command evidence.
+- An import that does not resolve to a candidate file is ignored.
+- An import that points outside the repository, including absolute and home-directory paths, is not read. A deterministic `gap` finding is created that names the importing file and the import as written, cut to 80 code points like an outline label (§1.6).
 
 #### Tier 2 — Project documentation
 
@@ -224,7 +243,9 @@ Ranked groups, in this order:
 3. Other Markdown under the root `docs/` directory, in path order
 4. Package-level `README*` files, chosen round-robin across packages (§1.5, tier 5)
 
-Changelogs, licences and generated API reference directories are excluded from this tier by name.
+Groups 1 to 3 are in path order. Group 1 matches any extension; groups 2 and 3 only Markdown. A package-level README is directly inside a package directory other than the root.
+
+Changelogs, licences and generated API reference directories are excluded from this tier by name: base names starting with `CHANGELOG`, `CHANGES`, `HISTORY`, `LICENSE`, `LICENCE`, `COPYING` or `NOTICE`, and anything under a directory named `api-reference`, `api-docs`, `apidocs`, `typedoc` or `javadoc`.
 
 #### Tier 3 — Manifests and tooling configuration
 
@@ -234,21 +255,25 @@ Matched files, in this order:
 2. Task runners: `Makefile`, `justfile`, `Taskfile.yml`, `Procfile`
 3. CI: `.github/workflows/*.yml`, `.gitlab-ci.yml`, `.circleci/config.yml`
 4. Package-level manifests (`package.json`, `pyproject.toml`, `Cargo.toml`), round-robin across packages
-5. Tooling configuration: `tsconfig*.json`, ESLint, Prettier, Biome, Ruff, mypy, pytest, Vitest, Jest and Playwright configuration files, `docker-compose*.yml`, `Dockerfile*`
+5. Tooling configuration: `tsconfig*.json`, `eslint.config.*`, `.eslintrc*`, `.prettierrc*`, `prettier.config.*`, `biome.json`, `biome.jsonc`, `ruff.toml`, `.ruff.toml`, `mypy.ini`, `.mypy.ini`, `pytest.ini`, `vitest.config.*`, `vitest.workspace.*`, `jest.config.*`, `playwright.config.*`, `docker-compose*.yml`, `docker-compose*.yaml`, `compose.yml`, `compose.yaml`, `Dockerfile*`
+
+Groups 1 to 3 match at the repository root only; CI also matches `.github/workflows/*.yaml`. Groups 4 and 5 match at any depth; a package-level manifest is one not at the root. Each group is in path order, except group 4.
 
 These files are the source of command evidence. Commands are always reported as `found_not_run`.
 
 #### Tier 5 — Representative source
 
-**Source files** are candidates with a source extension. The default list covers TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, C#, Ruby, PHP, Swift and their common variants, and is a setting.
+**Source files** are candidates with a source extension. The default list covers TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, C#, Ruby, PHP, Swift and their common variants, and is a setting. By default it is the extension list of the declaration patterns (§1.6).
 
 **Packages** are determined in this order:
 
-1. workspace members declared in tier 3 manifests;
+1. workspace members declared in tier 3 manifests: the root `package.json` `workspaces` (an array, or an object with `packages`), `lerna.json` `packages`, and the `packages:` list in `pnpm-workspace.yaml`. Patterns match directories that contain a `package.json`, as in npm and pnpm: `*` matches within one path segment, `**` matches any number of segments, and a pattern starting with `!` removes what it matches. Other workspace formats, and files that don't parse, contribute nothing;
 2. otherwise, top-level directories that contain source files;
 3. otherwise, the repository root as one package.
 
-**Test reserve.** Tier 5 first fills a reserved sub-budget, `testReserveBytes` (default 15,000). In package path order, each package contributes one test example: the first file in path order matching common test patterns (`*.test.*`, `*.spec.*`, `test_*.py`, `*_test.py`, `*_test.go`, files under `tests/`, `test/` or `__tests__/`). Each example is capped at `testExampleBytes` (default 3,000) and excerpted by declaration. Unused reserve passes to the main tier 5 pool. Test files already chosen are excluded from the ranking below.
+A file belongs to the deepest package that contains it. Source files in no package form a root package, which comes first in package path order.
+
+**Test reserve.** Tier 5 first fills a reserved sub-budget, `testReserveBytes` (default 15,000). In package path order, each package contributes one test example: the first file in path order matching common test patterns (`*.test.*`, `*.spec.*`, `test_*.py`, `*_test.py`, `*_test.go`, files under `tests/`, `test/` or `__tests__/`). Each example is capped at `testExampleBytes` (default 3,000) and excerpted by declaration. Unused reserve passes to the main tier 5 pool. Test files already chosen are excluded from the ranking below; a test file the reserve could not fit is ranked like any other. Test files must be source files, and the directory patterns match at any depth.
 
 **Ranking within a package.** Each remaining source file gets the first matching rank:
 
@@ -258,7 +283,7 @@ These files are the source of command evidence. Commands are always reported as 
 | 2 | Boundary names: `client`, `api`, `routes`, `router`, `schema`, `schemas`, `model`, `models`, `service`, `config` | Where conventions and contracts live |
 | 3 | All remaining source files | Fallback |
 
-Within a rank, order is path depth (shallower first), then path order.
+A file's name for ranking is its base name without its last extension, so `index.ts` is rank 1 and `index.d.ts` is not. Within a rank, order is path depth (shallower first), then path order.
 
 **Selection** is round-robin: in package path order, take each package's next-ranked file, repeating until the tier budget or `maxSourceFiles` (default 24, not counting test examples) is reached.
 
@@ -526,7 +551,7 @@ All defaults are starting points. They are calibrated on the product-development
 - Each package with a test file contributes a test example when the reserve allows.
 - Markdown excerpts contain only complete units, a section or the own text of a split section, except the first unit, which may be cut before a blank line; code excerpts contain only complete declarations and the import block; outlines list everything omitted except blank lines before the first heading or declaration.
 - Tree markers match the final selection, including after token-check reductions.
-- The destination is included in full, or the session stops before any call with a stated reason, for each of the three causes in §1.5.
+- The destination is included in full, or the session stops before any call with a stated reason, for each of the four causes in §1.5.
 - The secret scan runs on every outgoing request and blocks each rule's fixtures. The manifest never contains matched text.
 - Excluded, `listed_only` (except requested ranges) and secret-blocked content never appears in a request.
 - Delimiter sequences inside file content are escaped.
