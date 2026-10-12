@@ -67,7 +67,7 @@ The order is set by dependencies. Deterministic parts come first and are tested 
 - [x] Excerpting, outlines and item rendering. `/implement-spec IMPL 1.6`
 - [x] Tiers, including the test reserve. `/implement-spec IMPL 1.5`
 - [x] Secret scan, with a fixture per rule. `/implement-spec IMPL 1.7`
-- [ ] The selection pipeline, the directory tree (IMPL §1.6, tier 4), `contextHash` and the input manifest. `/implement-spec IMPL 1.3`, then `IMPL 1.13`
+- [x] The selection pipeline, the directory tree (IMPL §1.6, tier 4), `contextHash` and the input manifest. `/implement-spec IMPL 1.3`, then `IMPL 1.13`
 - [ ] A minimal command that prints the "What we read" summary (IMPL §2.4) for a repository and sends nothing.
 - [ ] Run it on each development repository, and record proposed changes to the default caps (IMPL §1.16).
 

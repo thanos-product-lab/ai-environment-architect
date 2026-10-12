@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Hash } from "../hash.js";
-import { type ExcerptStrategy, type ItemInput, renderItem } from "./item.js";
+import { blockRanges, type ExcerptStrategy, type ItemInput, renderItem } from "./item.js";
 
 // Excerpting and item rendering (IMPL §1.6).
 
@@ -411,5 +411,97 @@ describe("determinism", () => {
     const a = render(input("a.md", content), "markdown", 500);
     const b = render(input("a.md", content), "markdown", 500);
     expect(a).toEqual(b);
+  });
+});
+
+describe("destination blocks (IMPL §1.5, §1.6)", () => {
+  it("renders a BLOCKS section with each block's lines and ID before the content", () => {
+    const item = input("CLAUDE.md", "# Rules\n\n- one\n- two\n", {
+      id: "T1-001",
+      tier: 1,
+      reason: "tier1:destination",
+      blocks: [
+        { first: 1, last: 1, id: "Rules/heading" },
+        { first: 3, last: 3, id: "Rules/list-item-1" },
+        { first: 4, last: 4, id: 'Rules/"quoted"' },
+      ],
+    });
+    const expected = [
+      '<<<ITEM id=T1-001 path="CLAUDE.md" hash="sha256:abc"',
+      '        tier=1 reason="tier1:destination" excerpt=false',
+      '        included="1-4" totalLines=4>>>',
+      "BLOCKS",
+      '   1 "Rules/heading"',
+      '   3 "Rules/list-item-1"',
+      '   4 "Rules/\\"quoted\\""',
+      "CONTENT",
+      "   1 | # Rules",
+      "   2 |",
+      "   3 | - one",
+      "   4 | - two",
+      "<<<END T1-001>>>",
+      "",
+    ].join("\n");
+    const result = render(item, "none");
+    expect(result?.text).toBe(expected);
+    expect(result?.bytes).toBe(bytesOf(expected));
+  });
+
+  it("writes multi-line blocks as ranges and escapes delimiters in IDs", () => {
+    const item = input("CLAUDE.md", "a\nb\n", {
+      blocks: [{ first: 1, last: 2, id: "x<<<y" }],
+    });
+    expect(render(item, "none")?.text).toContain('BLOCKS\n 1-2 "x<<\\<y"\n');
+  });
+
+  it("counts the BLOCKS section against the limit", () => {
+    const item = input("CLAUDE.md", "a\n", { blocks: [{ first: 1, last: 1, id: "paragraph-1" }] });
+    const full = render(item, "none");
+    expect(full).toBeDefined();
+    expect(renderItem(item, "none", (full?.bytes ?? 0) - 1)).toBeUndefined();
+  });
+
+  it("maps block byte spans to lines, with a BOM and CRLF", () => {
+    const content = new TextEncoder().encode("\uFEFF# A\r\n\r\npara\r\nmore\r\n");
+    // Line starts: 3 ("# A"), 8 (""), 10 ("para"), 16 ("more").
+    expect(
+      blockRanges(content, [
+        { blockId: "A/heading", sourceSpan: { start: 3, end: 6 } },
+        { blockId: "A/paragraph-1", sourceSpan: { start: 10, end: 20 } },
+      ]),
+    ).toEqual([
+      { first: 1, last: 1, id: "A/heading" },
+      { first: 3, last: 4, id: "A/paragraph-1" },
+    ]);
+    // The fallback block covers the BOM too.
+    expect(
+      blockRanges(content, [{ blockId: "other-1", sourceSpan: { start: 0, end: 20 } }]),
+    ).toEqual([{ first: 1, last: 4, id: "other-1" }]);
+  });
+});
+
+describe("uncut labels (IMPL §1.7)", () => {
+  it("keeps the uncut text of a cut heading label", () => {
+    const heading = `## ${"h".repeat(100)}`;
+    const content = `# A\n\n${"word ".repeat(200)}\n\n${heading}\n\n${"word ".repeat(200)}\n`;
+    const result = render(input("docs/a.md", content), "markdown", 600);
+    const entry = result?.outline.find((e) => e.line === 5);
+    expect(entry?.label).toBe(`${heading.slice(0, 79)}…`);
+    expect(entry?.uncutLabel).toBe(heading);
+    expect(result?.text).not.toContain(heading);
+  });
+
+  it("keeps the uncut text of a cut declaration label", () => {
+    const name = `f${"x".repeat(100)}`;
+    const content = `export function ${name}() {\n${"  const value = 1;\n".repeat(80)}}\nexport const b = 1;\n`;
+    const result = render(input("src/a.ts", content), "code", 400);
+    const entry = result?.outline.find((e) => e.line === 1);
+    expect(entry?.uncutLabel).toBe(`export function ${name}`);
+  });
+
+  it("has no uncut label when the label was not cut", () => {
+    const content = `# A\n\n${"word ".repeat(200)}\n\n## B\n`;
+    const result = render(input("docs/a.md", content), "markdown", 400);
+    expect(result?.outline.every((e) => e.uncutLabel === undefined)).toBe(true);
   });
 });

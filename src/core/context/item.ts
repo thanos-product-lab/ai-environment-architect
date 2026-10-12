@@ -1,4 +1,10 @@
-import { isBlank, type Line, splitBlocks, splitLines } from "../destination/guidance-blocks.js";
+import {
+  type ByteSpan,
+  isBlank,
+  type Line,
+  splitBlocks,
+  splitLines,
+} from "../destination/guidance-blocks.js";
 import type { Hash } from "../hash.js";
 import { cutLabel, findDeclarations } from "./declarations.js";
 import { escapeDelimiters } from "./escape.js";
@@ -25,6 +31,15 @@ export interface ItemInput {
   readonly reason: string;
   /** The file's bytes, valid UTF-8 and already verified against `hash`. */
   readonly content: Uint8Array;
+  /** The destination's Guidance Blocks, rendered in a BLOCKS section (IMPL §1.5). */
+  readonly blocks?: readonly BlockLines[];
+}
+
+/** A Guidance Block's ID and the lines it covers. */
+export interface BlockLines {
+  readonly first: number;
+  readonly last: number;
+  readonly id: string;
 }
 
 /** 1-based, inclusive. */
@@ -39,6 +54,8 @@ export interface OutlineEntry {
   readonly line: number;
   readonly label: string;
   readonly mark: OutlineMark;
+  /** The label before it was cut, only when it was cut. Never rendered; the secret scan reads it. */
+  readonly uncutLabel?: string;
 }
 
 export interface RenderedItem {
@@ -77,7 +94,12 @@ export function renderItem(
       declarations.forEach((declaration, index) => {
         const next = declarations[index + 1];
         const last = next === undefined ? n : next.start - 1;
-        units.push({ first: declaration.start, last, label: declaration.label });
+        units.push({
+          first: declaration.start,
+          last,
+          label: declaration.label,
+          ...optionalUncut(declaration.uncutLabel),
+        });
       });
       return codeExcerpt(layout, units, limitBytes);
     }
@@ -89,6 +111,44 @@ interface Unit {
   readonly first: number;
   readonly last: number;
   readonly label: string;
+  readonly uncutLabel?: string;
+}
+
+/** An outline label as entered: its text, and its uncut text when that differs. */
+interface Label {
+  readonly line: number;
+  readonly label: string;
+  readonly uncutLabel?: string;
+}
+
+function optionalUncut(uncutLabel: string | undefined): { uncutLabel?: string } {
+  return uncutLabel === undefined ? {} : { uncutLabel };
+}
+
+/**
+ * The lines each block covers. A span starting in the BOM, before line 1, starts at line 1.
+ * A block's end is exclusive and never includes its final line ending (DM §7).
+ */
+export function blockRanges(
+  content: Uint8Array,
+  blocks: readonly { readonly blockId: string; readonly sourceSpan: ByteSpan }[],
+): BlockLines[] {
+  const starts = splitLines(content).map((line) => line.start);
+  const lineAt = (offset: number): number => {
+    let low = 0;
+    let high = starts.length - 1;
+    while (low < high) {
+      const mid = Math.ceil((low + high) / 2);
+      if ((starts[mid] ?? 0) <= offset) low = mid;
+      else high = mid - 1;
+    }
+    return low + 1;
+  };
+  return blocks.map((block) => ({
+    first: lineAt(block.sourceSpan.start),
+    last: lineAt(Math.max(block.sourceSpan.start, block.sourceSpan.end - 1)),
+    id: block.blockId,
+  }));
 }
 
 const OMITTED = " [omitted]";
@@ -122,6 +182,8 @@ class Layout {
   /** `prefix[k]`: bytes of rendered lines 1..k. */
   readonly prefix: number[];
   readonly input: ItemInput;
+  /** The BLOCKS section, or "" when the item has no blocks. */
+  readonly blocksText: string;
 
   constructor(input: ItemInput) {
     this.input = input;
@@ -132,6 +194,12 @@ class Layout {
     this.lines.forEach((_, index) => {
       this.prefix.push((this.prefix[index] ?? 0) + byteLength(this.contentLine(index + 1)));
     });
+    this.blocksText =
+      input.blocks === undefined
+        ? ""
+        : `BLOCKS\n${input.blocks
+            .map((block) => `${formatRange(block).padStart(this.width, " ")} ${quote(block.id)}\n`)
+            .join("")}`;
   }
 
   pad(line: number): string {
@@ -166,6 +234,7 @@ class Layout {
     return (
       byteLength(this.header(outlineBytes !== undefined, ranges)) +
       (outlineBytes === undefined ? 0 : byteLength("OUTLINE\n") + outlineBytes) +
+      byteLength(this.blocksText) +
       byteLength("CONTENT\n") +
       content +
       gapCount(ranges, this.lines.length) * byteLength(GAP) +
@@ -184,6 +253,7 @@ class Layout {
     let text = this.header(excerpt, ranges);
     if (outline !== undefined)
       text += `OUTLINE\n${outline.map((e) => this.outlineLine(e)).join("")}`;
+    text += this.blocksText;
     text += "CONTENT\n";
     let next = 1;
     for (const range of ranges) {
@@ -223,14 +293,10 @@ class Selection {
   private outlineBytes: number;
 
   private readonly layout: Layout;
-  private readonly entries: readonly { readonly line: number; readonly label: string }[];
+  private readonly entries: readonly Label[];
   private readonly limitBytes: number;
 
-  constructor(
-    layout: Layout,
-    entries: readonly { readonly line: number; readonly label: string }[],
-    limitBytes: number,
-  ) {
+  constructor(layout: Layout, entries: readonly Label[], limitBytes: number) {
     this.layout = layout;
     this.entries = entries;
     this.limitBytes = limitBytes;
@@ -279,7 +345,11 @@ function appendRange(ranges: readonly LineRange[], range: LineRange): LineRange[
 function codeExcerpt(layout: Layout, units: readonly Unit[], limitBytes: number) {
   const selection = new Selection(
     layout,
-    units.map((unit) => ({ line: unit.first, label: unit.label })),
+    units.map((unit) => ({
+      line: unit.first,
+      label: unit.label,
+      ...optionalUncut(unit.uncutLabel),
+    })),
     limitBytes,
   );
   units.forEach((unit, index) => {
@@ -330,7 +400,7 @@ function markdownExcerpt(layout: Layout, limitBytes: number): RenderedItem | und
       : [],
   );
 
-  const entries: { line: number; label: string }[] = [];
+  const entries: Label[] = [];
   const roots: Section[] = [];
   const firstHeading = headings[0]?.line ?? n + 1;
   const preamble = layout.lines.slice(0, firstHeading - 1);
@@ -355,11 +425,12 @@ function markdownExcerpt(layout: Layout, limitBytes: number): RenderedItem | und
       own: { first: heading.line, last: next === undefined ? n : next.line - 1 },
       children: [],
     };
+    const uncut = `${"#".repeat(heading.level)}${heading.text === "" ? "" : ` ${heading.text}`}`;
+    const label = cutLabel(uncut);
     entries.push({
       line: heading.line,
-      label: cutLabel(
-        `${"#".repeat(heading.level)}${heading.text === "" ? "" : ` ${heading.text}`}`,
-      ),
+      label,
+      ...optionalUncut(label === uncut ? undefined : uncut),
     });
     while (stack.length > 0 && (stack[stack.length - 1]?.level ?? 0) >= heading.level) stack.pop();
     const parent = stack[stack.length - 1];

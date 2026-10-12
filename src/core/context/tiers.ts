@@ -8,7 +8,7 @@ import {
 } from "../snapshot/snapshot.js";
 import { cutLabel, DECLARATION_FAMILIES } from "./declarations.js";
 import { findImports, resolveImport } from "./imports.js";
-import { type ExcerptStrategy, type RenderedItem, renderItem } from "./item.js";
+import { blockRanges, type ExcerptStrategy, type RenderedItem, renderItem } from "./item.js";
 import { matchWorkspaceMembers, packageOf, workspacePatterns } from "./packages.js";
 import { importWithheld, type SecretRuleId, scanText } from "./secrets.js";
 
@@ -23,7 +23,7 @@ import { importWithheld, type SecretRuleId, scanText } from "./secrets.js";
  * The selection algorithm's version (IMPL §1.3). The name lists and ranking rules below are part
  * of it: increase it with any change to them, because that changes the context.
  */
-export const ALGORITHM_VERSION = "context-select/1.0.0";
+export const ALGORITHM_VERSION = "context-select/1.1.0";
 
 export interface ContextSettings {
   /** The five tier caps together may not exceed it. */
@@ -44,6 +44,10 @@ export interface ContextSettings {
   readonly maxSourceFiles: number;
   /** File name endings, matched ASCII case-insensitively. */
   readonly sourceExtensions: readonly string[];
+  /** Tier 4 (IMPL §1.6): the deepest level shown, reduced until the tree fits its cap. */
+  readonly treeDepth: number;
+  /** Tier 4: directories with more entries show this many, then a count of the rest. */
+  readonly treeCollapseThreshold: number;
 }
 
 export const DEFAULT_CONTEXT_SETTINGS: ContextSettings = {
@@ -55,6 +59,8 @@ export const DEFAULT_CONTEXT_SETTINGS: ContextSettings = {
   testExampleBytes: 3_000,
   maxSourceFiles: 24,
   sourceExtensions: DECLARATION_FAMILIES.flatMap((family) => family.extensions),
+  treeDepth: 4,
+  treeCollapseThreshold: 40,
 };
 
 export const AGENT_CONFIG_SKIPPED =
@@ -96,6 +102,8 @@ export interface SelectionGap {
   readonly gapType: "other";
   readonly statement: string;
   readonly relatedPaths: readonly string[];
+  /** Related paths that match the secret scan, recorded by hash instead (IMPL §1.7). */
+  readonly relatedPathHashes?: readonly Hash[];
 }
 
 export type DestinationStop =
@@ -162,6 +170,7 @@ export async function selectTiers(
       tier: 1,
       reason: "tier1:destination",
       content: destination.bytes,
+      blocks: blockRanges(destination.bytes, destination.blocks),
     };
     const rendered = renderItem(input, "none", settings.maxDestinationBytes);
     if (rendered === undefined) {

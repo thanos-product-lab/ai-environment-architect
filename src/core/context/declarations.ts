@@ -104,6 +104,8 @@ export interface Declaration {
   /** The 1-based first line of the declaration: its first decorator, or `line`. */
   readonly start: number;
   readonly label: string;
+  /** The label before it was cut, only when it was cut. The secret scan reads it (IMPL §1.7). */
+  readonly uncutLabel?: string;
 }
 
 export const MAX_LABEL_CHARACTERS = 80;
@@ -145,8 +147,16 @@ export function findDeclarations(
       decoratorStart ??= line;
       return;
     }
-    const label = labelOf(family, text);
-    if (label !== undefined) declarations.push({ line, start: decoratorStart ?? line, label });
+    const uncut = labelOf(family, text);
+    if (uncut !== undefined) {
+      const label = cutLabel(uncut);
+      declarations.push({
+        line,
+        start: decoratorStart ?? line,
+        label,
+        ...(label === uncut ? {} : { uncutLabel: uncut }),
+      });
+    }
     decoratorStart = undefined;
   });
   return declarations;
@@ -156,7 +166,7 @@ function labelOf(family: LanguageFamily, text: string): string | undefined {
   if (family.notDeclarations.some((pattern) => pattern.test(text))) return undefined;
   for (const pattern of family.declarations) {
     const match = pattern.exec(text);
-    if (match !== null) return cutLabel(match[0].trimEnd());
+    if (match !== null) return match[0].trimEnd();
   }
   return undefined;
 }

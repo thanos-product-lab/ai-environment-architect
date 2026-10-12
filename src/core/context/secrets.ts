@@ -1,3 +1,4 @@
+import { type Hash, sha256 } from "../hash.js";
 import type {
   DestinationStop,
   SelectedItem,
@@ -96,7 +97,10 @@ export function scanText(text: string): SecretRuleId | undefined {
 
 type Selected = Extract<TierSelection, { state: "selected" }>;
 
-/** A selected file the scan removed. The tree marks it `[S]`; the manifest records the rule. */
+/**
+ * A selected file the scan removed. The tree marks it `[S]`; the manifest records the rule. The
+ * path is kept as is in memory, and the manifest records it with `recordedPath`.
+ */
 export interface BlockedFile {
   readonly path: string;
   readonly tier: SelectedTier;
@@ -116,7 +120,7 @@ export function applySecretScan(selection: Selected): ScannedSelection {
   const kept: SelectedItem[] = [];
   const blocked: BlockedFile[] = [];
   for (const item of selection.items) {
-    const ruleId = scanText(item.rendered.text);
+    const ruleId = scanItem(item);
     if (ruleId === undefined) {
       kept.push(item);
     } else if (item.reason === "tier1:destination") {
@@ -145,7 +149,51 @@ export function importWithheld(importer: string): string {
 export const GAP_WITHHELD = "A gap statement is not shown because it matched the secret scan.";
 
 function withheldIfSecret(gap: SelectionGap): SelectionGap {
-  return scanText(gap.statement) === undefined ? gap : { ...gap, statement: GAP_WITHHELD };
+  const statement = scanText(gap.statement) === undefined ? gap.statement : GAP_WITHHELD;
+  const withheld = gap.relatedPaths.filter(isWithheldPath);
+  if (withheld.length === 0) return { ...gap, statement };
+  return {
+    ...gap,
+    statement,
+    relatedPaths: gap.relatedPaths.filter((path) => !isWithheldPath(path)),
+    relatedPathHashes: [...(gap.relatedPathHashes ?? []), ...withheld.map(pathHash)],
+  };
+}
+
+/**
+ * The item's path, the rendered item, and the uncut text of every cut outline label. The path is
+ * scanned raw: in the header it is JSON-encoded, which can hide a match. A cut label could
+ * otherwise leave part of a secret that no rule matches.
+ */
+function scanItem(item: SelectedItem): SecretRuleId | undefined {
+  const path = scanText(item.path);
+  if (path !== undefined) return path;
+  const rendered = scanText(item.rendered.text);
+  if (rendered !== undefined) return rendered;
+  for (const entry of item.rendered.outline) {
+    const ruleId = entry.uncutLabel === undefined ? undefined : scanText(entry.uncutLabel);
+    if (ruleId !== undefined) return ruleId;
+  }
+  return undefined;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Paths. A path can itself match a rule, such as a file named after an access key ID. Its name is
+// then withheld from the tree, and records that leave the selection hold its hash instead.
+
+export function isWithheldPath(path: string): boolean {
+  return scanText(path) !== undefined;
+}
+
+export function pathHash(path: string): Hash {
+  return sha256(new TextEncoder().encode(path));
+}
+
+/** A path as recorded in the manifest: itself, or its hash when it matches a rule. */
+export type RecordedPath = { readonly path: string } | { readonly pathHash: Hash };
+
+export function recordedPath(path: string): RecordedPath {
+  return isWithheldPath(path) ? { pathHash: pathHash(path) } : { path };
 }
 
 function recount(usage: TierUsage, kept: readonly SelectedItem[]): TierUsage {

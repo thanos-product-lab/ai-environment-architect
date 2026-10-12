@@ -355,4 +355,54 @@ describe("applySecretScan", () => {
       { gapType: "other", statement: GAP_WITHHELD, relatedPaths: ["a.md"] },
     ]);
   });
+  it("blocks a file whose cut outline label would have hidden part of a secret", async () => {
+    // Cut to 80 code points, the heading keeps only part of the token, which no rule matches.
+    const token = join("gh", "p_", body20, "k1L2m3N4o5P6q7R8");
+    const heading = `## ${"h".repeat(60)} ${token}`;
+    const doc = `# Guide\n\nShort.\n\n${heading}\n\n${"word ".repeat(400).trimEnd()}\n`;
+    const result = await selectedAfterScan(
+      { "docs/guide.md": doc },
+      { perFileCaps: { ...DEFAULT_CONTEXT_SETTINGS.perFileCaps, tier2: 600 } },
+    );
+    expect(result.blocked).toEqual([{ path: "docs/guide.md", tier: 2, ruleId: "github-token" }]);
+  });
+
+  it("moves a gap's related path that matches to relatedPathHashes", () => {
+    const path = `docs/${awsKey}.md`;
+    const selection = {
+      state: "selected" as const,
+      packages: [],
+      items: [],
+      skipped: [],
+      tiers: [],
+      gaps: [{ gapType: "other" as const, statement: "Some text.", relatedPaths: [path, "a.md"] }],
+      reservedTreeBytes: 0,
+    };
+    const result = applySecretScan(selection);
+    expect(result.state === "selected" && result.gaps).toEqual([
+      {
+        gapType: "other",
+        statement: "Some text.",
+        relatedPaths: ["a.md"],
+        relatedPathHashes: [sha256(new TextEncoder().encode(path))],
+      },
+    ]);
+  });
+  it("blocks a file whose cut declaration label would have hidden part of a secret", async () => {
+    // The cut keeps only the first 79 code points of the label, so the key survives only uncut.
+    const key = join("sk", "_live_", body20);
+    const source = `export function ${"f".repeat(70)}_${key}() {\n${"  const value = 1;\n".repeat(80)}}\nexport const b = 1;\n`;
+    const result = await selectedAfterScan(
+      { "src/index.ts": source },
+      { perFileCaps: { ...DEFAULT_CONTEXT_SETTINGS.perFileCaps, tier5: 400 } },
+    );
+    expect(result.blocked).toEqual([{ path: "src/index.ts", tier: 5, ruleId: "stripe-key" }]);
+  });
+
+  it("blocks a selected file whose raw path matches, even when JSON encoding hides it", async () => {
+    const path = `src/token="${body20}".ts`;
+    const result = await selectedAfterScan({ [path]: "export const a = 1;\n" });
+    expect(result.blocked).toEqual([{ path, tier: 5, ruleId: "generic-assignment" }]);
+    expect(result.items).toEqual([]);
+  });
 });

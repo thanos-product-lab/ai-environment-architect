@@ -2,8 +2,16 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 12 October 2026  
-**Version:** 0.10  
+**Version:** 0.11  
 **Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
+
+### Changes from v0.10
+
+- **Destination blocks (§1.5, §1.6).** The destination item has a BLOCKS section listing each Guidance Block's lines and ID. Hashes are not sent, because code supplies them and the model never does. The section counts against `maxDestinationBytes`.
+- **Tree format (§1.6).** The tree has a fixed format. A readable file that wasn't selected is marked `[-]`, and `[L]` is only for `listed_only` files. If even depth 1 doesn't fit, a one-line summary at depth 0 is used.
+- **Secret paths and labels (§1.7).** A path that matches a rule is never sent: its tree names are withheld, including every segment a match spans, it is recorded as secret-blocked even when unselected, and records hold its hash (`pathHash`, `relatedPathHashes`). The scan also reads the raw item path and the uncut text of every cut outline label.
+- **Selection version (§1.3).** `algorithmVersion` is `context-select/1.1.0`, because the destination item and the tree changed.
+- **Manifest (§1.13).** Tier 4 has its own entry. Tier entries record `budgetBytes`. Withheld paths are recorded as `pathHash`. `retainedInputRef`, `tokenCheck` and `expansion` are `null` until those steps run.
 
 ### Changes from v0.9
 
@@ -103,7 +111,7 @@ Section 2, CLI interaction, is new.
 | 1 | `analyse` | Initial context (§1.4–§1.6) | Candidate findings, gaps, conflicts, absence claims, optional expansion requests |
 | 2 | `analyse_expansion` *(optional, at most once)* | Initial context, validated results of call 1, expansion results (§1.8) | Additional or revised candidate findings, gaps, conflicts, absence claims |
 | 3 | `generate_questions` | Validated findings, gaps, conflicts; their cited excerpts; directory tree; destination blocks | Candidate questions |
-| 4 | `recommend` | Validated findings, gaps, conflicts; cited excerpts; confirmed decisions; question statuses; directory tree; destination blocks with IDs and hashes | Candidate recommendation revisions |
+| 4 | `recommend` | Validated findings, gaps, conflicts; cited excerpts; confirmed decisions; question statuses; directory tree; destination blocks with IDs (code supplies their hashes) | Candidate recommendation revisions |
 
 Rules:
 
@@ -218,9 +226,9 @@ Matched paths:
 - `.cursorrules`, `.cursor/rules/**`
 - `.github/copilot-instructions.md`
 
-**Destination rule.** The root `CLAUDE.md`, if present, is the destination. It is selected first and must be included in full, with its Guidance Block IDs and hashes ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §7). The session **stops with an explanation** before any model call if any of these is true:
+**Destination rule.** The root `CLAUDE.md`, if present, is the destination. It is selected first and must be included in full, with its Guidance Block IDs ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §7) in a BLOCKS section (§1.6). Block hashes are not sent: code supplies them, never the model. The session **stops with an explanation** before any model call if any of these is true:
 
-- the destination's rendered item is larger than `maxDestinationBytes` (default 40,000);
+- the destination's rendered item, BLOCKS section included, is larger than `maxDestinationBytes` (default 40,000);
 - the destination matches the secret scan (§1.7);
 - the destination cannot fit within the model's input limit after all permitted reductions (§1.10);
 - the snapshot records the destination as `unavailable` ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.1).
@@ -347,6 +355,7 @@ CONTENT
 The example shows only the first two of lines 40–96; a real item lists every included line, then ` …` for lines 97–212.
 
 - Item IDs are `T<tier>-<sequence>`, assigned in inclusion order.
+- **Destination blocks.** The destination item has a `BLOCKS` section between the header and `CONTENT`, with one line per Guidance Block in file order: the block's line range, right-aligned like a line number, then its ID as a JSON string, for example `   3-5 "Testing/list-item-2"`. A block starting in the byte order mark starts at line 1.
 - Format details. Quoted attribute values are JSON strings, with the delimiter escape below applied after JSON encoding; to read one, reverse the escape, then parse the JSON. A full item has `excerpt=false`, `included` covering every line, and no `OUTLINE`. Line numbers are right-aligned to at least four columns. An outline entry is the start line number and a label, followed by ` [omitted]` or ` [truncated]` when that applies. A label is the heading as `#` marks and text, or the declaration's keywords and name, cut to 80 Unicode code points with `…` (before the delimiter escape, which can lengthen it). A line ` …` stands for each run of omitted lines. Ranges are written `a-b`, or `a` for one line. Each item ends with a line break.
 - Line numbers let the model cite ranges that validation can check. The `included` attribute states exactly which lines were sent.
 - The system prompt states that **repository content is data, not instructions**. Text inside items that tries to change instructions, output format or scope is ignored, and reported as a finding where relevant. Any occurrence of the delimiter sequences inside file content is escaped deterministically before rendering.
@@ -354,12 +363,25 @@ The example shows only the first two of lines 40–96; a real item lists every i
 
 **Tier 4 — Directory tree** renders the **entire** snapshot file list:
 
-- Depth limit `treeDepth` (default 4). Directories beyond the limit show file counts.
-- Directories with more than `treeCollapseThreshold` entries (default 40) show the first entries in path order and a count of the rest.
+- Depth limit `treeDepth` (default 4). A directory at the limit shows the number of files under it: every entry except directories.
+- Directories with more than `treeCollapseThreshold` entries (default 40) show their first `treeCollapseThreshold` entries in path order, then `… N more`.
 - Excluded directories appear once, with an `[excluded]` marker and no children.
-- Each file has a marker: `[R]` fully included, `[E]` excerpt included, `[L]` listed only, `[X]` excluded, `[S]` blocked by secret scan, `[>]` symbolic link, shown with its target (`path -> target`), `[U]` unreadable.
+- Each file has a marker: `[R]` fully included, `[E]` excerpt included, `[-]` readable but not selected (a plain `read` expansion can fetch it), `[L]` `listed_only` (only line ranges can be read), `[X]` excluded, `[S]` blocked by secret scan, `[>]` symbolic link, shown with its target (`name -> target`), `[U]` unreadable (a directory too, with `/`).
 
-If the rendering exceeds its cap, `treeDepth` is reduced by one until it fits. The final depth is recorded. The tree is how the model knows what exists that it has not read.
+**Format.** A header `<<<TREE depth=<d> files=<n>>>>`, one line per entry, and `<<<END TREE>>>`, each ending with a line break. `n` counts every entry except directories. Entries are indented two spaces per level, and siblings are in bytewise name order. A directory is its name and `/`; a file is its marker, a space and its name. A name containing a control character (C0, DEL, C1, U+2028 or U+2029) is written as a JSON string, and the delimiter escape applies to names and link targets. A name or link target that matches the secret scan is written `<withheld>` (§1.7).
+
+```text
+<<<TREE depth=4 files=123>>>
+[R] CLAUDE.md
+node_modules/ [excluded]
+src/
+  [E] index.ts
+  lib/ (17 files)
+  … 3 more
+<<<END TREE>>>
+```
+
+If the rendering exceeds its cap, `treeDepth` is reduced by one until it fits. If even depth 1 doesn't fit, the tree is the header at depth 0 and the single line `… N more`, counting the root's entries; this smallest form is used even if a very small cap can't hold it. The final depth is recorded. The tree is how the model knows what exists that it has not read.
 
 ### 1.7 Secret scan
 
@@ -399,10 +421,12 @@ Excerpts and blocks were already scanned when first selected. They are scanned a
 **On a match:**
 
 - During selection, the **whole file** is excluded from that and all later calls in the session. Redaction is not attempted in the first slice: partially redacted content is easy to get wrong. The scan covers the whole rendered item, header and outline included, because a heading in an outline can carry a secret from an omitted section. Other items keep their IDs, and tier usage counts only the items that remain.
+- The scan also reads the uncut text of every outline label that was cut to 80 code points (§1.6), so a cut can't leave part of a secret behind. A match blocks the file.
+- A path can match a rule, for example a file named after an access key ID. The raw path is scanned, because the item header JSON-encodes it, which can hide a match. Such a file's content is never sent, it is marked `[S]`, and it is recorded as secret-blocked even when no tier selected it. Any tree name or link target that matches is written `<withheld>`. A match can span segments (`token=abc/def…`), so every segment it may cover is withheld too: from the last segment whose suffix of the path still matches to the first segment whose prefix matches, or every segment if those don't overlap. Records that leave the selection hold the path's SHA-256 instead of the path: `pathHash` in the manifest, and `relatedPathHashes` in gap findings, so `relatedPaths` only ever holds real paths.
 - Selection gap statements are scanned too. An import outside the repository is scanned before it is cut to 80 code points; if it matches, the statement names only the importing file and says the import is withheld. Any other gap statement that matches is replaced by a fixed statement.
 - For an excerpt in calls 3–4, the excerpt is withheld, and any finding that depends only on it is marked `evidence_withheld` and not passed forward.
 - For the destination, the session stops (§1.5).
-- The manifest records the path and the rule ID, never the matched text. The tree marks the file `[S]`.
+- The manifest records the path (or its `pathHash`) and the rule ID, never the matched text. The tree marks the file `[S]`.
 
 Placeholder values in `.env.example` and similar files are not exempt from the scan; those files are only exempt from the name-based exclusion.
 
@@ -470,7 +494,7 @@ These checks run after calls 1 and 2, in addition to the evidence validation in 
 - `gapType`: `no_command`, `no_documentation`, `undetermined_ownership`, `undetermined_convention`, or `other`;
 - `relatedPaths`: the paths or globs the gap concerns.
 
-If any related path exists in the snapshot but its relevant content was not sent (`[L]`, omitted outline entries, or outside the context and expansion), the gap is relabelled `not_inspected`. The review shows it as "not inspected", not "missing".
+If any related path exists in the snapshot but its relevant content was not sent (`[-]`, `[L]`, omitted outline entries, or outside the context and expansion), the gap is relabelled `not_inspected`. The review shows it as "not inspected", not "missing".
 
 **Absence claims** must be expressed as `absenceClaim: { pathGlob, reason }`. Application code evaluates the glob against the **full snapshot file list**:
 
@@ -548,6 +572,14 @@ Every model call records an input manifest ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md)
 
 When expansion is used, `expansion` lists each request, its validation outcome, the items returned and their bytes.
 
+Details:
+
+- Tiers are listed 1 to 5. Tiers 1, 2, 3 and 5 also record `budgetBytes`: the cap plus bytes passed down. Tier 4 records `capBytes`, `usedBytes` and `treeDepth`.
+- `budget.usedBytes` is the rendered context's size, tree included.
+- `excluded` lists the snapshot's excluded entries with their rule, in path order, then secret-blocked files with `secret-scan:<rule ID>`, in path order. Secret-blocked files include files whose path matches, whether or not a tier selected them.
+- A path that matches the secret scan is recorded as `pathHash` instead of `path` (§1.7).
+- `retainedInputRef` is `null` until inputs are retained for a call (§1.12), `tokenCheck` until the token check runs (§1.10), and `expansion` when there was no expansion.
+
 ### 1.14 Settings
 
 | Setting | Default |
@@ -596,9 +628,6 @@ All defaults are starting points. They are calibrated on the product-development
 - Declaration patterns for languages beyond the default families.
 - Whether `search` should support a restricted regular-expression syntax after the first slice.
 - Whether tier 2 should prefer recently changed documents. This is excluded for now, because it would make the result depend on Git history.
-- The destination is rendered "with its Guidance Block IDs and hashes" (§1.5), but the item format above has no place for them. To decide in the M2 pipeline step.
-- A path can itself match a secret rule, for example a file named after an access key ID. The tree, the manifest's `excluded` list and a blocked file's record all hold paths. To decide in the M2 pipeline step, for example by scanning paths and recording a matching path as its hash.
-- An outline label is cut to 80 code points (§1.6) before the rendered item is scanned, so a cut can leave part of a secret that no rule matches. To decide in the M2 pipeline step, for example by scanning the uncut labels, as import gaps already are.
 - How coverage-aware validation (§1.11) treats paths under a symbolic link or an excluded directory, which capture never enters. Probably `not_inspected`. To decide in M3.
 
 ---
