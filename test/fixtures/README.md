@@ -2,6 +2,8 @@
 
 Small, invented inputs for tests. Their bytes are exact: `.gitattributes` marks `test/fixtures/**` as `-text`, so Git never converts line endings, and Biome, `tsc` and Vitest skip this directory. `test/fixtures.test.ts` checks the properties that matter.
 
+No committed fixture may look like a real credential. Secret-scan fixtures are built from fragments at test time in `test/support/secret-fixtures.ts`, and `test/fixtures.test.ts` checks that no file here matches a secret-scan rule (IMPL §1.7).
+
 ## `repos/`
 
 Synthetic repositories for snapshot and listing tests (DM §6.1, IMPL §1.4).

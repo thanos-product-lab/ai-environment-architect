@@ -2,8 +2,14 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 12 October 2026  
-**Version:** 0.9  
+**Version:** 0.10  
 **Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
+
+### Changes from v0.9
+
+- **Secret rules (§1.7).** The rule set is concrete: nine rule IDs in a fixed order, with their patterns. The first matching rule is recorded. A generic-assignment value is at least 20 characters with a digit and a letter, and an unquoted one has no dot unless it is a JWT. A connection-string password that starts with `$`, `{`, `<` or `%` is a reference, not a literal. Every rule works within one line, and the scan covers the whole rendered item.
+- **Blocked items (§1.7).** Removing a blocked item keeps the other items' IDs, and tier usage counts only what remains. Gap statements are scanned, and an import is scanned before it is cut.
+- **Fixtures (§1.7).** Committed fixtures must not look like real credentials. Tests build matching values from fragments.
 
 ### Changes from v0.8
 
@@ -364,6 +370,22 @@ A fixed, versioned rule set detects **known secret patterns**:
 - assignments whose name contains `secret`, `token`, `password`, `api_key` or `apikey`, and whose value is a long literal;
 - connection strings with embedded credentials.
 
+**Rules.** `secretRulesVersion` is `secret-scan/1.0.0`. Rules are tried in this order, and the first that matches anywhere is recorded. Every rule works within one line; line ends are LF, CR, U+2028 and U+2029.
+
+| Rule ID | Matches |
+|---|---|
+| `private-key` | `-----BEGIN `, then upper-case letters, digits and spaces, then `PRIVATE KEY-----` or `PRIVATE KEY BLOCK-----` |
+| `aws-access-key-id` | `AKIA`, `ASIA`, `ABIA` or `ACCA`, then exactly 16 upper-case letters or digits, not followed by a letter or digit |
+| `github-token` | Not after a letter, digit or `_`: `ghp_`, `gho_`, `ghu_`, `ghs_` or `ghr_` and 36 or more letters or digits; or `github_pat_` and 22 or more letters, digits or `_` |
+| `slack-token` | `xoxa-`, `xoxb-`, `xoxp-`, `xoxo-`, `xoxs-` or `xoxr-`, then 10 or more letters, digits or `-` |
+| `stripe-key` | `sk_` or `rk_`, then `live_` or `test_`, then 16 or more letters or digits. Publishable `pk_` keys are not secrets |
+| `anthropic-key` | `sk-ant-`, a kind of lower-case letters and digits, `-`, then 20 or more letters, digits, `_` or `-` |
+| `openai-key` | `sk-proj-`, `sk-svcacct-` or `sk-admin-`, then 20 or more letters, digits, `_` or `-`; or the legacy form: `sk-`, 20 letters or digits, `T3BlbkFJ`, 20 letters or digits |
+| `connection-string` | A scheme (a letter, then letters, digits, `+`, `.` or `-`), `://`, an optional user, `:`, a password, `@` and a host. User, password and host contain no whitespace, `@` or `/`, and the user no `:`. A password starting with `$`, `{` or `<`, or with `%` not followed by two hex digits, is a reference such as `${DB_PASSWORD}` or `%s`, not a literal |
+| `generic-assignment` | A name of letters, digits, `_`, `.` and `-` containing `secret`, `token`, `password`, `api_key` or `apikey` (ASCII case-insensitive), optionally in quotes; then `=`, `:`, `:=` or `=>`, never a comparison; then a literal of at least 20 characters from `A–Z a–z 0–9 _ + / . -`, with up to two `=` at the end, containing a digit and a letter. A quoted literal ends at its closing quote. An unquoted literal has no `.` unless it starts with `eyJ` (a JWT), because a dotted value such as `process.env.KEY_V2` is a code reference; it is followed by whitespace, a quote, `,`, `;` or the end of the line |
+
+Unless stated, credential prefixes must not follow a letter or digit. Patterns must scan in time linear in the text's length: a hostile file can't stall the scan. Any change to the rules or their order increases `secretRulesVersion`.
+
 **Scope.** The scan runs on the final rendered source content of **every model call**, immediately before the request is sent:
 
 - initial context items (calls 1 and 2);
@@ -376,12 +398,15 @@ Excerpts and blocks were already scanned when first selected. They are scanned a
 
 **On a match:**
 
-- During selection, the **whole file** is excluded from that and all later calls in the session. Redaction is not attempted in the first slice: partially redacted content is easy to get wrong.
+- During selection, the **whole file** is excluded from that and all later calls in the session. Redaction is not attempted in the first slice: partially redacted content is easy to get wrong. The scan covers the whole rendered item, header and outline included, because a heading in an outline can carry a secret from an omitted section. Other items keep their IDs, and tier usage counts only the items that remain.
+- Selection gap statements are scanned too. An import outside the repository is scanned before it is cut to 80 code points; if it matches, the statement names only the importing file and says the import is withheld. Any other gap statement that matches is replaced by a fixed statement.
 - For an excerpt in calls 3–4, the excerpt is withheld, and any finding that depends only on it is marked `evidence_withheld` and not passed forward.
 - For the destination, the session stops (§1.5).
 - The manifest records the path and the rule ID, never the matched text. The tree marks the file `[S]`.
 
 Placeholder values in `.env.example` and similar files are not exempt from the scan; those files are only exempt from the name-based exclusion.
+
+**Fixtures.** Each rule has fixtures that must match and near misses that must not. Committed files must not look like real credentials: push protection may block the push, and scanners would flag the repository. Tests build matching values from fragments at test time, or use documented example values such as `AKIAIOSFODNN7EXAMPLE`. A test checks that no committed fixture matches any rule.
 
 **What the product claims:** content matching known secret patterns is blocked. Credentials in unrecognised formats may not be detected. The first-run notice (§2.3) states that selected repository content is sent to the model provider and that the scan reduces, but does not eliminate, the risk of sending secrets. Developers can add exclusions before any content is sent.
 
@@ -572,6 +597,8 @@ All defaults are starting points. They are calibrated on the product-development
 - Whether `search` should support a restricted regular-expression syntax after the first slice.
 - Whether tier 2 should prefer recently changed documents. This is excluded for now, because it would make the result depend on Git history.
 - The destination is rendered "with its Guidance Block IDs and hashes" (§1.5), but the item format above has no place for them. To decide in the M2 pipeline step.
+- A path can itself match a secret rule, for example a file named after an access key ID. The tree, the manifest's `excluded` list and a blocked file's record all hold paths. To decide in the M2 pipeline step, for example by scanning paths and recording a matching path as its hash.
+- An outline label is cut to 80 code points (§1.6) before the rendered item is scanned, so a cut can leave part of a secret that no rule matches. To decide in the M2 pipeline step, for example by scanning the uncut labels, as import gaps already are.
 - How coverage-aware validation (§1.11) treats paths under a symbolic link or an excluded directory, which capture never enters. Probably `not_inspected`. To decide in M3.
 
 ---

@@ -1,5 +1,8 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { scanText } from "../src/core/context/secrets.js";
 
 // Guards the fixtures' exact bytes against accidental normalisation by an editor or Git.
 const read = (path: string): Buffer => readFileSync(new URL(`./fixtures/${path}`, import.meta.url));
@@ -85,5 +88,22 @@ describe("fixture bytes", () => {
     const latin1 = read("repos/large-and-binary/data/latin1.txt");
     expect(latin1.includes(0)).toBe(false);
     expect(isUtf8(latin1)).toBe(false);
+  });
+});
+
+describe("committed fixtures", () => {
+  // Fixtures must not look like real credentials: push protection may block the push, and
+  // scanners would flag the repository. Tests build matching values from fragments (IMPL §1.7).
+  const root = fileURLToPath(new URL("./fixtures/", import.meta.url));
+  const files = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+      entry.isDirectory() ? files(join(dir, entry.name)) : [join(dir, entry.name)],
+    );
+
+  it("match no secret-scan rule", () => {
+    const matches = files(root)
+      .map((path) => ({ path: relative(root, path), rule: scanText(readFileSync(path, "latin1")) }))
+      .filter((match) => match.rule !== undefined);
+    expect(matches).toEqual([]);
   });
 });

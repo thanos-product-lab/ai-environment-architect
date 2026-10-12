@@ -10,6 +10,7 @@ import { cutLabel, DECLARATION_FAMILIES } from "./declarations.js";
 import { findImports, resolveImport } from "./imports.js";
 import { type ExcerptStrategy, type RenderedItem, renderItem } from "./item.js";
 import { matchWorkspaceMembers, packageOf, workspacePatterns } from "./packages.js";
+import { importWithheld, type SecretRuleId, scanText } from "./secrets.js";
 
 // Tiers 1, 2, 3 and 5, including the test reserve (IMPL §1.5).
 //
@@ -103,7 +104,8 @@ export type DestinationStop =
       readonly reason: "destination_too_large";
       readonly renderedBytes: number;
       readonly maxDestinationBytes: number;
-    };
+    }
+  | { readonly reason: "destination_secret"; readonly ruleId: SecretRuleId };
 
 export type TierSelection =
   | {
@@ -715,9 +717,13 @@ class Selector {
     outside.sort((a, b) => comparePaths(a.importer, b.importer));
     return {
       imported,
+      // The import is scanned before it is cut, so a cut can't leave part of a secret behind.
       gaps: outside.map(({ importer, written }) => ({
         gapType: "other",
-        statement: `\`${importer}\` imports \`${cutLabel(written)}\`, which is outside the repository and was not read.`,
+        statement:
+          scanText(written) === undefined
+            ? `\`${importer}\` imports \`${cutLabel(written)}\`, which is outside the repository and was not read.`
+            : importWithheld(importer),
         relatedPaths: [importer],
       })),
     };
