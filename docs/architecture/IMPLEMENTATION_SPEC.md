@@ -9,6 +9,7 @@
 
 Calibration on the development repositories (M2) changed the selection algorithm. `algorithmVersion` is `context-select/1.2.0`.
 
+- **Inspect summary wording (§2.4).** The "Not sent" line names excluded directories as `node_modules (not entered)` instead of counting their files, which capture never does.
 - **Tier 5 ranking and extensions (§1.5).** Files under `test`, `tests`, `__tests__`, `examples` or `fixtures`, and `*.d.ts` files, are rank 4 (`tier5:rank4:supporting`), taken in a second round-robin pass after every package's other source files. `.vue`, `.svelte`, `.astro`, `.hbs`, `.handlebars`, `.ejs` and `.njk` are source extensions, excerpted by whole lines.
 - **Outline-only code items (§1.5, §1.6).** A source excerpt that would contain no declaration, only the import block or nothing, is sent as its outline alone, with every entry omitted. It takes no source file slot. On the development repositories, several excerpts held only imports, including the core file of a library.
 - **Tier 3 order (§1.5).** Workspace definitions, task runners, package manifests, tooling configuration, then CI last. Reasons renumber to `tier3:group3:package-manifest`, `tier3:group4:tooling` and `tier3:group5:ci`.
@@ -731,7 +732,7 @@ What will be sent for analysis  (228 KB of 240 KB)
   Directory tree                1,284 files listed, depth 3
   Source samples                21 files    79 KB   4 test examples, 9 excerpted
 
-  Not sent: 18,233 dependency files, 3 lockfiles, 1 file blocked (secret pattern)
+  Not sent: node_modules (not entered), 3 lockfiles, 1 file blocked (secret pattern)
   Ignored by .gitignore: 6 files   logs/app.log, server/config.js, … ([v] lists all)
 
   [Enter] Send for analysis   [v] View file list   [a] Add paths
@@ -740,6 +741,7 @@ What will be sent for analysis  (228 KB of 240 KB)
 
 - `v` lists each item with its reason and excerpt range, and every skipped or blocked path with its reason.
 - `a` and `x` change the settings, recompute the selection, and show the summary again with the new size. Adding an `ignored` path with `a` makes that file a candidate again (§1.4); it then belongs to a tier as usual.
+- The "Not sent" line names each excluded directory followed by `(not entered)`, because capture never enters it and has no count of its contents (§1.4). Excluded files are counted by kind, and secret-blocked files are counted.
 - The ignored line lists `ignored` files (§1.4), first in path order, with the count. When ignore rules were not applied, because git metadata is `unknown`, it reads instead `Ignore rules not applied (<reason>): only the default exclusions were used.`
 - If the destination rule (§1.5) stops the session, this screen explains why and what to do, and nothing is sent.
 
