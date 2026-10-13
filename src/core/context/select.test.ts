@@ -318,7 +318,14 @@ describe("input manifest (IMPL §1.13)", () => {
   it("records an ignored path that matches the secret scan by its hash", async () => {
     const path = `keys/${awsKey}.txt`;
     const result = await ready({ ...REPO, [path]: "x\n" }, { ignored: ["keys/"] });
-    expect(result.manifest.ignored).toEqual([{ pathHash: sha256(new TextEncoder().encode(path)) }]);
+    const pathHash = sha256(new TextEncoder().encode(path));
+    expect(result.manifest.ignored).toEqual([{ pathHash }]);
+    // Like any file whose path matches, it is recorded as secret-blocked and marked [S].
+    expect(result.manifest.excluded).toContainEqual({
+      pathHash,
+      reason: "secret-scan:aws-access-key-id",
+    });
+    expect(result.tree.text).toContain("[S] <withheld>");
     expect(result.tree.text).not.toContain(awsKey);
   });
 

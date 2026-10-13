@@ -137,7 +137,9 @@ export async function selectContext(
   const blocked: { readonly path: string; readonly ruleId: SecretRuleId }[] = [...scanned.blocked];
   const blockedPaths = new Set(blocked.map((b) => b.path));
   for (const file of snapshot.files) {
-    if (file.status !== "read" && file.status !== "listed_only") continue;
+    if (file.status !== "read" && file.status !== "listed_only" && file.status !== "ignored") {
+      continue;
+    }
     const ruleId = blockedPaths.has(file.path) ? undefined : scanText(file.path);
     if (ruleId !== undefined) blocked.push({ path: file.path, ruleId });
   }
