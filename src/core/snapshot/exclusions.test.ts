@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildExclusionRules, findExclusion } from "./exclusions.js";
+import { buildExclusionRules, findExclusion, matchesPathOrAncestor } from "./exclusions.js";
 import type { EntryKind } from "./repository-fs.js";
 
 const defaults = buildExclusionRules({ userExclusions: [] });
@@ -125,6 +125,17 @@ describe("default exclusions (IMPL §1.4)", () => {
 
   it("records every default rule with source default", () => {
     expect(defaults.every((rule) => rule.source === "default")).toBe(true);
+  });
+});
+
+describe("matchesPathOrAncestor (includeIgnored)", () => {
+  it("matches the file itself, or any directory above it, with the exclusion grammar", () => {
+    expect(matchesPathOrAncestor(["config.js"], "server/config.js")).toBe(true);
+    expect(matchesPathOrAncestor(["logs/"], "logs/old/x.log")).toBe(true);
+    expect(matchesPathOrAncestor(["/server/*.js"], "server/config.js")).toBe(true);
+    expect(matchesPathOrAncestor(["logs/"], "logs")).toBe(false);
+    expect(matchesPathOrAncestor(["config.js"], "server/config.json")).toBe(false);
+    expect(matchesPathOrAncestor([], "a.txt")).toBe(false);
   });
 });
 

@@ -136,6 +136,27 @@ function matches(rule: ExclusionRule, path: string, kind: EntryKind): boolean {
   return !(rule.except ?? []).some((name) => fold(name) === fold(subject));
 }
 
+/**
+ * Whether a pattern matches the file at `path` or a directory above it, with the exclusion
+ * grammar. Used for `includeIgnored`, which names files after capture, when only their paths
+ * are known: a directory pattern such as `logs/` covers every file under it.
+ */
+export function matchesPathOrAncestor(patterns: readonly string[], path: string): boolean {
+  const rules = patterns.map((pattern) => ({
+    pattern,
+    source: "user" as const,
+    ignoreCase: false,
+  }));
+  const segments = path.split("/");
+  return rules.some(
+    (rule) =>
+      matches(rule, path, "file") ||
+      segments
+        .slice(0, -1)
+        .some((_, i) => matches(rule, segments.slice(0, i + 1).join("/"), "directory")),
+  );
+}
+
 /** `*` matches any run of characters except `/`; everything else matches itself. */
 function globMatches(pattern: string, subject: string): boolean {
   const source = pattern

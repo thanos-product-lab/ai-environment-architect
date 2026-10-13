@@ -2,7 +2,12 @@ import { type ParsedDestination, parseGuidanceBlocks } from "../destination/guid
 import type { Hash } from "../hash.js";
 import { comparePaths } from "../paths.js";
 import type { Clock, IdSource } from "../ports.js";
-import { buildExclusionRules, type ExclusionRule, findExclusion } from "./exclusions.js";
+import {
+  buildExclusionRules,
+  type ExclusionRule,
+  findExclusion,
+  matchesPathOrAncestor,
+} from "./exclusions.js";
 import { type GitMetadata, type GitReader, readGitMetadata } from "./git.js";
 import type { EntryKind, FailureReason, ReadResult, RepositoryFs } from "./repository-fs.js";
 
@@ -103,11 +108,17 @@ export interface SnapshotSettings {
   readonly userExclusions: readonly string[];
   /** The product's session storage, when it is inside the repository (DM §15). */
   readonly sessionStoragePath?: string;
+  /**
+   * Ignored files to keep as candidates anyway (IMPL §1.4), in the exclusion grammar. A
+   * directory pattern covers every file under it. Set when the developer adds paths (§2.4).
+   */
+  readonly includeIgnored: readonly string[];
 }
 
 export const DEFAULT_SNAPSHOT_SETTINGS: SnapshotSettings = {
   maxReadableFileBytes: 262_144,
   userExclusions: [],
+  includeIgnored: [],
 };
 
 export const DESTINATION_PATH = "CLAUDE.md";
@@ -142,7 +153,9 @@ export async function captureSnapshot(
   const git = await readGitMetadata(deps.git, observed, deps.fs, DESTINATION_PATH);
   const files = observed.map(
     (file): SnapshotFile =>
-      git.ignored.has(file.path) && (file.status === "read" || file.status === "listed_only")
+      git.ignored.has(file.path) &&
+      (file.status === "read" || file.status === "listed_only") &&
+      !matchesPathOrAncestor(settings.includeIgnored, file.path)
         ? { path: file.path, status: "ignored", size: file.size, hash: file.hash }
         : file,
   );

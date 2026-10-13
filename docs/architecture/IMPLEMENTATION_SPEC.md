@@ -15,7 +15,7 @@ Calibration on the development repositories (M2) changed the selection algorithm
 - **Tier 3 order (§1.5).** Workspace definitions, task runners, package manifests, tooling configuration, then CI last. Reasons renumber to `tier3:group3:package-manifest`, `tier3:group4:tooling` and `tier3:group5:ci`.
 - **Scan as selected (§1.3, §1.5, §1.7).** Each item is scanned as it is selected. A blocked file uses no bytes, item ID or source file slot, so the next candidate takes its place, and a blocked test example is replaced by the package's next test file. Before, blocked items were removed after selection without refilling, which let one false positive cost a tier a whole file's budget.
 - **Secret rules (§1.7).** `secretRulesVersion` is `secret-scan/1.1.0`. `generic-assignment` also matches names containing `pass`, `pwd`, `key`, `credential`, `auth` or `private`, and requires a high-entropy value: 3.5 bits per character, or 3.0 for 32 or more hex digits. The thresholds miss about 0.1% of random 20-character base62 secrets, and no line in the three development repositories matched the new rule.
-- **Ignored files (§1.4, §1.6, §1.8, §1.13, §2.3, §2.4).** The git adapter lists the files the repository's ignore rules match. They stay in the snapshot, hashed, with the status `ignored`, and are candidates for no tier and no expansion. The tree marks them `[I]`, and the manifest lists them and records whether ignore rules were applied. Without git, only the default and user exclusions apply, and the summary says so. Ignored files no longer count as untracked. `CLAUDE.local.md` and `.claude/settings.local.json` are excluded by default, and tier 1 no longer matches `CLAUDE.local.md`.
+- **Ignored files (§1.4, §1.6, §1.8, §1.13, §2.3, §2.4).** The git adapter lists the files the repository's ignore rules match. They stay in the snapshot, hashed, with the status `ignored`, and are candidates for no tier and no expansion. The tree marks them `[I]`, and the manifest lists them and records whether ignore rules were applied. The setting `includeIgnored` keeps chosen ignored files as candidates. Without git, only the default and user exclusions apply, and the summary says so. Ignored files no longer count as untracked. `CLAUDE.local.md` and `.claude/settings.local.json` are excluded by default, and tier 1 no longer matches `CLAUDE.local.md`.
 
 ### Changes from v0.10
 
@@ -187,6 +187,7 @@ Exclusions are recorded in the snapshot and the manifest. Excluded directories a
 - It stays in the snapshot with its hash and size, so coverage and freshness still see it, but it is a candidate for no tier and no expansion (§1.8). The tree shows it as `[I]`.
 - The destination, tracked files, excluded entries, symbolic links and unreadable entries are never `ignored`. A tracked file that an ignore pattern matches stays a candidate, as it does in git.
 - Untracked files that no ignore rule matches stay candidates.
+- The setting `includeIgnored` (§1.14) lists patterns, in the exclusion grammar below, for ignored files to keep as candidates: such a file keeps its `read` or `listed_only` status. A pattern matches the file's path, or, with a trailing `/`, any directory above it, so `logs/` keeps every file under `logs`. It is a snapshot setting, so it is part of `settingsHash`.
 - When git metadata is `unknown` (no repository, git missing or too old, or an error), ignore rules are not applied: only the default and user exclusions apply. The manifest records `ignoreRules: "not_applied"`, and the summary says so (§2.4).
 
 **Patterns.** Default and user exclusions use one grammar:
@@ -617,6 +618,7 @@ Details:
 | Per-file caps (tiers 2, 3, 5) | 12,000 / 8,000 / 6,000 |
 | `testReserveBytes`, `testExampleBytes` | 15,000, 3,000 |
 | `maxReadableFileBytes` | 262,144 |
+| `includeIgnored` | none (§1.4) |
 | `maxSourceFiles` | 24 |
 | `treeDepth`, `treeCollapseThreshold` | 4, 40 |
 | `maxExpansionRequests`, `expansionBytes`, `expansionEntryBytes` | 5, 60,000, 8,000 |
@@ -740,7 +742,7 @@ What will be sent for analysis  (228 KB of 240 KB)
 ```
 
 - `v` lists each item with its reason and excerpt range, and every skipped or blocked path with its reason.
-- `a` and `x` change the settings, recompute the selection, and show the summary again with the new size. Adding an `ignored` path with `a` makes that file a candidate again (§1.4); it then belongs to a tier as usual.
+- `a` and `x` change the settings, recompute the selection, and show the summary again with the new size. Adding an `ignored` path with `a` adds it to `includeIgnored` (§1.4, §1.14), so a new snapshot keeps that file as a candidate; it then belongs to a tier as usual.
 - The "Not sent" line names each excluded directory followed by `(not entered)`, because capture never enters it and has no count of its contents (§1.4). Excluded files are counted by kind, and secret-blocked files are counted.
 - The ignored line lists `ignored` files (§1.4), first in path order, with the count. When ignore rules were not applied, because git metadata is `unknown`, it reads instead `Ignore rules not applied (<reason>): only the default exclusions were used.`
 - If the destination rule (§1.5) stops the session, this screen explains why and what to do, and nothing is sent.

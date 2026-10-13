@@ -343,6 +343,25 @@ describe("ignored files (DM §6.1, IMPL §1.4)", () => {
     expect(statusOf(snapshot.files, "l.md")).toBe("symlink");
   });
 
+  it("keeps ignored files that includeIgnored names as candidates", async () => {
+    const fs = new MemoryFs({
+      "a.txt": "a",
+      "server/config.js": "c",
+      "logs/app.log": "l",
+      "logs/old/x.log": "o",
+      "tmp/y.log": "y",
+    });
+    const git = ignoring([blob("a.txt", "a")], ["server/config.js", "logs/", "tmp/"]);
+    const snapshot = await captureSnapshot(
+      { fs, clock: fixedClock, ids: fixedIds, git },
+      { ...DEFAULT_SNAPSHOT_SETTINGS, includeIgnored: ["config.js", "logs/"] },
+    );
+    expect(statusOf(snapshot.files, "server/config.js")).toBe("read");
+    expect(statusOf(snapshot.files, "logs/app.log")).toBe("read");
+    expect(statusOf(snapshot.files, "logs/old/x.log")).toBe("read");
+    expect(statusOf(snapshot.files, "tmp/y.log")).toBe("ignored");
+  });
+
   it("without git, nothing is ignored and only the default rules apply", async () => {
     const snapshot = await snapshotOf({ "server/config.js": "x" }, undefined);
     expect(statusOf(snapshot.files, "server/config.js")).toBe("read");
