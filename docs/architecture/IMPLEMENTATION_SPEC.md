@@ -143,7 +143,7 @@ context = select(snapshot, settings, algorithmVersion, modelTokenCount)
 It runs in this order:
 
 1. Build the candidate set (§1.4).
-2. Select and excerpt content for tiers 1, 2, 3 and 5 (§1.5, §1.6), running the secret scan (§1.7) on each item as it is selected. A blocked file is not included and uses no bytes, item ID or source file slot, so the next candidate takes its place. Candidates are tried in a fixed order, so the result is the same as if the blocked file were absent.
+2. Select and excerpt content for tiers 1, 2, 3 and 5 (§1.5, §1.6), running the secret scan (§1.7) on each item as it is selected. A blocked file is not included and uses no bytes, item ID or source file slot, so the next candidate in that tier's order takes its place. Tier membership, packages and `@path` imports are planned from the snapshot before any item is scanned, so a blocked file can still shape them: a blocked `package.json` still defines its package, and the imports of a blocked tier 1 file are still followed. Every file they bring in is scanned on its own before it is included.
 3. Scan the selected items and gap statements again (§1.7). This repeats step 2's check, so the guarantee doesn't depend on it; anything it finds is removed without refilling budgets.
 4. Render the directory tree (tier 4) from the full file list, with markers reflecting the final selection.
 5. Render all items in tier order 1, 2, 3, 4, 5 (§1.6).
@@ -162,7 +162,7 @@ Determinism requirements:
 
 A file is a **candidate** for content inclusion when all of these hold:
 
-- it is in the snapshot and not matched by an exclusion;
+- it is in the snapshot, not matched by an exclusion, and not `ignored` (below);
 - it decodes as UTF-8 and contains no NUL bytes;
 - its size is at most `maxReadableFileBytes` (default 262,144). Larger files are `listed_only`: they appear in the tree, but their content is included only through a line-range expansion (§1.8).
 
@@ -188,6 +188,7 @@ Exclusions are recorded in the snapshot and the manifest. Excluded directories a
 - The destination, tracked files, excluded entries, symbolic links and unreadable entries are never `ignored`. A tracked file that an ignore pattern matches stays a candidate, as it does in git.
 - Untracked files that no ignore rule matches stay candidates.
 - The setting `includeIgnored` (§1.14) lists patterns, in the exclusion grammar below, for ignored files to keep as candidates: such a file keeps its `read` or `listed_only` status. A pattern matches the file's path, or, with a trailing `/`, any directory above it, so `logs/` keeps every file under `logs`. It is a snapshot setting, so it is part of `settingsHash`.
+- Ignored files are listed by git after capture's two observations, so the stability check doesn't cover them: an ignore file edited during capture can give an `ignored` set that doesn't match the ignore file's hash in the snapshot.
 - When git metadata is `unknown` (no repository, git missing or too old, or an error), ignore rules are not applied: only the default and user exclusions apply. The manifest records `ignoreRules: "not_applied"`, and the summary says so (§2.4).
 
 **Patterns.** Default and user exclusions use one grammar:
@@ -218,7 +219,7 @@ Secret-bearing names and binary types compare ASCII letters case-insensitively, 
 
 Tiers 1, 2, 3 and 5 are filled in that order. Each has a byte cap. Unused bytes from tiers 1, 2 and 3 pass down to the next selected tier. Tier 4's cap is reserved up front and is not reallocated, because the tree is rendered after selection.
 
-Within a tier, every item is tried in the tier's order. An item that exceeds its per-file cap or the remaining budget is excerpted (§1.6) to fit the smaller of the two, if the tier allows it, or skipped and recorded. An item whose rendering matches the secret scan is blocked instead (§1.7), and the next item is tried as if it were absent. Later items that fit are still included. A file whose smallest possible rendering (an empty file's) cannot fit is skipped without being read.
+Within a tier, every item is tried in the tier's order. An item that exceeds its per-file cap or the remaining budget is excerpted (§1.6) to fit the smaller of the two, if the tier allows it, or skipped and recorded. An item whose rendering matches the secret scan is blocked instead (§1.7), and the next item is tried. Later items that fit are still included. A file whose smallest possible rendering (an empty file's) cannot fit is skipped without being read.
 
 **Each file belongs to one tier:** the first of tiers 1, 2, 3 and 5 that matches it, even if that tier skips it. A file is never sent twice.
 
@@ -516,7 +517,7 @@ These checks run after calls 1 and 2, in addition to the evidence validation in 
 - `gapType`: `no_command`, `no_documentation`, `undetermined_ownership`, `undetermined_convention`, or `other`;
 - `relatedPaths`: the paths or globs the gap concerns.
 
-If any related path exists in the snapshot but its relevant content was not sent (`[-]`, `[L]`, omitted outline entries, or outside the context and expansion), the gap is relabelled `not_inspected`. The review shows it as "not inspected", not "missing".
+If any related path exists in the snapshot but its relevant content was not sent (`[-]`, `[L]`, `[I]`, omitted outline entries, or outside the context and expansion), the gap is relabelled `not_inspected`. The review shows it as "not inspected", not "missing".
 
 **Absence claims** must be expressed as `absenceClaim: { pathGlob, reason }`. Application code evaluates the glob against the **full snapshot file list**:
 
@@ -549,7 +550,7 @@ Every model call records an input manifest ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md)
 {
   "manifestVersion": 1,
   "algorithmVersion": "context-select/1.2.0",
-  "secretRulesVersion": "secret-scan/1.0.0",
+  "secretRulesVersion": "secret-scan/1.1.0",
   "declarationPatternsVersion": "declarations/1.0.0",
   "settingsHash": "sha256:…",
   "snapshotId": "snap_…",
@@ -635,7 +636,7 @@ All defaults are starting points. They are calibrated on the product-development
 - Changing filesystem enumeration order or modification times does not change the context.
 - Each tier respects its cap; unused budget passes down correctly; tier 4's reserve is not reallocated.
 - Each package with a test file contributes a test example when the reserve allows.
-- A file blocked by the secret scan gives its place to the next candidate: the items, IDs and tier usage are those of a selection without that file.
+- A file blocked by the secret scan gives its place to the next candidate in its tier's order: it uses no bytes, item ID or source file slot.
 - Markdown excerpts contain only complete units, a section or the own text of a split section, except the first unit, which may be cut before a blank line; code excerpts contain only complete declarations and the import block, with at least one declaration, or are the outline alone; outlines list everything omitted except blank lines before the first heading or declaration.
 - Tree markers match the final selection, including after token-check reductions.
 - The destination is included in full, or the session stops before any call with a stated reason, for each of the four causes in §1.5.
@@ -708,7 +709,8 @@ Selected files from this repository will be sent to the model provider
 for analysis. You'll see exactly which files before anything is sent.
 
 • Excluded by default: dependencies, build output, lockfiles, .env files,
-  keys, personal Claude settings, and files your .gitignore ignores
+  keys and personal Claude settings. Files your .gitignore ignores are
+  not sent either, when git is available to list them.
 • Files matching known secret patterns are blocked. Pattern matching
   can't detect every kind of credential.
 • What's sent is kept locally with the session so it can be replayed.

@@ -13,7 +13,8 @@
 
 ### Changes from v0.6
 
-1. **Ignored files (§6.1).** Files the repository's ignore rules match, as git lists them, have the status `ignored`: hashed and listed, but never sent and never expanded. They no longer count as untracked. Without git, ignore rules are not applied.
+1. **Ignored files (§6.1).** Files the repository's ignore rules match, as git lists them, have the status `ignored`: hashed and listed, but never sent and never expanded. They no longer count as untracked. Without git, ignore rules are not applied. Ignored files are listed after the two observations, so the stability check doesn't cover them.
+2. **Personal agent configuration excluded (§6.1).** `CLAUDE.local.md` and `.claude/settings.local.json` are default exclusions.
 
 ### Changes from v0.5
 
@@ -119,7 +120,7 @@ The bounded capture of repository content used for one analysis. Snapshots are i
 | `id`, `capturedAt` | |
 | `git` | Supporting metadata only; never a substitute for file hashes. Either `unknown` with a reason (not inspected, git missing or too old, not a repository, refused as unsafe, or a git error), or known: object format (`sha1` or `sha256`), commit (none when HEAD names a branch with no commits yet; any other HEAD that can't be resolved is a git error), `workingTreeDirty` (`true`, `false` or `unknown`), and the modified, deleted and uncompared paths, the untracked count and the submodules. Git also lists the ignored files (below) |
 | `scope` | Included roots and patterns |
-| `exclusions` | Default and user exclusions (secrets, dependencies, build output, lockfiles, binary files, session storage) |
+| `exclusions` | Default and user exclusions (secrets, dependencies, build output, lockfiles, personal agent configuration, binary files, session storage) |
 | `files` | One entry per path under scope: repository-relative path, content hash, byte size, status (`read`, `listed_only`, `ignored`, `unreadable`, `truncated`, `excluded`, `symlink`) |
 | `destination` | The captured target file: `absent`; original bytes, hash and parsed Guidance Blocks (§7); or `unavailable` with a reason, when a root `CLAUDE.md` exists but is a symbolic link, not a regular file, unreadable, larger than the readable-file limit, not valid UTF-8, contains a NUL byte, or is present only under another letter case (such as `claude.md`) |
 | `readFailures` | Path and reason |
