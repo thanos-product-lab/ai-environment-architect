@@ -163,8 +163,10 @@ async function scanned(
     DEFAULT_SNAPSHOT_SETTINGS,
   );
   const selection = await selectTiers(snapshot, { ...DEFAULT_CONTEXT_SETTINGS, ...settings }, fs);
-  if (selection.state !== "selected")
+  if (selection.state === "stopped") return selection;
+  if (selection.state !== "selected") {
     throw new Error(`expected a selection, got ${selection.state}`);
+  }
   return applySecretScan(selection);
 }
 
@@ -220,16 +222,23 @@ describe("applySecretScan", () => {
       { fs, clock: fixedClock, ids: fixedIds },
       DEFAULT_SNAPSHOT_SETTINGS,
     );
-    const before = await selectTiers(snapshot, settings, fs);
-    if (before.state !== "selected") throw new Error("expected a selection");
-    const rendered = before.items[0]?.rendered;
-    expect(rendered?.outline).toContainEqual({ line: 5, label: heading, mark: "omitted" });
+    // With a harmless heading of the same length, the section is omitted and only outlined.
+    const harmless = "## Rotate the key".padEnd(heading.length, "s");
+    const plainFs = new MemoryFs({ "docs/guide.md": doc.replace(heading, harmless) });
+    const plainSnapshot = await captureSnapshot(
+      { fs: plainFs, clock: fixedClock, ids: fixedIds },
+      DEFAULT_SNAPSHOT_SETTINGS,
+    );
+    const plain = await selectTiers(plainSnapshot, settings, plainFs);
+    if (plain.state !== "selected") throw new Error("expected a selection");
+    const rendered = plain.items[0]?.rendered;
+    expect(rendered?.outline).toContainEqual({ line: 5, label: harmless, mark: "omitted" });
     expect(rendered?.included).toEqual([{ first: 1, last: 4 }]);
 
-    const after = applySecretScan(before);
-    expect(after.state === "selected" && after.blocked).toEqual([
-      { path: "docs/guide.md", tier: 2, ruleId: "stripe-key" },
-    ]);
+    const selection = await selectTiers(snapshot, settings, fs);
+    if (selection.state !== "selected") throw new Error("expected a selection");
+    expect(selection.items).toEqual([]);
+    expect(selection.blocked).toEqual([{ path: "docs/guide.md", tier: 2, ruleId: "stripe-key" }]);
   });
 
   it("scans placeholder files like any other file", async () => {
@@ -239,54 +248,65 @@ describe("applySecretScan", () => {
     ]);
   });
 
-  it("does not refill budgets or renumber item IDs", async () => {
+  it("gives a blocked file's place to the next candidate: as if the file were absent", async () => {
     const doc = (title: string) => `# ${title}\n\n${"word ".repeat(150).trimEnd()}\n`;
     const caps = { tier1: 2_000, tier2: 2_000, tier3: 2_000, tier4: 2_000, tier5: 2_000 };
-    const nodes: Record<string, MemoryNode> = {
+    const clean: Record<string, MemoryNode> = {
       "docs/a.md": doc("A"),
-      "docs/b.md": `${doc("B")}\n${awsKey}\n`,
       "docs/c.md": doc("C"),
       "docs/d.md": doc("D"),
       "docs/e.md": doc("E"),
     };
-    const fs = new MemoryFs(nodes);
-    const snapshot = await captureSnapshot(
-      { fs, clock: fixedClock, ids: fixedIds },
-      DEFAULT_SNAPSHOT_SETTINGS,
-    );
-    const settings = { ...DEFAULT_CONTEXT_SETTINGS, tierCaps: caps };
-    const before = await selectTiers(snapshot, settings, fs);
-    if (before.state !== "selected") throw new Error("expected a selection");
-    const after = applySecretScan(before);
-    if (after.state !== "selected") throw new Error("expected a selection");
+    const withSecret = { ...clean, "docs/b.md": `${doc("B")}\n${awsKey}\n` };
+    const absent = await selectedAfterScan(clean, { tierCaps: caps });
+    const blocked = await selectedAfterScan(withSecret, { tierCaps: caps });
 
-    const blockedItem = before.items.find((item) => item.path === "docs/b.md");
-    expect(blockedItem).toBeDefined();
-    expect(after.items).toEqual(before.items.filter((item) => item.path !== "docs/b.md"));
-    expect(after.skipped).toEqual(before.skipped);
-    // The budget was tight, yet nothing was re-rendered larger or added.
-    expect(before.items.some((i) => i.rendered.excerpt) || before.skipped.length > 0).toBe(true);
-
-    const tier2Before = before.tiers.find((t) => t.tier === 2);
-    const tier2After = after.tiers.find((t) => t.tier === 2);
-    expect(tier2After).toEqual({
-      ...tier2Before,
-      usedBytes: (tier2Before?.usedBytes ?? 0) - (blockedItem?.rendered.bytes ?? 0),
-      items: (tier2Before?.items ?? 0) - 1,
-    });
-    // Later tiers keep the budget they were given.
-    expect(after.tiers.find((t) => t.tier === 3)).toEqual(before.tiers.find((t) => t.tier === 3));
-    expect(after.reservedTreeBytes).toBe(before.reservedTreeBytes);
+    // The budget is tight, so the blocked file's bytes matter.
+    expect(absent.items.some((i) => i.rendered.excerpt) || absent.skipped.length > 0).toBe(true);
+    expect(blocked.blocked).toEqual([{ path: "docs/b.md", tier: 2, ruleId: "aws-access-key-id" }]);
+    expect(blocked.items).toEqual(absent.items);
+    expect(blocked.items.map((item) => item.id)).toEqual(absent.items.map((item) => item.id));
+    expect(blocked.tiers).toEqual(absent.tiers);
+    expect(blocked.skipped).toEqual(absent.skipped);
   });
 
-  it("recounts test examples in tier 5", async () => {
+  it("a blocked file doesn't use a source file slot", async () => {
+    const result = await selectedAfterScan(
+      {
+        "src/a.ts": `export const apiKey = "${body20}";\n`,
+        "src/b.ts": "export const b = 1;\n",
+        "src/c.ts": "export const c = 1;\n",
+      },
+      { maxSourceFiles: 2 },
+    );
+    expect(result.blocked.map((b) => b.path)).toEqual(["src/a.ts"]);
+    expect(result.items.map((item) => [item.id, item.path])).toEqual([
+      ["T5-001", "src/b.ts"],
+      ["T5-002", "src/c.ts"],
+    ]);
+  });
+
+  it("tries the package's next test file when its test example is blocked", async () => {
     const result = await selectedAfterScan({
       "src/index.ts": "export function main() {}\n",
       "src/index.test.ts": `const token = "${body20}";\n`,
+      "src/util.test.ts": "export const t = 1;\n",
     });
     expect(result.blocked).toEqual([
       { path: "src/index.test.ts", tier: 5, ruleId: "generic-assignment" },
     ]);
+    expect(result.items.map((item) => [item.path, item.reason])).toEqual([
+      ["src/util.test.ts", "tier5:test-example"],
+      ["src/index.ts", "tier5:rank1:entry-point"],
+    ]);
+    expect(result.tiers.find((t) => t.tier === 5)?.testExamples).toBe(1);
+  });
+
+  it("counts no test example when every test file is blocked", async () => {
+    const result = await selectedAfterScan({
+      "src/index.ts": "export function main() {}\n",
+      "src/index.test.ts": `const token = "${body20}";\n`,
+    });
     const tier5 = result.tiers.find((t) => t.tier === 5);
     expect(tier5?.testExamples).toBe(0);
     expect(tier5?.items).toBe(1);
@@ -368,6 +388,7 @@ describe("applySecretScan", () => {
       skipped: [],
       tiers: [],
       gaps: [{ gapType: "other" as const, statement, relatedPaths: ["a.md"] }],
+      blocked: [],
       reservedTreeBytes: 0,
     };
     const result = applySecretScan(selection);
@@ -396,6 +417,7 @@ describe("applySecretScan", () => {
       skipped: [],
       tiers: [],
       gaps: [{ gapType: "other" as const, statement: "Some text.", relatedPaths: [path, "a.md"] }],
+      blocked: [],
       reservedTreeBytes: 0,
     };
     const result = applySecretScan(selection);

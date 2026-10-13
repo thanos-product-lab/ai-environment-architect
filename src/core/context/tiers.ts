@@ -10,14 +10,16 @@ import { cutLabel, DECLARATION_FAMILIES } from "./declarations.js";
 import { findImports, resolveImport } from "./imports.js";
 import { blockRanges, type ExcerptStrategy, type RenderedItem, renderItem } from "./item.js";
 import { matchWorkspaceMembers, packageOf, workspacePatterns } from "./packages.js";
-import { importWithheld, type SecretRuleId, scanText } from "./secrets.js";
+import { importWithheld, type SecretRuleId, scanItem, scanText } from "./secrets.js";
 
 // Tiers 1, 2, 3 and 5, including the test reserve (IMPL §1.5).
 //
 // Each file belongs to the first tier that matches it. Tiers fill in order 1, 2, 3, 5; within a
 // tier every item is tried in the tier's order, excerpted to fit where the tier allows it, and
-// recorded as skipped if not even one line fits. Unused bytes pass down to the next tier. Tier 4,
-// the directory tree, is only reserved here.
+// recorded as skipped if not even one line fits. Each rendering is scanned for secrets as it is
+// selected (IMPL §1.7): a blocked file uses no bytes, ID or slot, so the next candidate takes its
+// place. Unused bytes pass down to the next tier. Tier 4, the directory tree, is only reserved
+// here.
 
 /**
  * The selection algorithm's version (IMPL §1.3). The name lists and ranking rules below are part
@@ -78,6 +80,16 @@ export interface SelectedItem {
   readonly rendered: RenderedItem;
 }
 
+/**
+ * A selected file the secret scan removed. The tree marks it `[S]`; the manifest records the
+ * rule. The path is kept as is in memory, and the manifest records it with `recordedPath`.
+ */
+export interface BlockedFile {
+  readonly path: string;
+  readonly tier: SelectedTier;
+  readonly ruleId: SecretRuleId;
+}
+
 export interface SkippedFile {
   readonly path: string;
   readonly tier: SelectedTier;
@@ -124,6 +136,8 @@ export type TierSelection =
       readonly items: readonly SelectedItem[];
       /** Files tried and never included, in the order they were first tried. */
       readonly skipped: readonly SkippedFile[];
+      /** Files whose rendering matched the secret scan, in the order they were tried. */
+      readonly blocked: readonly BlockedFile[];
       readonly tiers: readonly TierUsage[];
       readonly gaps: readonly SelectionGap[];
       readonly reservedTreeBytes: number;
@@ -173,6 +187,10 @@ export async function selectTiers(
       blocks: blockRanges(destination.bytes, destination.blocks),
     };
     const rendered = renderItem(input, "none", settings.maxDestinationBytes);
+    const secret = rendered === undefined ? undefined : scanItem({ ...input, tier: 1, rendered });
+    if (secret !== undefined) {
+      return { state: "stopped", stop: { reason: "destination_secret", ruleId: secret } };
+    }
     if (rendered === undefined) {
       const full = renderItem(input, "none", Number.POSITIVE_INFINITY);
       return {
@@ -428,6 +446,7 @@ class Selector {
   private readonly contents = new Map<string, Uint8Array>();
   private readonly items: SelectedItem[] = [];
   private readonly skipped = new Map<string, SkippedFile>();
+  private readonly blocked: BlockedFile[] = [];
   private readonly fills: Fill[] = [];
 
   private readonly snapshot: Snapshot;
@@ -502,7 +521,7 @@ class Selector {
     const skippedConfig: string[] = [];
     for (const path of [...tier1Reasons.keys()].sort(byDepthThenPath)) {
       const added = await this.add(fill1, path, tier1Reasons.get(path) ?? "", "none", Infinity);
-      if (!added) skippedConfig.push(path);
+      if (added === "skipped") skippedConfig.push(path);
     }
     if (skippedConfig.length > 0) {
       gaps.push({ gapType: "other", statement: AGENT_CONFIG_SKIPPED, relatedPaths: skippedConfig });
@@ -550,6 +569,7 @@ class Selector {
       packages,
       items: this.items,
       skipped: [...this.skipped.values()],
+      blocked: this.blocked,
       tiers: this.fills.map((fill) => ({
         tier: fill.tier,
         capBytes: fill.capBytes,
@@ -573,23 +593,30 @@ class Selector {
     }
     const order = [...byPackage.keys()].sort(comparePaths);
 
-    // The test reserve: one example per package, the first test file in path order.
+    // The test reserve: one example per package, the first test file in path order. If the scan
+    // blocks it, the next test file takes its place.
     const reserve = Math.min(settings.testReserveBytes, fill.budgetBytes);
-    const chosen = new Set<string>();
+    const tried = new Set<string>();
     for (const pkg of order) {
-      const test = (byPackage.get(pkg) ?? []).find(isTestFile);
-      if (test === undefined) continue;
-      const limit = Math.min(settings.testExampleBytes, reserve - fill.usedBytes);
-      if (await this.add(fill, test, "tier5:test-example", "code", limit)) {
-        chosen.add(test);
-        fill.testExamples++;
+      for (const test of (byPackage.get(pkg) ?? []).filter(isTestFile)) {
+        const limit = Math.min(settings.testExampleBytes, reserve - fill.usedBytes);
+        const added = await this.add(fill, test, "tier5:test-example", "code", limit);
+        if (added === "blocked") {
+          tried.add(test);
+          continue;
+        }
+        if (added === "added") {
+          tried.add(test);
+          fill.testExamples++;
+        }
+        break;
       }
     }
 
     // Ranked round-robin over the rest.
     const queues = order.map((pkg) =>
       (byPackage.get(pkg) ?? [])
-        .filter((path) => !chosen.has(path))
+        .filter((path) => !tried.has(path))
         .sort((a, b) => rankOf(a) - rankOf(b) || byDepthThenPath(a, b)),
     );
     let count = 0;
@@ -599,7 +626,8 @@ class Selector {
         const path = queue[round];
         if (path === undefined) continue;
         const reason = RANK_REASONS[rankOf(path)] ?? "";
-        if (await this.add(fill, path, reason, "code", settings.perFileCaps.tier5)) count++;
+        const added = await this.add(fill, path, reason, "code", settings.perFileCaps.tier5);
+        if (added === "added") count++;
       }
     }
   }
@@ -617,14 +645,17 @@ class Selector {
     return fill;
   }
 
-  /** Includes `path`, excerpted if allowed, within its per-file limit and the tier's remaining budget. */
+  /**
+   * Includes `path`, excerpted if allowed, within its per-file limit and the tier's remaining
+   * budget, unless its rendering matches the secret scan.
+   */
   private async add(
     fill: Fill,
     path: string,
     reason: string,
     strategy: ExcerptStrategy,
     perFileLimit: number,
-  ): Promise<boolean> {
+  ): Promise<"added" | "skipped" | "blocked"> {
     const hash = this.hashes.get(path);
     if (hash === undefined) throw new Error(`${path} is not a candidate`);
     const limit = Math.min(perFileLimit, remaining(fill));
@@ -638,13 +669,20 @@ class Selector {
         : undefined;
     if (rendered === undefined) {
       this.skipped.set(path, { path, tier: fill.tier, reason: `tier${fill.tier}:cap-reached` });
-      return false;
+      return "skipped";
+    }
+    const item: SelectedItem = { ...input, rendered };
+    const ruleId = scanItem(item);
+    if (ruleId !== undefined) {
+      this.skipped.delete(path);
+      this.blocked.push({ path, tier: fill.tier, ruleId });
+      return "blocked";
     }
     this.skipped.delete(path);
-    this.items.push({ ...input, rendered });
+    this.items.push(item);
     fill.sequence++;
     fill.usedBytes += rendered.bytes;
-    return true;
+    return "added";
   }
 
   /** Live content, verified against the snapshot hash. */

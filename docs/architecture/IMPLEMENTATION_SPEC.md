@@ -9,6 +9,7 @@
 
 Calibration on the development repositories (M2) changed the selection algorithm. `algorithmVersion` is `context-select/1.2.0`.
 
+- **Scan as selected (§1.3, §1.5, §1.7).** Each item is scanned as it is selected. A blocked file uses no bytes, item ID or source file slot, so the next candidate takes its place, and a blocked test example is replaced by the package's next test file. Before, blocked items were removed after selection without refilling, which let one false positive cost a tier a whole file's budget.
 - **Secret rules (§1.7).** `secretRulesVersion` is `secret-scan/1.1.0`. `generic-assignment` also matches names containing `pass`, `pwd`, `key`, `credential`, `auth` or `private`, and requires a high-entropy value: 3.5 bits per character, or 3.0 for 32 or more hex digits. The thresholds miss about 0.1% of random 20-character base62 secrets, and no line in the three development repositories matched the new rule.
 - **Ignored files (§1.4, §1.6, §1.8, §1.13, §2.3, §2.4).** The git adapter lists the files the repository's ignore rules match. They stay in the snapshot, hashed, with the status `ignored`, and are candidates for no tier and no expansion. The tree marks them `[I]`, and the manifest lists them and records whether ignore rules were applied. Without git, only the default and user exclusions apply, and the summary says so. Ignored files no longer count as untracked. `CLAUDE.local.md` and `.claude/settings.local.json` are excluded by default, and tier 1 no longer matches `CLAUDE.local.md`.
 
@@ -138,8 +139,8 @@ context = select(snapshot, settings, algorithmVersion, modelTokenCount)
 It runs in this order:
 
 1. Build the candidate set (§1.4).
-2. Select and excerpt content for tiers 1, 2, 3 and 5 (§1.5, §1.6).
-3. Run the secret scan over every selected item (§1.7). Excluded items are removed, and their tier budgets are **not** refilled, so the selection does not depend on scan order.
+2. Select and excerpt content for tiers 1, 2, 3 and 5 (§1.5, §1.6), running the secret scan (§1.7) on each item as it is selected. A blocked file is not included and uses no bytes, item ID or source file slot, so the next candidate takes its place. Candidates are tried in a fixed order, so the result is the same as if the blocked file were absent.
+3. Scan the selected items and gap statements again (§1.7). This repeats step 2's check, so the guarantee doesn't depend on it; anything it finds is removed without refilling budgets.
 4. Render the directory tree (tier 4) from the full file list, with markers reflecting the final selection.
 5. Render all items in tier order 1, 2, 3, 4, 5 (§1.6).
 6. Assemble the complete request and run the token check (§1.10). Apply deterministic reductions if needed; tree markers are updated for any removed items.
@@ -212,7 +213,7 @@ Secret-bearing names and binary types compare ASCII letters case-insensitively, 
 
 Tiers 1, 2, 3 and 5 are filled in that order. Each has a byte cap. Unused bytes from tiers 1, 2 and 3 pass down to the next selected tier. Tier 4's cap is reserved up front and is not reallocated, because the tree is rendered after selection.
 
-Within a tier, every item is tried in the tier's order. An item that exceeds its per-file cap or the remaining budget is excerpted (§1.6) to fit the smaller of the two, if the tier allows it, or skipped and recorded. Later items that fit are still included. A file whose smallest possible rendering (an empty file's) cannot fit is skipped without being read.
+Within a tier, every item is tried in the tier's order. An item that exceeds its per-file cap or the remaining budget is excerpted (§1.6) to fit the smaller of the two, if the tier allows it, or skipped and recorded. An item whose rendering matches the secret scan is blocked instead (§1.7), and the next item is tried as if it were absent. Later items that fit are still included. A file whose smallest possible rendering (an empty file's) cannot fit is skipped without being read.
 
 **Each file belongs to one tier:** the first of tiers 1, 2, 3 and 5 that matches it, even if that tier skips it. A file is never sent twice.
 
@@ -301,7 +302,7 @@ These files are the source of command evidence. Commands are always reported as 
 
 A file belongs to the deepest package that contains it. Source files in no package form a root package, which comes first in package path order.
 
-**Test reserve.** Tier 5 first fills a reserved sub-budget, `testReserveBytes` (default 15,000). In package path order, each package contributes one test example: the first file in path order matching common test patterns (`*.test.*`, `*.spec.*`, `test_*.py`, `*_test.py`, `*_test.go`, files under `tests/`, `test/` or `__tests__/`). Each example is capped at `testExampleBytes` (default 3,000) and excerpted by declaration. Unused reserve passes to the main tier 5 pool. Test files already chosen are excluded from the ranking below; a test file the reserve could not fit is ranked like any other. Test files must be source files, and the directory patterns match at any depth.
+**Test reserve.** Tier 5 first fills a reserved sub-budget, `testReserveBytes` (default 15,000). In package path order, each package contributes one test example: the first file in path order, not blocked by the secret scan, matching common test patterns (`*.test.*`, `*.spec.*`, `test_*.py`, `*_test.py`, `*_test.go`, files under `tests/`, `test/` or `__tests__/`). Each example is capped at `testExampleBytes` (default 3,000) and excerpted by declaration. Unused reserve passes to the main tier 5 pool. Test files already chosen are excluded from the ranking below; a test file the reserve could not fit is ranked like any other. Test files must be source files, and the directory patterns match at any depth.
 
 **Ranking within a package.** Each remaining source file gets the first matching rank:
 
@@ -434,7 +435,7 @@ Excerpts and blocks were already scanned when first selected. They are scanned a
 
 **On a match:**
 
-- During selection, the **whole file** is excluded from that and all later calls in the session. Redaction is not attempted in the first slice: partially redacted content is easy to get wrong. The scan covers the whole rendered item, header and outline included, because a heading in an outline can carry a secret from an omitted section. Other items keep their IDs, and tier usage counts only the items that remain.
+- During selection, the **whole file** is excluded from that and all later calls in the session. Redaction is not attempted in the first slice: partially redacted content is easy to get wrong. The scan covers the whole rendered item, header and outline included, because a heading in an outline can carry a secret from an omitted section. The scan runs as each item is selected (§1.3, §1.5): the blocked file uses no budget, item ID or source file slot, and the next candidate takes its place. A test example that is blocked is replaced by the package's next test file.
 - The scan also reads the uncut text of every outline label that was cut to 80 code points (§1.6), so a cut can't leave part of a secret behind. A match blocks the file.
 - A path can match a rule, for example a file named after an access key ID. The raw path is scanned, because the item header JSON-encodes it, which can hide a match. Such a file's content is never sent, it is marked `[S]`, and it is recorded as secret-blocked even when no tier selected it. Any tree name or link target that matches is written `<withheld>`. A match can span segments (`token=abc/def…`), so every segment it may cover is withheld too: from the last segment whose suffix of the path still matches to the first segment whose prefix matches, or every segment if those don't overlap. Records that leave the selection hold the path's SHA-256 instead of the path: `pathHash` in the manifest, and `relatedPathHashes` in gap findings, so `relatedPaths` only ever holds real paths.
 - Selection gap statements are scanned too. An import outside the repository is scanned before it is cut to 80 code points; if it matches, the statement names only the importing file and says the import is withheld. Any other gap statement that matches is replaced by a fixed statement.
@@ -626,6 +627,7 @@ All defaults are starting points. They are calibrated on the product-development
 - Changing filesystem enumeration order or modification times does not change the context.
 - Each tier respects its cap; unused budget passes down correctly; tier 4's reserve is not reallocated.
 - Each package with a test file contributes a test example when the reserve allows.
+- A file blocked by the secret scan gives its place to the next candidate: the items, IDs and tier usage are those of a selection without that file.
 - Markdown excerpts contain only complete units, a section or the own text of a split section, except the first unit, which may be cut before a blank line; code excerpts contain only complete declarations and the import block; outlines list everything omitted except blank lines before the first heading or declaration.
 - Tree markers match the final selection, including after token-check reductions.
 - The destination is included in full, or the session stops before any call with a stated reason, for each of the four causes in §1.5.

@@ -1,8 +1,8 @@
 import { type Hash, sha256 } from "../hash.js";
 import type {
+  BlockedFile,
   DestinationStop,
   SelectedItem,
-  SelectedTier,
   SelectionGap,
   TierSelection,
   TierUsage,
@@ -147,32 +147,27 @@ export function valueEntropy(value: string): number {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Applying the scan to a tier selection (IMPL §1.3 step 3).
+// Checking a tier selection again (IMPL §1.3 step 3). Tiers scan each file as they select it;
+// this repeats the scan over the final items and the gap statements, so the guarantee doesn't
+// depend on that.
 
 type Selected = Extract<TierSelection, { state: "selected" }>;
 
-/**
- * A selected file the scan removed. The tree marks it `[S]`; the manifest records the rule. The
- * path is kept as is in memory, and the manifest records it with `recordedPath`.
- */
-export interface BlockedFile {
-  readonly path: string;
-  readonly tier: SelectedTier;
-  readonly ruleId: SecretRuleId;
-}
+export type { BlockedFile };
 
 export type ScannedSelection =
-  | (Selected & { readonly blocked: readonly BlockedFile[] })
+  | Selected
   /** The destination matched: the session stops before any model call (IMPL §1.5). */
   | { readonly state: "stopped"; readonly stop: DestinationStop };
 
 /**
- * Removes every item whose rendering matches a rule. Budgets are not refilled and item IDs are
- * not reassigned, so the result doesn't depend on scan order. Tier usage counts what remains.
+ * Removes any item whose rendering matches a rule. Tiers have already done this as they selected,
+ * so normally nothing is removed; if something is, budgets are not refilled and item IDs are not
+ * reassigned. Tier usage counts what remains.
  */
 export function applySecretScan(selection: Selected): ScannedSelection {
   const kept: SelectedItem[] = [];
-  const blocked: BlockedFile[] = [];
+  const blocked: BlockedFile[] = [...selection.blocked];
   for (const item of selection.items) {
     const ruleId = scanItem(item);
     if (ruleId === undefined) {
@@ -189,7 +184,10 @@ export function applySecretScan(selection: Selected): ScannedSelection {
   return {
     ...selection,
     items: kept,
-    tiers: blocked.length === 0 ? selection.tiers : selection.tiers.map((u) => recount(u, kept)),
+    tiers:
+      kept.length === selection.items.length
+        ? selection.tiers
+        : selection.tiers.map((u) => recount(u, kept)),
     gaps,
     blocked,
   };
@@ -219,7 +217,7 @@ function withheldIfSecret(gap: SelectionGap): SelectionGap {
  * scanned raw: in the header it is JSON-encoded, which can hide a match. A cut label could
  * otherwise leave part of a secret that no rule matches.
  */
-function scanItem(item: SelectedItem): SecretRuleId | undefined {
+export function scanItem(item: SelectedItem): SecretRuleId | undefined {
   const path = scanText(item.path);
   if (path !== undefined) return path;
   const rendered = scanText(item.rendered.text);
