@@ -143,7 +143,7 @@ The working tree is **dirty** when its bytes differ from the commit: a tracked p
 - Excluded paths are never opened, so they are not compared, even when tracked. A changed lockfile doesn't make the tree dirty.
 - Submodules are listed but not compared, and files inside them are not counted as untracked.
 - A tracked path that can't be compared (unreadable, or changed since capture) is listed as uncompared, and so is any unreadable directory, tracked or not, because it may hide changes. If nothing else differs, `workingTreeDirty` is then `unknown`, never `false`.
-- `ignored` files are not untracked, as in `git status`. Without git there is no comparison at all.
+- `ignored` files are not untracked, as in `git status`, even when `includeIgnored` keeps one as a candidate. Without git there is no comparison at all.
 - Only bytes are compared. The executable bit and the index (staged changes) are not.
 - `.git` is excluded whether it is a directory or, in a linked worktree, a `gitdir:` file.
 
