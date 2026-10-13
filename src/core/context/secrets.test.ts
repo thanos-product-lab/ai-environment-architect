@@ -17,6 +17,7 @@ import {
   SECRET_RULES,
   SECRET_RULES_VERSION,
   scanText,
+  valueEntropy,
 } from "./secrets.js";
 import { type ContextSettings, DEFAULT_CONTEXT_SETTINGS, selectTiers } from "./tiers.js";
 
@@ -32,14 +33,14 @@ describe("secret rules version", () => {
     // If this fails, the rules changed. Increase SECRET_RULES_VERSION and record the new
     // fingerprint here (IMPL §1.7).
     const canonical = JSON.stringify(
-      SECRET_RULES.map((rule) => [rule.id, rule.pattern.source, rule.pattern.flags]),
+      SECRET_RULES.map((rule) => [rule.id, rule.pattern.source, rule.pattern.flags, rule.value]),
     );
     expect({
       version: SECRET_RULES_VERSION,
       fingerprint: sha256(new TextEncoder().encode(canonical)),
     }).toEqual({
-      version: "secret-scan/1.0.0",
-      fingerprint: "sha256:9ae458275333092b7032960378b4e3ac420d40943a13b8510dc9a3c2bdddfd50",
+      version: "secret-scan/1.1.0",
+      fingerprint: "sha256:1e2fdb63a49a391294600525e132b62ab72e39d821d5ab933b966b76ee0834ac",
     });
   });
 
@@ -98,6 +99,23 @@ describe("scanText", () => {
     expect(scanText(`PASSWORD=${body20}`)).toBe("generic-assignment");
   });
 
+  it("requires a high-entropy value for generic-assignment", () => {
+    // 3.5 bits per character, or 3.0 for a value of 32 or more hex digits only.
+    expect(valueEntropy("aaaa")).toBe(0);
+    expect(valueEntropy("abcd")).toBe(2);
+    expect(scanText(`token=${"ab".repeat(10)}1`)).toBeUndefined();
+    const hex32 = "0123456789abcdef".repeat(2);
+    expect(valueEntropy(hex32)).toBe(4);
+    expect(scanText(`key=${hex32}`)).toBe("generic-assignment");
+    expect(scanText(`key=${hex32.slice(0, 31)}`)).toBeUndefined();
+    // Padding is not part of the value's entropy.
+    expect(scanText(`token=${"ab".repeat(10)}1==`)).toBeUndefined();
+  });
+
+  it("keeps looking past a low-entropy value on the same line", () => {
+    expect(scanText(`token=${"ab".repeat(10)}1 secret="${body20}"`)).toBe("generic-assignment");
+  });
+
   it("requires 20 characters, a digit and a letter for generic-assignment", () => {
     expect(scanText(`token=${body20.slice(0, 19)}`)).toBeUndefined();
     expect(scanText(`token=${body20}`)).toBe("generic-assignment");
@@ -120,6 +138,8 @@ describe("scanText", () => {
     ["repeated JWT prefixes", "token=eyJ."],
     ["repeated padding", "token=a1=="],
     ["repeated key headers", "-----BEGIN A"],
+    ["repeated low-entropy assignments", `key=${"ab".repeat(10)}1 `],
+    ["repeated low-entropy assignments without separators", `key=${"ab".repeat(10)}1;`],
   ])("finishes quickly on %s", (_, unit) => {
     // About a million characters: linear time takes milliseconds, quadratic time takes hours.
     const text = unit.repeat(Math.ceil(1_000_000 / unit.length));

@@ -9,6 +9,7 @@
 
 Calibration on the development repositories (M2) changed the selection algorithm. `algorithmVersion` is `context-select/1.2.0`.
 
+- **Secret rules (§1.7).** `secretRulesVersion` is `secret-scan/1.1.0`. `generic-assignment` also matches names containing `pass`, `pwd`, `key`, `credential`, `auth` or `private`, and requires a high-entropy value: 3.5 bits per character, or 3.0 for 32 or more hex digits. The thresholds miss about 0.1% of random 20-character base62 secrets, and no line in the three development repositories matched the new rule.
 - **Ignored files (§1.4, §1.6, §1.8, §1.13, §2.3, §2.4).** The git adapter lists the files the repository's ignore rules match. They stay in the snapshot, hashed, with the status `ignored`, and are candidates for no tier and no expansion. The tree marks them `[I]`, and the manifest lists them and records whether ignore rules were applied. Without git, only the default and user exclusions apply, and the summary says so. Ignored files no longer count as untracked. `CLAUDE.local.md` and `.claude/settings.local.json` are excluded by default, and tier 1 no longer matches `CLAUDE.local.md`.
 
 ### Changes from v0.10
@@ -402,10 +403,10 @@ A fixed, versioned rule set detects **known secret patterns**:
 
 - private key headers (`-----BEGIN … PRIVATE KEY-----`);
 - known credential prefixes (for example AWS access key IDs, GitHub, Slack, Stripe, OpenAI and Anthropic key formats);
-- assignments whose name contains `secret`, `token`, `password`, `api_key` or `apikey`, and whose value is a long literal;
+- assignments whose name contains `secret`, `token`, `password`, `api_key`, `apikey`, `pass`, `pwd`, `key`, `credential`, `auth` or `private`, and whose value is a long, high-entropy literal;
 - connection strings with embedded credentials.
 
-**Rules.** `secretRulesVersion` is `secret-scan/1.0.0`. Rules are tried in this order, and the first that matches anywhere is recorded. Every rule works within one line; line ends are LF, CR, U+2028 and U+2029.
+**Rules.** `secretRulesVersion` is `secret-scan/1.1.0`. Rules are tried in this order, and the first that matches anywhere is recorded. Every rule works within one line; line ends are LF, CR, U+2028 and U+2029.
 
 | Rule ID | Matches |
 |---|---|
@@ -417,7 +418,7 @@ A fixed, versioned rule set detects **known secret patterns**:
 | `anthropic-key` | `sk-ant-`, a kind of lower-case letters and digits, `-`, then 20 or more letters, digits, `_` or `-` |
 | `openai-key` | `sk-proj-`, `sk-svcacct-` or `sk-admin-`, then 20 or more letters, digits, `_` or `-`; or the legacy form: `sk-`, 20 letters or digits, `T3BlbkFJ`, 20 letters or digits |
 | `connection-string` | A scheme (a letter, then letters, digits, `+`, `.` or `-`), `://`, an optional user, `:`, a password, `@` and a host. User, password and host contain no whitespace, `@` or `/`, and the user no `:`. A password starting with `$`, `{` or `<`, or with `%` not followed by two hex digits, is a reference such as `${DB_PASSWORD}` or `%s`, not a literal |
-| `generic-assignment` | A name of letters, digits, `_`, `.` and `-` containing `secret`, `token`, `password`, `api_key` or `apikey` (ASCII case-insensitive), optionally in quotes; then `=`, `:`, `:=` or `=>`, never a comparison; then a literal of at least 20 characters from `A–Z a–z 0–9 _ + / . -`, with up to two `=` at the end, containing a digit and a letter. A quoted literal ends at its closing quote. An unquoted literal has no `.` unless it starts with `eyJ` (a JWT), because a dotted value such as `process.env.KEY_V2` is a code reference; it is followed by whitespace, a quote, `,`, `;` or the end of the line |
+| `generic-assignment` | A name of letters, digits, `_`, `.` and `-` containing `secret`, `token`, `password`, `api_key`, `apikey`, `pass`, `pwd`, `key`, `credential`, `auth` or `private` (ASCII case-insensitive), optionally in quotes; then `=`, `:`, `:=` or `=>`, never a comparison; then a literal of at least 20 characters from `A–Z a–z 0–9 _ + / . -`, with up to two `=` at the end, containing a digit and a letter. A quoted literal ends at its closing quote. An unquoted literal has no `.` unless it starts with `eyJ` (a JWT), because a dotted value such as `process.env.KEY_V2` is a code reference; it is followed by whitespace, a quote, `,`, `;` or the end of the line. The literal must be **high-entropy**: without its trailing `=` padding, its Shannon entropy is at least 3.5 bits per character, or, if it is hex digits only (all lower-case or all upper-case), it is at least 32 digits long with at least 3.0 bits per character. A low-entropy literal doesn't end the search: a later assignment on the same line can still match |
 
 Unless stated, credential prefixes must not follow a letter or digit. Patterns must scan in time linear in the text's length: a hostile file can't stall the scan. Any change to the rules or their order increases `secretRulesVersion`.
 

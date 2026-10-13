@@ -11,6 +11,8 @@ const join = (...fragments: string[]): string => fragments.join("");
 
 /** 20 mixed letters and digits. */
 const body20 = join("a1B2c3D4e5", "F6g7H8i9J0");
+/** 40 varied hex digits, like a key ID. */
+const hex40 = join("3f9a1c7e5b", "2d8046f1a9", "c3e7b5d02f", "8a6e4c1b97");
 
 export interface SecretFixture {
   readonly rule: SecretRuleId;
@@ -129,6 +131,13 @@ export const SECRET_FIXTURES: readonly SecretFixture[] = [
       `  - "POSTGRES_PASSWORD=${body20}"`,
       `ID_TOKEN=${join("eyJ", "hbGciOiJIUzI1NiJ9", ".", "eyJzdWIiOiIxMjM0In0", ".", "SflKxwRJSMeKKF2QT4fw")}`,
       `   3 | GITHUB_TOKEN=${body20} # rendered line`,
+      // The name fragments added in secret-scan/1.1.0.
+      `  DB_PASS: "${body20}",`,
+      `JWT_KEY=${body20}`,
+      `pwd = '${body20}'`,
+      `"credentials": "${body20}"`,
+      `authHeader: "${body20}"`,
+      `"private_key_id": "${hex40}",`,
     ],
     misses: [
       "const token = request.headers.authorization;",
@@ -144,7 +153,13 @@ export const SECRET_FIXTURES: readonly SecretFixture[] = [
       `token !== "${body20}"`,
       "tokens.map((token) => token.value1234567890)",
       `api_key:\n  ${body20}`,
-      `monkey = "${body20}"`,
+      `turtle = "${body20}"`,
+      // Long enough, with a digit and a letter, but not random enough to be a secret.
+      `API_KEY=${"x".repeat(19)}1`,
+      `password = "${"ab".repeat(10)}12"`,
+      `cacheKey: "${join("2024-01-01", "T00-00-00Z0000")}"`,
+      // Hex shorter than 32 digits: object IDs and short hashes, not keys.
+      `key = "${hex40.slice(0, 24)}"`,
       // Code references, not literals.
       "apiKey: process.env.STRIPE_KEY_V2,",
       "clientSecret: config.auth0.clientSecret1,",

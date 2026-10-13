@@ -15,7 +15,7 @@ import type {
 // reports only the rule's ID, never the matched text or where it was.
 
 /** Increase with any change to the rules or their order; a test pins the set to its version. */
-export const SECRET_RULES_VERSION = "secret-scan/1.0.0";
+export const SECRET_RULES_VERSION = "secret-scan/1.1.0";
 
 export type SecretRuleId =
   | "private-key"
@@ -32,6 +32,17 @@ export interface SecretRule {
   readonly id: SecretRuleId;
   /** No `g` or `y` flag, so a test leaves no state behind. */
   readonly pattern: RegExp;
+  /**
+   * When set, a match counts only if its value, the first capture group that matched, is random
+   * enough: at least `minBitsPerChar` of Shannon entropy per character, or for a value of hex
+   * digits only, at least `minHexLength` long with `minHexBitsPerChar`. Trailing `=` padding is
+   * not part of the value.
+   */
+  readonly value?: {
+    readonly minBitsPerChar: number;
+    readonly minHexLength: number;
+    readonly minHexBitsPerChar: number;
+  };
 }
 
 // generic-assignment's parts. A value is base64, URL-safe base64, hex or a JWT: `=` appears only
@@ -40,8 +51,21 @@ export interface SecretRule {
 // with a dot is a code reference such as `process.env.KEY_V2`, unless it is a JWT (`eyJ…`).
 const NAME = "[A-Za-z0-9_.-]";
 const VALUE = "[A-Za-z0-9_+/.-]";
-const LITERAL = `${VALUE}{20,}={0,2}`;
-const UNQUOTED = `(?:eyJ${VALUE}{17,}|[A-Za-z0-9_+/-]{20,})={0,2}`;
+const LITERAL = `(${VALUE}{20,}={0,2})`;
+const UNQUOTED = `((?:eyJ${VALUE}{17,}|[A-Za-z0-9_+/-]{20,})={0,2})`;
+const NAME_FRAGMENTS = [
+  "secret",
+  "token",
+  "password",
+  "api_key",
+  "apikey",
+  "pass",
+  "pwd",
+  "key",
+  "credential",
+  "auth",
+  "private",
+];
 
 /** In order: when several rules match, the first one is reported. */
 export const SECRET_RULES: readonly SecretRule[] = [
@@ -71,25 +95,55 @@ export const SECRET_RULES: readonly SecretRule[] = [
       /(?<![A-Za-z0-9+.-])[A-Za-z][A-Za-z0-9+.-]*:\/\/[^\s:@/]*:(?![${<]|%(?![0-9A-Fa-f]{2}))[^\s@/]+@[^\s@/]+/,
   },
   {
-    // A name containing secret, token, password, api_key or apikey; then =, :, := or => (never a
-    // comparison); then a literal of at least 20 value characters with a digit and a letter,
-    // quoted, or unquoted and followed by whitespace, a quote, a comma, a semicolon or the end of
-    // the line. Line ends are LF, CR, U+2028 and U+2029, as in the `m` flag. The keyword is
-    // found by a lazy lookahead, so a long name is not backtracked over.
+    // A name containing one of NAME_FRAGMENTS; then =, :, := or => (never a comparison); then a
+    // literal of at least 20 value characters with a digit and a letter, quoted, or unquoted and
+    // followed by whitespace, a quote, a comma, a semicolon or the end of the line; and the value
+    // must be random enough (`value`). Line ends are LF, CR, U+2028 and U+2029, as in the `m`
+    // flag. The fragment is found by a lazy lookahead, so a long name is not backtracked over.
     id: "generic-assignment",
     pattern: new RegExp(
-      `(?<!${NAME})["'\`]?(?=${NAME}*?(?:secret|token|password|api_key|apikey))${NAME}+["'\`]?` +
+      `(?<!${NAME})["'\`]?(?=${NAME}*?(?:${NAME_FRAGMENTS.join("|")}))${NAME}+["'\`]?` +
         `[ \\t]*(?:=>|:=|:|(?<![=!<>])=(?!=))[ \\t]*` +
         `(?=["'\`]?${VALUE}*[0-9])(?=["'\`]?${VALUE}*[A-Za-z])` +
         `(?:"${LITERAL}"|'${LITERAL}'|\`${LITERAL}\`|${UNQUOTED}(?=[\\s,;"'\`]|$))`,
       "im",
     ),
+    value: { minBitsPerChar: 3.5, minHexLength: 32, minHexBitsPerChar: 3 },
   },
 ];
 
 /** The first rule that matches anywhere in `text`, or undefined. */
 export function scanText(text: string): SecretRuleId | undefined {
-  return SECRET_RULES.find((rule) => rule.pattern.test(text))?.id;
+  return SECRET_RULES.find((rule) => matchesRule(rule, text))?.id;
+}
+
+function matchesRule(rule: SecretRule, text: string): boolean {
+  const value = rule.value;
+  if (value === undefined) return rule.pattern.test(text);
+  if (!rule.pattern.test(text)) return false;
+  // Matches don't overlap, and each is found in one pass, so this stays linear in the text.
+  for (const match of text.matchAll(new RegExp(rule.pattern.source, `${rule.pattern.flags}g`))) {
+    const literal = match.slice(1).find((group) => group !== undefined) ?? "";
+    const unpadded = literal.replace(/=+$/, "");
+    const hex = /^[0-9a-f]+$/.test(unpadded) || /^[0-9A-F]+$/.test(unpadded);
+    const random = hex
+      ? unpadded.length >= value.minHexLength && valueEntropy(unpadded) >= value.minHexBitsPerChar
+      : valueEntropy(unpadded) >= value.minBitsPerChar;
+    if (random) return true;
+  }
+  return false;
+}
+
+/** Shannon entropy in bits per character, over UTF-16 code units (values are ASCII). */
+export function valueEntropy(value: string): number {
+  const counts = new Map<string, number>();
+  for (const char of value) counts.set(char, (counts.get(char) ?? 0) + 1);
+  let bits = 0;
+  for (const count of counts.values()) {
+    const p = count / value.length;
+    bits -= p * Math.log2(p);
+  }
+  return bits;
 }
 
 // ---------------------------------------------------------------------------------------------
