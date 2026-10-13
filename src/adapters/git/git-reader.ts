@@ -154,6 +154,10 @@ function runner(gitPath: string, root: string): Run {
     "core.untrackedCache=false",
     "-c",
     "safe.bareRepository=explicit",
+    // The repository's own config could point ls-files at any readable file, or a FIFO that
+    // stalls it. Only .gitignore files and .git/info/exclude apply.
+    "-c",
+    "core.excludesFile=/dev/null",
   ];
   return (args, options = {}) =>
     new Promise((resolve) => {

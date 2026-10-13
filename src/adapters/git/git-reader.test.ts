@@ -240,6 +240,16 @@ describe.skipIf(!gitIsRecent)("ignored files (IMPL §1.4)", () => {
     expect(snapshot.git).toMatchObject({ workingTreeDirty: true, untrackedCount: 1 });
   });
 
+  it("ignores a core.excludesFile set in the repository's own config", async () => {
+    const root = repository({ "a.txt": "a\n" });
+    const outside = join(temporaryDirectory(), "excludes");
+    writeFileSync(outside, "local.txt\n");
+    git(root, "config", "core.excludesFile", outside);
+    writeFileSync(join(root, "local.txt"), "x\n");
+    const snapshot = await snapshotOf(root);
+    expect(statuses(snapshot.files)).toMatchObject({ "local.txt": "read" });
+  });
+
   it("lists ignored files without writing to the repository", async () => {
     const root = repository({ ".gitignore": "*.log\n", "a.txt": "a\n" });
     writeFileSync(join(root, "x.log"), "x\n");
