@@ -340,7 +340,10 @@ const TOOLING_PREFIXES = [
 
 type Tier3Group = 1 | 2 | 3 | 4 | 5;
 
-/** Groups 1–3 and 5 of tier 3; group 4 needs the packages. */
+/**
+ * Groups 1, 2, 4 and 5 of tier 3; group 3, package manifests, needs the packages. CI comes last:
+ * workflows are often large, and would otherwise crowd out small, convention-rich tooling files.
+ */
 function tier3Group(path: string): Tier3Group | undefined {
   const lower = asciiLower(path);
   const name = baseName(lower);
@@ -352,7 +355,7 @@ function tier3Group(path: string): Tier3Group | undefined {
     lower === ".circleci/config.yml" ||
     /^\.github\/workflows\/[^/]+\.ya?ml$/.test(lower)
   ) {
-    return 3;
+    return 5;
   }
   if (
     TOOLING_EXACT.includes(name) ||
@@ -360,7 +363,7 @@ function tier3Group(path: string): Tier3Group | undefined {
     (name.startsWith("tsconfig") && name.endsWith(".json")) ||
     /^docker-compose.*\.ya?ml$/.test(name)
   ) {
-    return 5;
+    return 4;
   }
   return undefined;
 }
@@ -493,7 +496,7 @@ class Selector {
     for (const path of candidates) {
       if (claimed.has(path) || path === DESTINATION_PATH) continue;
       if (isPackageReadme(path, packageSet)) tier2.set(path, 4);
-      else if (isPackageManifest(path)) tier3.set(path, 4);
+      else if (isPackageManifest(path)) tier3.set(path, 3);
     }
     claim([...tier2.keys(), ...tier3.keys()]);
     if (destination !== undefined) claimed.add(DESTINATION_PATH);
@@ -548,13 +551,13 @@ class Selector {
     const tier3Reasons = [
       "tier3:group1:workspace",
       "tier3:group2:task-runner",
-      "tier3:group3:ci",
-      "tier3:group4:package-manifest",
-      "tier3:group5:tooling",
+      "tier3:group3:package-manifest",
+      "tier3:group4:tooling",
+      "tier3:group5:ci",
     ];
     for (const group of [1, 2, 3, 4, 5] as const) {
       const paths = [...tier3].filter(([, g]) => g === group).map(([p]) => p);
-      for (const path of group === 4 ? roundRobin(paths, packages) : paths) {
+      for (const path of group === 3 ? roundRobin(paths, packages) : paths) {
         const reason = tier3Reasons[group - 1] ?? "";
         await this.add(fill3, path, reason, "lines", this.settings.perFileCaps.tier3);
       }

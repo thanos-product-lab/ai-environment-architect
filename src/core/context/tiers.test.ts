@@ -574,7 +574,7 @@ describe("tier 2: project documentation", () => {
 });
 
 describe("tier 3: manifests and tooling configuration", () => {
-  it("takes the groups in order, groups 1 to 3 at the root only", async () => {
+  it("takes the groups in order, CI last; workspace, task runner and CI files at the root only", async () => {
     const result = await selected({
       "tsconfig.json": "{}\n",
       "apps/web/tsconfig.build.json": "{}\n",
@@ -615,15 +615,31 @@ describe("tier 3: manifests and tooling configuration", () => {
       ["Procfile", "tier3:group2:task-runner"],
       ["Taskfile.yml", "tier3:group2:task-runner"],
       ["justfile", "tier3:group2:task-runner"],
-      [".circleci/config.yml", "tier3:group3:ci"],
-      [".github/workflows/ci.yml", "tier3:group3:ci"],
-      [".github/workflows/release.yaml", "tier3:group3:ci"],
-      [".gitlab-ci.yml", "tier3:group3:ci"],
-      ["apps/web/package.json", "tier3:group4:package-manifest"],
-      ["Dockerfile.dev", "tier3:group5:tooling"],
-      ["apps/web/tsconfig.build.json", "tier3:group5:tooling"],
-      ["tsconfig.json", "tier3:group5:tooling"],
+      ["apps/web/package.json", "tier3:group3:package-manifest"],
+      ["Dockerfile.dev", "tier3:group4:tooling"],
+      ["apps/web/tsconfig.build.json", "tier3:group4:tooling"],
+      ["tsconfig.json", "tier3:group4:tooling"],
+      [".circleci/config.yml", "tier3:group5:ci"],
+      [".github/workflows/ci.yml", "tier3:group5:ci"],
+      [".github/workflows/release.yaml", "tier3:group5:ci"],
+      [".gitlab-ci.yml", "tier3:group5:ci"],
     ]);
+  });
+
+  it("fills tooling configuration before large CI workflows can use up the tier", async () => {
+    const result = await selected(
+      {
+        ".github/workflows/a.yml": lines(1_500),
+        ".github/workflows/b.yml": lines(1_500),
+        "tsconfig.json": "{}\n",
+        ".prettierrc": "{}\n",
+      },
+      {
+        tierCaps: { tier1: 1_000, tier2: 1_000, tier3: 2_000, tier4: 1_000, tier5: 1_000 },
+        initialContextBytes: 6_000,
+      },
+    );
+    expect(pathsIn(result, 3).slice(0, 2)).toEqual([".prettierrc", "tsconfig.json"]);
   });
 
   it("matches the listed tooling configuration names at any depth", async () => {

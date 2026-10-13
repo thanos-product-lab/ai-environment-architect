@@ -9,6 +9,7 @@
 
 Calibration on the development repositories (M2) changed the selection algorithm. `algorithmVersion` is `context-select/1.2.0`.
 
+- **Tier 3 order (§1.5).** Workspace definitions, task runners, package manifests, tooling configuration, then CI last. Reasons renumber to `tier3:group3:package-manifest`, `tier3:group4:tooling` and `tier3:group5:ci`.
 - **Scan as selected (§1.3, §1.5, §1.7).** Each item is scanned as it is selected. A blocked file uses no bytes, item ID or source file slot, so the next candidate takes its place, and a blocked test example is replaced by the package's next test file. Before, blocked items were removed after selection without refilling, which let one false positive cost a tier a whole file's budget.
 - **Secret rules (§1.7).** `secretRulesVersion` is `secret-scan/1.1.0`. `generic-assignment` also matches names containing `pass`, `pwd`, `key`, `credential`, `auth` or `private`, and requires a high-entropy value: 3.5 bits per character, or 3.0 for 32 or more hex digits. The thresholds miss about 0.1% of random 20-character base62 secrets, and no line in the three development repositories matched the new rule.
 - **Ignored files (§1.4, §1.6, §1.8, §1.13, §2.3, §2.4).** The git adapter lists the files the repository's ignore rules match. They stay in the snapshot, hashed, with the status `ignored`, and are candidates for no tier and no expansion. The tree marks them `[I]`, and the manifest lists them and records whether ignore rules were applied. Without git, only the default and user exclusions apply, and the summary says so. Ignored files no longer count as untracked. `CLAUDE.local.md` and `.claude/settings.local.json` are excluded by default, and tier 1 no longer matches `CLAUDE.local.md`.
@@ -219,7 +220,7 @@ Within a tier, every item is tried in the tier's order. An item that exceeds its
 
 **Names.** Tier 1 names match exactly, because agents load those files by exact name. In tiers 2, 3 and 5, names and extensions compare ASCII letters case-insensitively, so `readme.md`, `makefile` and `App.TS` match. *Markdown* means the extensions `.md`, `.markdown` and `.mdx`. These lists and rules are part of `algorithmVersion`; any change to them increases it.
 
-**Reasons.** Items carry `tier1:destination`, `tier1:agent-config`, `tier1:import`, `tier2:group<N>:root-doc|decision-doc|docs|package-readme`, `tier3:group<N>:workspace|task-runner|ci|package-manifest|tooling`, `tier5:test-example` or `tier5:rank<N>:entry-point|boundary-name|other`. A file tried and never included is recorded with `tier<N>:cap-reached`.
+**Reasons.** Items carry `tier1:destination`, `tier1:agent-config`, `tier1:import`, `tier2:group<N>:root-doc|decision-doc|docs|package-readme`, `tier3:group<N>:workspace|task-runner|package-manifest|tooling|ci`, `tier5:test-example` or `tier5:rank<N>:entry-point|boundary-name|other`. A file tried and never included is recorded with `tier<N>:cap-reached`.
 
 **Default budget:** `initialContextBytes` = 240,000. The five tier caps may not add up to more than it; settings that do are rejected.
 
@@ -282,11 +283,11 @@ Matched files, in this order:
 
 1. Workspace definitions: root `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `nx.json`, `lerna.json`, root `pyproject.toml`, `Cargo.toml`, `go.work`, `go.mod`
 2. Task runners: `Makefile`, `justfile`, `Taskfile.yml`, `Procfile`
-3. CI: `.github/workflows/*.yml`, `.gitlab-ci.yml`, `.circleci/config.yml`
-4. Package-level manifests (`package.json`, `pyproject.toml`, `Cargo.toml`), round-robin across packages
-5. Tooling configuration: `tsconfig*.json`, `eslint.config.*`, `.eslintrc*`, `.prettierrc*`, `prettier.config.*`, `biome.json`, `biome.jsonc`, `ruff.toml`, `.ruff.toml`, `mypy.ini`, `.mypy.ini`, `pytest.ini`, `vitest.config.*`, `vitest.workspace.*`, `jest.config.*`, `playwright.config.*`, `docker-compose*.yml`, `docker-compose*.yaml`, `compose.yml`, `compose.yaml`, `Dockerfile*`
+3. Package-level manifests (`package.json`, `pyproject.toml`, `Cargo.toml`), round-robin across packages
+4. Tooling configuration: `tsconfig*.json`, `eslint.config.*`, `.eslintrc*`, `.prettierrc*`, `prettier.config.*`, `biome.json`, `biome.jsonc`, `ruff.toml`, `.ruff.toml`, `mypy.ini`, `.mypy.ini`, `pytest.ini`, `vitest.config.*`, `vitest.workspace.*`, `jest.config.*`, `playwright.config.*`, `docker-compose*.yml`, `docker-compose*.yaml`, `compose.yml`, `compose.yaml`, `Dockerfile*`
+5. CI: `.github/workflows/*.yml`, `.gitlab-ci.yml`, `.circleci/config.yml`
 
-Groups 1 to 3 match at the repository root only; CI also matches `.github/workflows/*.yaml`. Groups 4 and 5 match at any depth; a package-level manifest is one not at the root. Each group is in path order, except group 4.
+Groups 1, 2 and 5 match at the repository root only; CI also matches `.github/workflows/*.yaml`. Groups 3 and 4 match at any depth; a package-level manifest is one not at the root. Each group is in path order, except group 3. CI comes last because workflows are often large: on a development repository, ten workflows used the whole tier before the root `tsconfig.json` and `.prettierrc` were reached.
 
 These files are the source of command evidence. Commands are always reported as `found_not_run`.
 
