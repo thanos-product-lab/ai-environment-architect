@@ -126,6 +126,9 @@ function renderNode(
     case "listed_only":
       out.push(`${indent}[${isWithheldPath(entry.path) ? "S" : "L"}] ${name}\n`);
       return;
+    case "ignored":
+      out.push(`${indent}[${isWithheldPath(entry.path) ? "S" : "I"}] ${name}\n`);
+      return;
     case "read": {
       const mark = isWithheldPath(entry.path) ? "S" : (marks.get(entry.path) ?? "-");
       out.push(`${indent}[${mark}] ${name}\n`);

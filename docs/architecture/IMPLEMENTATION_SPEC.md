@@ -1,9 +1,15 @@
 # Implementation Specification
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 12 October 2026  
-**Version:** 0.11  
+**Date:** 13 October 2026  
+**Version:** 0.12  
 **Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
+
+### Changes from v0.11
+
+Calibration on the development repositories (M2) changed the selection algorithm. `algorithmVersion` is `context-select/1.2.0`.
+
+- **Ignored files (§1.4, §1.6, §1.8, §1.13, §2.3, §2.4).** The git adapter lists the files the repository's ignore rules match. They stay in the snapshot, hashed, with the status `ignored`, and are candidates for no tier and no expansion. The tree marks them `[I]`, and the manifest lists them and records whether ignore rules were applied. Without git, only the default and user exclusions apply, and the summary says so. Ignored files no longer count as untracked. `CLAUDE.local.md` and `.claude/settings.local.json` are excluded by default, and tier 1 no longer matches `CLAUDE.local.md`.
 
 ### Changes from v0.10
 
@@ -163,12 +169,19 @@ A file that is not excluded but fails the size or content rules is `listed_only`
 - Build output: `dist/`, `build/`, `out/`, `.next/`, `target/`, `coverage/`, `.turbo/`, `*.min.js`, `*.map`
 - Lockfiles: `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `poetry.lock`, `uv.lock`, `Cargo.lock`, `Gemfile.lock`
 - Secret-bearing names: `.env`, `.env.*` (except `.env.example` and `.env.sample`), `*.pem`, `*.key`, `*.p12`, `id_rsa*`, `*.keystore`, `credentials*`, `secrets*`
+- Personal agent configuration: `CLAUDE.local.md` (at any depth) and `.claude/settings.local.json` (at the root). These are a developer's own files, usually git-ignored, and never project guidance.
 - The product's own session storage, if located inside the repository
 - Binary and media types by extension
 
 Exclusions are recorded in the snapshot and the manifest. Excluded directories appear in the tree once, with no children and never by content (tier 4, §1.6); capture does not enter them, so there is no count.
 
-Files ignored by `.gitignore` are not excluded unless one of these rules matches them. Capture runs no `git` command.
+**Ignored files.** Files the repository's ignore rules match are not excluded, because capture runs no `git` command and doesn't parse ignore files. They are found afterwards, by the git adapter (below), and recorded as `ignored`:
+
+- An `ignored` file is one that is readable (it would otherwise be `read` or `listed_only`), not tracked by the commit, and matched by git's standard ignore rules: `.gitignore` files at any depth and `.git/info/exclude`. The user's global excludes file is not read, because git runs without the user's configuration or `HOME`.
+- It stays in the snapshot with its hash and size, so coverage and freshness still see it, but it is a candidate for no tier and no expansion (§1.8). The tree shows it as `[I]`.
+- The destination, tracked files, excluded entries, symbolic links and unreadable entries are never `ignored`. A tracked file that an ignore pattern matches stays a candidate, as it does in git.
+- Untracked files that no ignore rule matches stay candidates.
+- When git metadata is `unknown` (no repository, git missing or too old, or an error), ignore rules are not applied: only the default and user exclusions apply. The manifest records `ignoreRules: "not_applied"`, and the summary says so (§2.4).
 
 **Patterns.** Default and user exclusions use one grammar:
 
@@ -186,7 +199,7 @@ Secret-bearing names and binary types compare ASCII letters case-insensitively, 
 
 **Git metadata** ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.1) is read after the observations, by an adapter that treats the repository as untrusted:
 
-- Only `git --version`, `git rev-parse` (top level, object format, `HEAD^{commit}`), `git symbolic-ref` and `git show-ref` (to recognise a branch with no commits) and `git ls-tree -r -z -l --full-tree <commit>` run. None of them reads the working tree, refreshes the index, or runs hooks, filters or fsmonitor. `git status` is never used.
+- Only `git --version`, `git rev-parse` (top level, object format, `HEAD^{commit}`), `git symbolic-ref` and `git show-ref` (to recognise a branch with no commits), `git ls-tree -r -z -l --full-tree <commit>` and `git ls-files -z --others --ignored --exclude-standard --directory` run. None of them refreshes the index, or runs hooks, filters or fsmonitor. Only `ls-files` reads the working tree, and only directory listings and ignore files, never file content; `--directory` reports a wholly ignored directory as one entry. `git status` is never used.
 - The environment is built from scratch: `PATH`, `LANG=C`, `LC_ALL=C`, `GIT_OPTIONAL_LOCKS=0`, `GIT_CONFIG_NOSYSTEM=1`, `GIT_CONFIG_GLOBAL=/dev/null`, `GIT_ATTR_NOSYSTEM=1`, `GIT_TERMINAL_PROMPT=0`, `GIT_NO_LAZY_FETCH=1`, `GIT_NO_REPLACE_OBJECTS=1`, and `GIT_CEILING_DIRECTORIES` set to the root's parent unless that path contains `:`. `HOME` and variables such as `GIT_DIR` from the user's shell are dropped. Every command except `--version` also gets `--no-lazy-fetch -c core.fsmonitor=false -c core.untrackedCache=false -c safe.bareRepository=explicit`.
 - Git older than 2.44 is refused (`git_too_old`), because it ignores `GIT_NO_LAZY_FETCH` and could fetch missing objects in a partial clone, running a command from the repository's config.
 - Git runs only when the root has a `.git` entry, so discovery stops at the root. The work tree git reports must be the root: a subfolder of a larger repository, a bare-repository layout, or a `core.worktree` pointing elsewhere is `not_a_repository`. Discovery is used rather than setting `GIT_DIR`, because git checks `safe.directory` ownership only during discovery.
@@ -220,7 +233,7 @@ Within a tier, every item is tried in the tier's order. An item that exceeds its
 
 Matched paths:
 
-- `CLAUDE.md` and `CLAUDE.local.md` at any depth
+- `CLAUDE.md` at any depth (`CLAUDE.local.md` is excluded, §1.4)
 - `.claude/**` (text files only)
 - `AGENTS.md` at any depth
 - `.cursorrules`, `.cursor/rules/**`
@@ -366,7 +379,7 @@ The example shows only the first two of lines 40–96; a real item lists every i
 - Depth limit `treeDepth` (default 4). A directory at the limit shows the number of files under it: every entry except directories.
 - Directories with more than `treeCollapseThreshold` entries (default 40) show their first `treeCollapseThreshold` entries in path order, then `… N more`.
 - Excluded directories appear once, with an `[excluded]` marker and no children.
-- Each file has a marker: `[R]` fully included, `[E]` excerpt included, `[-]` readable but not selected (a plain `read` expansion can fetch it), `[L]` `listed_only` (only line ranges can be read), `[X]` excluded, `[S]` blocked by secret scan, `[>]` symbolic link, shown with its target (`name -> target`), `[U]` unreadable (a directory too, with `/`).
+- Each file has a marker: `[R]` fully included, `[E]` excerpt included, `[-]` readable but not selected (a plain `read` expansion can fetch it), `[L]` `listed_only` (only line ranges can be read), `[X]` excluded, `[I]` ignored by the repository's ignore rules (§1.4; not sent, and no expansion can read it), `[S]` blocked by secret scan, `[>]` symbolic link, shown with its target (`name -> target`), `[U]` unreadable (a directory too, with `/`).
 
 **Format.** A header `<<<TREE depth=<d> files=<n>>>>`, one line per entry, and `<<<END TREE>>>`, each ending with a line break. `n` counts every entry except directories. Entries are indented two spaces per level, and siblings are in bytewise name order. A directory is its name and `/`; a file is its marker, a space and its name. A name containing a control character (C0, DEL, C1, U+2028 or U+2029) is written as a JSON string, and the delimiter escape applies to names and link targets. A name or link target that matches the secret scan is written `<withheld>` (§1.7).
 
@@ -447,7 +460,7 @@ A `read` without line ranges returns the file excerpted by the rules in §1.6. A
 
 Each request is validated deterministically:
 
-- every path is in the snapshot, not excluded, and not secret-blocked;
+- every path is in the snapshot, not excluded, not `ignored` (§1.4), and not secret-blocked;
 - requested ranges are not already fully included;
 - globs resolve only within scope;
 - the total expansion stays within `expansionBytes` (default 60,000).
@@ -455,7 +468,7 @@ Each request is validated deterministically:
 Invalid requests are rejected with a recorded reason. Valid ones are executed by application code:
 
 - File content is read live, and its hash must match the snapshot. A mismatch fails that request with "changed since snapshot".
-- Search runs over candidate files only, in path order. Matches are ordered by path, then line, and the result is capped.
+- Search runs over candidate files only, never `ignored` ones, in path order. Matches are ordered by path, then line, and the result is capped.
 - Results are rendered in the same item format, with IDs `E-<sequence>` and reason `expansion:<request-id>`, and pass the secret scan before inclusion.
 
 **One expansion round** in the first slice. Call 2 cannot request further expansion.
@@ -526,7 +539,7 @@ Every model call records an input manifest ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md)
 ```json
 {
   "manifestVersion": 1,
-  "algorithmVersion": "context-select/1.1.0",
+  "algorithmVersion": "context-select/1.2.0",
   "secretRulesVersion": "secret-scan/1.0.0",
   "declarationPatternsVersion": "declarations/1.0.0",
   "settingsHash": "sha256:…",
@@ -566,6 +579,11 @@ Every model call records an input manifest ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md)
     { "path": "node_modules", "rule": "node_modules/" },
     { "path": "config/local.ts", "reason": "secret-scan:generic-assignment" }
   ],
+  "ignoreRules": "applied",
+  "ignored": [
+    { "path": "logs/app.log" },
+    { "path": "server/config.js" }
+  ],
   "expansion": null
 }
 ```
@@ -576,6 +594,7 @@ Details:
 
 - Tiers are listed 1 to 5. Tiers 1, 2, 3 and 5 also record `budgetBytes`: the cap plus bytes passed down. Tier 4 records `capBytes`, `usedBytes` and `treeDepth`.
 - `budget.usedBytes` is the rendered context's size, tree included.
+- `ignoreRules` is `applied` when git metadata is known, and `not_applied` otherwise (§1.4). `ignored` lists the snapshot's `ignored` files in path order.
 - `excluded` lists the snapshot's excluded entries with their rule, in path order, then secret-blocked files with `secret-scan:<rule ID>`, in path order. Secret-blocked files include files whose path matches, whether or not a tier selected them.
 - A path that matches the secret scan is recorded as `pathHash` instead of `path` (§1.7).
 - `retainedInputRef` is `null` until inputs are retained for a call (§1.12), `tokenCheck` until the token check runs (§1.10), and `expansion` when there was no expansion.
@@ -610,7 +629,8 @@ All defaults are starting points. They are calibrated on the product-development
 - Tree markers match the final selection, including after token-check reductions.
 - The destination is included in full, or the session stops before any call with a stated reason, for each of the four causes in §1.5.
 - The secret scan runs on every outgoing request and blocks each rule's fixtures. The manifest never contains matched text.
-- Excluded, `listed_only` (except requested ranges) and secret-blocked content never appears in a request.
+- Excluded, `ignored`, `listed_only` (except requested ranges) and secret-blocked content never appears in a request.
+- Ignored files are recorded as `ignored` only when git lists them: never tracked files, the destination, excluded entries or links. Without git, the manifest says ignore rules were not applied.
 - Delimiter sequences inside file content are escaped.
 - Line-range expansion returns exactly the requested lines; out-of-range or already-included requests are rejected.
 - A file changed after the snapshot fails expansion with "changed since snapshot".
@@ -676,7 +696,8 @@ Before we start
 Selected files from this repository will be sent to the model provider
 for analysis. You'll see exactly which files before anything is sent.
 
-• Excluded by default: dependencies, build output, lockfiles, .env files, keys
+• Excluded by default: dependencies, build output, lockfiles, .env files,
+  keys, personal Claude settings, and files your .gitignore ignores
 • Files matching known secret patterns are blocked. Pattern matching
   can't detect every kind of credential.
 • What's sent is kept locally with the session so it can be replayed.
@@ -703,13 +724,15 @@ What will be sent for analysis  (228 KB of 240 KB)
   Source samples                21 files    79 KB   4 test examples, 9 excerpted
 
   Not sent: 18,233 dependency files, 3 lockfiles, 1 file blocked (secret pattern)
+  Ignored by .gitignore: 6 files   logs/app.log, server/config.js, … ([v] lists all)
 
   [Enter] Send for analysis   [v] View file list   [a] Add paths
   [x] Add exclusions   [q] Save and quit
 ```
 
 - `v` lists each item with its reason and excerpt range, and every skipped or blocked path with its reason.
-- `a` and `x` change the settings, recompute the selection, and show the summary again with the new size.
+- `a` and `x` change the settings, recompute the selection, and show the summary again with the new size. Adding an `ignored` path with `a` makes that file a candidate again (§1.4); it then belongs to a tier as usual.
+- The ignored line lists `ignored` files (§1.4), first in path order, with the count. When ignore rules were not applied, because git metadata is `unknown`, it reads instead `Ignore rules not applied (<reason>): only the default exclusions were used.`
 - If the destination rule (§1.5) stops the session, this screen explains why and what to do, and nothing is sent.
 
 After **Enter**, analysis runs. Progress shows the current call, elapsed time and cost so far. If the model requests expansion, the CLI shows what was requested and what was accepted or rejected, then continues automatically: expansion has already been validated against scope, exclusions and budget.

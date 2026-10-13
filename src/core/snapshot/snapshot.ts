@@ -21,6 +21,16 @@ export type SnapshotFile =
       readonly hash: Hash;
       readonly reason: ListedOnlyReason;
     }
+  /**
+   * Untracked and matched by the repository's ignore rules, read from git (IMPL §1.4). Hashed,
+   * but a candidate for no tier and no expansion.
+   */
+  | {
+      readonly path: string;
+      readonly status: "ignored";
+      readonly size: number;
+      readonly hash: Hash;
+    }
   /** Matched an exclusion. Never opened. An excluded directory is one entry and is not entered. */
   | {
       readonly path: string;
@@ -128,7 +138,14 @@ export async function captureSnapshot(
     changedPaths = differences(earlier, later);
   }
 
-  const files = [...later.files.values()].sort((a, b) => comparePaths(a.path, b.path));
+  const observed = [...later.files.values()].sort((a, b) => comparePaths(a.path, b.path));
+  const git = await readGitMetadata(deps.git, observed, deps.fs, DESTINATION_PATH);
+  const files = observed.map(
+    (file): SnapshotFile =>
+      git.ignored.has(file.path) && (file.status === "read" || file.status === "listed_only")
+        ? { path: file.path, status: "ignored", size: file.size, hash: file.hash }
+        : file,
+  );
   return {
     id,
     capturedAt,
@@ -141,7 +158,7 @@ export async function captureSnapshot(
       .sort((a, b) => comparePaths(a.path, b.path)),
     stability:
       changedPaths.length === 0 ? { state: "stable" } : { state: "unstable", changedPaths },
-    git: await readGitMetadata(deps.git, files, deps.fs),
+    git: git.metadata,
   };
 }
 
@@ -291,6 +308,8 @@ function destinationOf(observation: Observation): Destination {
       return present(observation, entry.hash);
     case "excluded":
       throw new Error("The destination is never excluded.");
+    case "ignored":
+      throw new Error("The destination is never ignored.");
   }
 }
 

@@ -108,6 +108,15 @@ describe("default exclusions (IMPL §1.4)", () => {
     },
   );
 
+  it("excludes personal agent configuration: CLAUDE.local.md anywhere, local settings at the root", () => {
+    expect(excludedBy("CLAUDE.local.md")).toBe("CLAUDE.local.md");
+    expect(excludedBy("packages/api/CLAUDE.local.md")).toBe("CLAUDE.local.md");
+    expect(excludedBy(".claude/settings.local.json")).toBe(".claude/settings.local.json");
+    expect(excludedBy("claude.local.md")).toBeUndefined();
+    expect(excludedBy(".claude/settings.json")).toBeUndefined();
+    expect(excludedBy("CLAUDE.md")).toBeUndefined();
+  });
+
   it("leaves ordinary source and documentation alone", () => {
     for (const path of ["README.md", "src/index.ts", "package.json", "CLAUDE.md", "docs/a.txt"]) {
       expect(excludedBy(path)).toBeUndefined();

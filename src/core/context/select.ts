@@ -96,6 +96,13 @@ export interface InputManifest {
   readonly items: readonly ManifestItem[];
   readonly skipped: readonly ManifestSkipped[];
   readonly excluded: readonly ManifestExcluded[];
+  /**
+   * Whether the repository's ignore rules were applied (IMPL §1.4). They are read through git,
+   * so without it only the default and user exclusions apply.
+   */
+  readonly ignoreRules: "applied" | "not_applied";
+  /** Ignored files, in path order. Hashed, but never a candidate for any tier or expansion. */
+  readonly ignored: readonly RecordedPath[];
   /** Set when the expansion round runs (IMPL §1.8). */
   readonly expansion: null;
 }
@@ -197,6 +204,10 @@ export async function selectContext(
     })),
     skipped: scanned.skipped.map((file) => ({ ...recordedPath(file.path), reason: file.reason })),
     excluded,
+    ignoreRules: snapshot.git.state === "known" ? "applied" : "not_applied",
+    ignored: snapshot.files.flatMap((file) =>
+      file.status === "ignored" ? [recordedPath(file.path)] : [],
+    ),
     expansion: null,
   };
 

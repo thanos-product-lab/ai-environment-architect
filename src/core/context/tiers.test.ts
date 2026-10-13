@@ -205,9 +205,7 @@ describe("content verification (IMPL §1.3)", () => {
 describe("tier 1: existing agent configuration", () => {
   it("matches the listed agent configuration paths", async () => {
     const result = await selected({
-      "CLAUDE.local.md": "a\n",
       "pkg/CLAUDE.md": "a\n",
-      "pkg/CLAUDE.local.md": "a\n",
       "pkg/AGENTS.md": "a\n",
       "AGENTS.md": "a\n",
       ".claude/settings.json": "{}\n",
@@ -218,9 +216,7 @@ describe("tier 1: existing agent configuration", () => {
     });
     expect(pathsIn(result, 1).sort()).toEqual(
       [
-        "CLAUDE.local.md",
         "pkg/CLAUDE.md",
-        "pkg/CLAUDE.local.md",
         "pkg/AGENTS.md",
         "AGENTS.md",
         ".claude/settings.json",
@@ -231,6 +227,16 @@ describe("tier 1: existing agent configuration", () => {
       ].sort(),
     );
     for (const item of result.items) expect(item.reason).toBe("tier1:agent-config");
+  });
+
+  it("never selects personal agent configuration, which is excluded", async () => {
+    const result = await selected({
+      "CLAUDE.local.md": "a\n",
+      "pkg/CLAUDE.local.md": "a\n",
+      ".claude/settings.local.json": "{}\n",
+      ".claude/settings.json": "{}\n",
+    });
+    expect(pathsIn(result, 1)).toEqual([".claude/settings.json"]);
   });
 
   it("matches names exactly and `.claude/`, `.cursor/rules/` only at the root", async () => {

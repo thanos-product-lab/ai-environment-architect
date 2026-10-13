@@ -157,10 +157,10 @@ describe.skipIf(!gitIsRecent)("dirty working tree", () => {
     expect(await gitMetadataOf(root)).toMatchObject({ workingTreeDirty: false });
   });
 
-  it("counts a file ignored by .gitignore as untracked", async () => {
+  it("a file ignored by .gitignore is not untracked", async () => {
     const root = repository({ ".gitignore": "*.log\n", "a.txt": "a\n" });
     writeFileSync(join(root, "debug.log"), "x\n");
-    expect(await gitMetadataOf(root)).toMatchObject({ workingTreeDirty: true, untrackedCount: 1 });
+    expect(await gitMetadataOf(root)).toMatchObject({ workingTreeDirty: false, untrackedCount: 0 });
   });
 
   it("parses paths with tabs and newlines, and submodule entries", async () => {
@@ -194,6 +194,58 @@ describe.skipIf(!gitIsRecent)("dirty working tree", () => {
     git(root, "add", "link.md");
     git(root, "commit", "-q", "-m", "link");
     expect(await gitMetadataOf(root)).toMatchObject({ workingTreeDirty: false });
+  });
+});
+
+describe.skipIf(!gitIsRecent)("ignored files (IMPL §1.4)", () => {
+  async function snapshotOf(root: string) {
+    const deps = {
+      fs: await openRepositoryFs(root),
+      clock: fixedClock,
+      ids: fixedIds,
+      git: openGitReader(root),
+    };
+    return captureSnapshot(deps, DEFAULT_SNAPSHOT_SETTINGS);
+  }
+  const statuses = (files: readonly { path: string; status: string }[]) =>
+    Object.fromEntries(files.map((file) => [file.path, file.status]));
+
+  it("applies .gitignore at any depth and .git/info/exclude; tracked and other files stay", async () => {
+    const root = repository({
+      ".gitignore": "logs/\n*.log\n",
+      "server/.gitignore": "config.js\n",
+      "kept.log": "tracked before the rule\n",
+      "server/index.js": "x\n",
+    });
+    git(root, "add", "-f", "kept.log");
+    git(root, "commit", "-q", "-m", "tracked log");
+    mkdirSync(join(root, "logs/old"), { recursive: true });
+    writeFileSync(join(root, "logs/old/app.log"), "l\n");
+    writeFileSync(join(root, "server/config.js"), "c\n");
+    writeFileSync(join(root, "notes.md"), "untracked, not ignored\n");
+    writeFileSync(join(root, "local.txt"), "x\n");
+    writeFileSync(join(root, ".git/info/exclude"), "local.txt\n");
+    writeFileSync(join(root, "tab\there.log"), "t\n");
+
+    const snapshot = await snapshotOf(root);
+    expect(statuses(snapshot.files)).toMatchObject({
+      "kept.log": "read",
+      "logs/old/app.log": "ignored",
+      "server/config.js": "ignored",
+      "server/index.js": "read",
+      "notes.md": "read",
+      "local.txt": "ignored",
+      "tab\there.log": "ignored",
+    });
+    expect(snapshot.git).toMatchObject({ workingTreeDirty: true, untrackedCount: 1 });
+  });
+
+  it("lists ignored files without writing to the repository", async () => {
+    const root = repository({ ".gitignore": "*.log\n", "a.txt": "a\n" });
+    writeFileSync(join(root, "x.log"), "x\n");
+    const before = fingerprint(join(root, ".git"));
+    await snapshotOf(root);
+    expect(fingerprint(join(root, ".git"))).toEqual(before);
   });
 });
 

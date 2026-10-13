@@ -12,10 +12,11 @@ import { decodeName } from "../fs/node-repository-fs.js";
 
 // Reads the commit and its tree for snapshot metadata (DM §6.1). The repository is untrusted:
 //
-// - Only `git --version`, `rev-parse`, `symbolic-ref`, `show-ref` and `ls-tree` run. None of
-//   them reads the working tree,
-//   refreshes the index or runs hooks, clean/smudge filters or fsmonitor. The working tree is
-//   compared in core, from the snapshot's own reads.
+// - Only `git --version`, `rev-parse`, `symbolic-ref`, `show-ref`, `ls-tree` and
+//   `ls-files --others --ignored --exclude-standard --directory` run. None of them refreshes the
+//   index or runs hooks, clean/smudge filters or fsmonitor. Only `ls-files` reads the working
+//   tree, and only its directory listings and ignore files, never file content. The working
+//   tree is compared in core, from the snapshot's own reads.
 // - `GIT_OPTIONAL_LOCKS=0`, and nothing is written.
 // - The environment is rebuilt from scratch, so variables such as GIT_DIR can't redirect git.
 //   Global and system config are ignored. fsmonitor and the untracked cache are forced off.
@@ -73,9 +74,23 @@ export function openGitReader(root: string, options: GitReaderOptions = {}): Git
         return { ok: false, reason: "git_error" };
       }
 
+      // `--directory` lists a wholly ignored directory once, so node_modules/ is one entry.
+      const listed = await run([
+        "ls-files",
+        "-z",
+        "--others",
+        "--ignored",
+        "--exclude-standard",
+        "--directory",
+      ]);
+      if (!listed.ok) return listed;
+      const ignored = splitNul(listed.stdout);
+
       const head = await run(["rev-parse", "--verify", "--quiet", "HEAD^{commit}"]);
       if (!head.ok) {
-        return (await isUnborn(run)) ? { ok: true, objectFormat, commit: null, tree: [] } : head;
+        return (await isUnborn(run))
+          ? { ok: true, objectFormat, commit: null, tree: [], ignored }
+          : head;
       }
       const commit = withoutNewline(head.stdout);
 
@@ -84,7 +99,7 @@ export function openGitReader(root: string, options: GitReaderOptions = {}): Git
       const entries = parseTree(tree.stdout, objectFormat);
       return entries === undefined
         ? { ok: false, reason: "git_error" }
-        : { ok: true, objectFormat, commit, tree: entries };
+        : { ok: true, objectFormat, commit, tree: entries, ignored };
     },
   };
 }
@@ -171,6 +186,18 @@ function isAtLeast(versionOutput: string, minimum: readonly [number, number]): b
   if (match === null) return false;
   const [major, minor] = [Number(match[1]), Number(match[2])];
   return major > minimum[0] || (major === minimum[0] && minor >= minimum[1]);
+}
+
+/** NUL-terminated paths, decoded and escaped as in the snapshot. */
+function splitNul(output: Buffer): string[] {
+  const paths: string[] = [];
+  let start = 0;
+  while (start < output.length) {
+    const end = output.indexOf(0, start);
+    paths.push(decodeName(output.subarray(start, end === -1 ? output.length : end)).name);
+    start = end === -1 ? output.length : end + 1;
+  }
+  return paths;
 }
 
 /** Parses `ls-tree -r -z -l`: `<mode> <type> <id> <size>\t<path>\0` per entry. */

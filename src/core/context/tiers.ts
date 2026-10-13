@@ -23,7 +23,7 @@ import { importWithheld, type SecretRuleId, scanText } from "./secrets.js";
  * The selection algorithm's version (IMPL §1.3). The name lists and ranking rules below are part
  * of it: increase it with any change to them, because that changes the context.
  */
-export const ALGORITHM_VERSION = "context-select/1.1.0";
+export const ALGORITHM_VERSION = "context-select/1.2.0";
 
 export interface ContextSettings {
   /** The five tier caps together may not exceed it. */
@@ -231,7 +231,6 @@ function isTier1(path: string): boolean {
   const name = baseName(path);
   return (
     name === "CLAUDE.md" ||
-    name === "CLAUDE.local.md" ||
     name === "AGENTS.md" ||
     path.startsWith(".claude/") ||
     path === ".cursorrules" ||

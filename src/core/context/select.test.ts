@@ -7,6 +7,7 @@ import {
   seededShuffle,
 } from "../../../test/support/memory-fs.js";
 import { sha256 } from "../hash.js";
+import type { GitReader } from "../snapshot/git.js";
 import {
   captureSnapshot,
   DEFAULT_SNAPSHOT_SETTINGS,
@@ -40,6 +41,8 @@ async function run(
     context?: Partial<ContextSettings>;
     snapshot?: Partial<SnapshotSettings>;
     order?: (names: string[]) => string[];
+    /** Untracked paths that git reports as ignored; without it, git is not inspected. */
+    ignored?: string[];
   } = {},
 ): Promise<ContextResult> {
   const settings: ContextSelectionSettings = {
@@ -47,8 +50,22 @@ async function run(
     context: { ...DEFAULT_CONTEXT_SETTINGS, ...options.context },
   };
   const fs = new MemoryFs(nodes, options.order === undefined ? {} : { order: options.order });
+  const deps = { fs, clock: fixedClock, ids: fixedIds };
+  const ignored = options.ignored;
+  const git: GitReader | undefined =
+    ignored === undefined
+      ? undefined
+      : {
+          readHead: async () => ({
+            ok: true,
+            objectFormat: "sha1",
+            commit: null,
+            tree: [],
+            ignored,
+          }),
+        };
   const snapshot = await captureSnapshot(
-    { fs, clock: fixedClock, ids: fixedIds },
+    git === undefined ? deps : { ...deps, git },
     settings.snapshot,
   );
   return selectContext(snapshot, settings, fs);
@@ -270,6 +287,39 @@ describe("input manifest (IMPL §1.13)", () => {
       { path: ".env", rule: ".env" },
       { path: "node_modules", rule: "node_modules/" },
     ]);
+  });
+
+  it("never sends ignored files, marks them [I] and lists them (IMPL §1.4)", async () => {
+    const nodes = {
+      ...REPO,
+      "server/config.js": "export const config = { dbPass: 'SENTINEL_IGNORED' };\n",
+      "logs/app.log": "SENTINEL_LOG\n",
+    };
+    const result = await ready(nodes, { ignored: ["logs/", "server/config.js"] });
+    expect(result.context.text).not.toContain("SENTINEL_IGNORED");
+    expect(result.context.text).not.toContain("SENTINEL_LOG");
+    expect(result.items.map((item) => item.path)).not.toContain("server/config.js");
+    expect(result.tree.text).toContain("[I] config.js");
+    expect(result.tree.text).toContain("[I] app.log");
+    expect(result.manifest.ignoreRules).toBe("applied");
+    expect(result.manifest.ignored).toEqual([
+      { path: "logs/app.log" },
+      { path: "server/config.js" },
+    ]);
+  });
+
+  it("without git, applies only the default rules and says so", async () => {
+    const result = await ready({ ...REPO, "server/config.js": "export const a = 1;\n" });
+    expect(result.manifest.ignoreRules).toBe("not_applied");
+    expect(result.manifest.ignored).toEqual([]);
+    expect(result.items.map((item) => item.path)).toContain("server/config.js");
+  });
+
+  it("records an ignored path that matches the secret scan by its hash", async () => {
+    const path = `keys/${awsKey}.txt`;
+    const result = await ready({ ...REPO, [path]: "x\n" }, { ignored: ["keys/"] });
+    expect(result.manifest.ignored).toEqual([{ pathHash: sha256(new TextEncoder().encode(path)) }]);
+    expect(result.tree.text).not.toContain(awsKey);
   });
 
   it("records secret-blocked files with their rule and never the matched text", async () => {

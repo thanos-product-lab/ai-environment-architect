@@ -1,6 +1,7 @@
 import type { EntryKind } from "./repository-fs.js";
 
-// Default and user exclusions (IMPL §1.4). Files ignored by .gitignore are not excluded.
+// Default and user exclusions (IMPL §1.4). Files ignored by .gitignore are not excluded: the
+// snapshot records them as `ignored` when git can list them.
 //
 // Pattern grammar, shared by defaults and user exclusions:
 // - A trailing `/` matches directories (and symbolic links) only; otherwise any entry matches.
@@ -68,6 +69,9 @@ const SECRET_NAMES: readonly ExclusionRule[] = [
     caseInsensitive,
   ),
 ];
+// Personal Claude Code files, usually git-ignored: never project guidance. Exact names, as tier 1
+// matches them.
+const PERSONAL_AGENT_CONFIG = ["CLAUDE.local.md", ".claude/settings.local.json"];
 // biome-ignore format: one line per group reads better than one line per extension
 const BINARY_EXTENSIONS = [
   // Images
@@ -87,6 +91,7 @@ const BINARY_EXTENSIONS = [
 const DEFAULT_RULES: readonly ExclusionRule[] = [
   ...[...VERSION_CONTROL, ...DEPENDENCIES, ...BUILD_OUTPUT, ...LOCKFILES].map(caseSensitive),
   ...SECRET_NAMES,
+  ...PERSONAL_AGENT_CONFIG.map(caseSensitive),
   ...BINARY_EXTENSIONS.map((extension) => caseInsensitive(`*.${extension}`)),
 ];
 
