@@ -9,6 +9,7 @@
 
 Calibration on the development repositories (M2) changed the selection algorithm. `algorithmVersion` is `context-select/1.2.0`.
 
+- **Outline-only code items (§1.5, §1.6).** A source excerpt that would contain no declaration, only the import block or nothing, is sent as its outline alone, with every entry omitted. It takes no source file slot. On the development repositories, several excerpts held only imports, including the core file of a library.
 - **Tier 3 order (§1.5).** Workspace definitions, task runners, package manifests, tooling configuration, then CI last. Reasons renumber to `tier3:group3:package-manifest`, `tier3:group4:tooling` and `tier3:group5:ci`.
 - **Scan as selected (§1.3, §1.5, §1.7).** Each item is scanned as it is selected. A blocked file uses no bytes, item ID or source file slot, so the next candidate takes its place, and a blocked test example is replaced by the package's next test file. Before, blocked items were removed after selection without refilling, which let one false positive cost a tier a whole file's budget.
 - **Secret rules (§1.7).** `secretRulesVersion` is `secret-scan/1.1.0`. `generic-assignment` also matches names containing `pass`, `pwd`, `key`, `credential`, `auth` or `private`, and requires a high-entropy value: 3.5 bits per character, or 3.0 for 32 or more hex digits. The thresholds miss about 0.1% of random 20-character base62 secrets, and no line in the three development repositories matched the new rule.
@@ -315,7 +316,7 @@ A file belongs to the deepest package that contains it. Source files in no packa
 
 A file's name for ranking is its base name without its last extension, so `index.ts` is rank 1 and `index.d.ts` is not. Within a rank, order is path depth (shallower first), then path order.
 
-**Selection** is round-robin: in package path order, take each package's next-ranked file, repeating until the tier budget or `maxSourceFiles` (default 24, not counting test examples) is reached.
+**Selection** is round-robin: in package path order, take each package's next-ranked file, repeating until the tier budget or `maxSourceFiles` (default 24, not counting test examples or outline-only items, §1.6) is reached.
 
 This sampling will miss conventions that only show up across many files. The expansion step (§1.8) exists for that reason.
 
@@ -323,7 +324,7 @@ This sampling will miss conventions that only show up across many files. The exp
 
 When a file exceeds its per-file cap or the remaining budget, an **excerpt** is included instead. An excerpt always includes an **outline** of the whole file, so the model knows what it hasn't seen and can request it by line range.
 
-Caps and budgets limit the **rendered** item (§1.3): header, outline, line numbers, `…` lines and content. A file is included in full when its full rendering fits. Otherwise parts are added in the order below while the rendering still fits, and if no line fits, the file is skipped.
+Caps and budgets limit the **rendered** item (§1.3): header, outline, line numbers, `…` lines and content. A file is included in full when its full rendering fits. Otherwise parts are added in the order below while the rendering still fits, and if no line fits, the file is skipped. Source code is the exception: an excerpt with no declaration is sent as its outline alone (below).
 
 **Lines.** LF, CRLF and a lone CR each end a line. A final line ending does not start another line, and a leading BOM is not part of line 1. Line numbers start at 1.
 
@@ -341,6 +342,7 @@ Caps and budgets limit the **rendered** item (§1.3): header, outline, line numb
 - The patterns have their own version, `declarationPatternsVersion` (for example `declarations/1.0.0`), recorded in `settingsHash` and the manifest. Any change to the patterns or the extension mapping increases it, because it changes the context. A test pins the pattern set to its version.
 - Content is the import block (every line before the first declaration, outlined as `imports`; if those lines are all blank, they have no outline entry and are not sent), followed by **complete top-level declarations** in file order until the cap. A declaration runs from its start line to the line before the next top-level declaration.
 - A declaration that does not fit is skipped, and later ones that fit are included. Skipped declarations are marked in the outline. The import block is skipped in the same way.
+- **Outline alone.** If no declaration fits, so the excerpt would hold at most the import block, the item is the outline alone: every entry marked `[omitted]`, `included=""`, and a single ` …` line as its content. An import block on its own shows nothing of the code's shape; the outline shows every declaration and its line, for fewer bytes, and the model can request lines by range (§1.8). If even the outline doesn't fit, the file is skipped. An outline-only item does not use a source file slot (§1.5).
 - If no declarations are detected, whole lines are taken from the start of the file.
 
 **Manifests and configuration (tier 3):** whole lines from the start of the file. These files are usually small, and their order is usually meaningful.
@@ -629,7 +631,7 @@ All defaults are starting points. They are calibrated on the product-development
 - Each tier respects its cap; unused budget passes down correctly; tier 4's reserve is not reallocated.
 - Each package with a test file contributes a test example when the reserve allows.
 - A file blocked by the secret scan gives its place to the next candidate: the items, IDs and tier usage are those of a selection without that file.
-- Markdown excerpts contain only complete units, a section or the own text of a split section, except the first unit, which may be cut before a blank line; code excerpts contain only complete declarations and the import block; outlines list everything omitted except blank lines before the first heading or declaration.
+- Markdown excerpts contain only complete units, a section or the own text of a split section, except the first unit, which may be cut before a blank line; code excerpts contain only complete declarations and the import block, with at least one declaration, or are the outline alone; outlines list everything omitted except blank lines before the first heading or declaration.
 - Tree markers match the final selection, including after token-check reductions.
 - The destination is included in full, or the session stops before any call with a stated reason, for each of the four causes in §1.5.
 - The secret scan runs on every outgoing request and blocks each rule's fixtures. The manifest never contains matched text.

@@ -218,6 +218,41 @@ describe("source code", () => {
     expect(result?.text).toContain("CONTENT\n …\n  41 | export const z = 1;\n<<<END");
   });
 
+  it("sends the outline alone when no declaration fits, even if the imports do", () => {
+    const content = [
+      'import { x } from "./x";',
+      "export function big() {",
+      ...Array.from({ length: 50 }, () => "  big();"),
+      "}",
+    ].join("\n");
+    const result = render(input("src/d.ts", `${content}\n`), "code", 400);
+    expect(result?.included).toEqual([]);
+    expect(result?.outline).toEqual([
+      { line: 1, label: "imports", mark: "omitted" },
+      { line: 2, label: "export function big", mark: "omitted" },
+    ]);
+    expect(result?.text).toBe(
+      [
+        '<<<ITEM id=T5-001 path="src/d.ts" hash="sha256:abc"',
+        '        tier=5 reason="tier5:rank1:entry-name" excerpt=true',
+        '        included="" totalLines=53>>>',
+        "OUTLINE",
+        "   1 imports [omitted]",
+        "   2 export function big [omitted]",
+        "CONTENT",
+        " …",
+        "<<<END T5-001>>>",
+        "",
+      ].join("\n"),
+    );
+    expect(result?.bytes).toBe(bytesOf(result?.text ?? ""));
+  });
+
+  it("skips the file when even the outline alone doesn't fit", () => {
+    const content = `import { x } from "./x";\nexport function big() {\n${"  big();\n".repeat(50)}}\n`;
+    expect(render(input("src/d.ts", content), "code", 150)).toBeUndefined();
+  });
+
   it("has no imports entry when the lines before the first declaration are blank", () => {
     const content = `\n\ndef a():\n    pass\ndef b():\n${"    # c\n".repeat(200)}`;
     const result = render(input("c.py", content), "code", 400);

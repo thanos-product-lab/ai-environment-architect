@@ -630,7 +630,8 @@ class Selector {
         if (path === undefined) continue;
         const reason = RANK_REASONS[rankOf(path)] ?? "";
         const added = await this.add(fill, path, reason, "code", settings.perFileCaps.tier5);
-        if (added === "added") count++;
+        // An outline alone (IMPL §1.6) costs little and shows no code, so it takes no slot.
+        if (added === "added" && (this.items.at(-1)?.rendered.included.length ?? 0) > 0) count++;
       }
     }
   }

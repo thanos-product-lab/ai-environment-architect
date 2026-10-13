@@ -99,7 +99,17 @@ describe("renderItem properties", () => {
           return;
         }
         expect(strategy).not.toBe("none");
-        expect(included.size).toBeGreaterThan(0);
+        const byDeclaration =
+          strategy === "code" && item.outline[0]?.label.startsWith("lines ") !== true;
+        if (byDeclaration) {
+          // At least one declaration, or the outline alone with everything omitted (IMPL §1.6).
+          const declarations = item.outline.filter((e, i) => !(i === 0 && e.label === "imports"));
+          if (included.size === 0)
+            expect(item.outline.every((e) => e.mark === "omitted")).toBe(true);
+          else expect(declarations.some((e) => e.mark === "included")).toBe(true);
+        } else {
+          expect(included.size).toBeGreaterThan(0);
+        }
         // Outline entries are the real units: headings, declarations, or the line ranges.
         if (item.outline[0]?.label.startsWith("lines ") !== true) {
           if (strategy === "code") {

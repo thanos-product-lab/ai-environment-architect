@@ -949,6 +949,18 @@ describe("tier 5: ranking and round-robin", () => {
     expect(usage(result, 5)?.items).toBe(4);
   });
 
+  it("doesn't count an outline-only item against maxSourceFiles", async () => {
+    const big = `import { x } from "./x";\nexport function f0() {\n${"  x();\n".repeat(300)}}\n`;
+    const nodes: Record<string, MemoryNode> = { "src/f0.ts": big };
+    for (let i = 1; i < 5; i++) nodes[`src/f${i}.ts`] = "export const a = 1;\n";
+    const result = await selected(nodes, {
+      maxSourceFiles: 3,
+      perFileCaps: { tier2: 12_000, tier3: 8_000, tier5: 1_000 },
+    });
+    expect(itemOf(result, "src/f0.ts")?.rendered.included).toEqual([]);
+    expect(pathsIn(result, 5)).toEqual(["src/f0.ts", "src/f1.ts", "src/f2.ts", "src/f3.ts"]);
+  });
+
   it("excerpts a source file by declaration to fit the per-file cap", async () => {
     const result = await selected(
       { "src/index.ts": code(3_000) },

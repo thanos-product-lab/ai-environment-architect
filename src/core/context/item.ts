@@ -242,13 +242,18 @@ class Layout {
     );
   }
 
-  /** The rendered item, or undefined if it exceeds the limit. No outline means a full item. */
+  /**
+   * The rendered item, or undefined if it exceeds the limit. No outline means a full item. An
+   * excerpt with no ranges is undefined too, unless `outlineOnly` allows it: then one ` …` line
+   * stands for the whole content.
+   */
   finish(
     ranges: readonly LineRange[],
     outline: readonly OutlineEntry[] | undefined,
     limitBytes: number,
+    outlineOnly = false,
   ): RenderedItem | undefined {
-    if (outline !== undefined && ranges.length === 0) return undefined;
+    if (outline !== undefined && ranges.length === 0 && !outlineOnly) return undefined;
     const excerpt = outline !== undefined;
     let text = this.header(excerpt, ranges);
     if (outline !== undefined)
@@ -261,11 +266,12 @@ class Layout {
       for (let line = range.first; line <= range.last; line++) text += this.contentLine(line);
       next = range.last + 1;
     }
-    if (ranges.length > 0 && next <= this.lines.length) text += GAP;
+    if (next <= this.lines.length && (ranges.length > 0 || outlineOnly)) text += GAP;
     text += `<<<END ${this.input.id}>>>\n`;
     const bytes = byteLength(text);
     if (bytes > limitBytes) {
-      if (excerpt) throw new Error(`excerpt of ${this.input.path} exceeds its limit`);
+      if (excerpt && !outlineOnly)
+        throw new Error(`excerpt of ${this.input.path} exceeds its limit`);
       return undefined;
     }
     return {
@@ -329,6 +335,16 @@ class Selection {
     return this.layout.finish(this.ranges, outline, this.limitBytes);
   }
 
+  /** The outline with every entry omitted, and no content; undefined if even that doesn't fit. */
+  finishOutlineOnly(): RenderedItem | undefined {
+    const outline = this.entries.map((entry) => ({ ...entry, mark: "omitted" as const }));
+    return this.layout.finish([], outline, this.limitBytes, true);
+  }
+
+  isIncluded(index: number): boolean {
+    return this.marks[index] === "included";
+  }
+
   private markBytes(mark: OutlineMark): number {
     return mark === "omitted" ? OMITTED.length : mark === "truncated" ? TRUNCATED.length : 0;
   }
@@ -355,7 +371,16 @@ function codeExcerpt(layout: Layout, units: readonly Unit[], limitBytes: number)
   units.forEach((unit, index) => {
     selection.tryAdd(unit, [[index, "included"]]);
   });
-  return selection.finish();
+  // An excerpt without a single declaration, at most the import block, shows nothing of the
+  // code's shape: the outline alone says more for fewer bytes.
+  const declarationIncluded = units.some(
+    (unit, index) => !isImportBlock(unit, index) && selection.isIncluded(index),
+  );
+  return declarationIncluded ? selection.finish() : selection.finishOutlineOnly();
+}
+
+function isImportBlock(unit: Unit, index: number): boolean {
+  return index === 0 && unit.label === "imports" && unit.first === 1;
 }
 
 function linesExcerpt(layout: Layout, limitBytes: number): RenderedItem | undefined {
