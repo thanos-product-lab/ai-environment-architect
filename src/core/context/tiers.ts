@@ -60,7 +60,11 @@ export const DEFAULT_CONTEXT_SETTINGS: ContextSettings = {
   testReserveBytes: 15_000,
   testExampleBytes: 3_000,
   maxSourceFiles: 24,
-  sourceExtensions: DECLARATION_FAMILIES.flatMap((family) => family.extensions),
+  sourceExtensions: [
+    ...DECLARATION_FAMILIES.flatMap((family) => family.extensions),
+    // Components and templates. No declaration patterns, so they are excerpted by whole lines.
+    ...[".vue", ".svelte", ".astro", ".hbs", ".handlebars", ".ejs", ".njk"],
+  ],
   treeDepth: 4,
   treeCollapseThreshold: 40,
 };
@@ -396,10 +400,24 @@ const BOUNDARIES = [
   "service",
   "config",
 ];
-const RANK_REASONS = ["tier5:rank1:entry-point", "tier5:rank2:boundary-name", "tier5:rank3:other"];
+/** Tests, examples, fixtures and type declarations: they show less of the project's own code. */
+const SUPPORTING_DIRECTORIES = ["test", "tests", "__tests__", "examples", "fixtures"];
+const RANK_REASONS = [
+  "tier5:rank1:entry-point",
+  "tier5:rank2:boundary-name",
+  "tier5:rank3:other",
+  "tier5:rank4:supporting",
+];
+const SUPPORTING_RANK = 3;
 
-function rankOf(path: string): 0 | 1 | 2 {
+function rankOf(path: string): 0 | 1 | 2 | 3 {
   const name = asciiLower(baseName(path));
+  if (
+    name.endsWith(".d.ts") ||
+    directorySegments(path).some((segment) => SUPPORTING_DIRECTORIES.includes(segment))
+  ) {
+    return SUPPORTING_RANK;
+  }
   const dot = name.lastIndexOf(".");
   const stem = dot > 0 ? name.slice(0, dot) : name;
   if (ENTRY_POINTS.includes(stem)) return 0;
@@ -616,22 +634,26 @@ class Selector {
       }
     }
 
-    // Ranked round-robin over the rest.
-    const queues = order.map((pkg) =>
-      (byPackage.get(pkg) ?? [])
-        .filter((path) => !tried.has(path))
-        .sort((a, b) => rankOf(a) - rankOf(b) || byDepthThenPath(a, b)),
-    );
+    // Ranked round-robin over the rest: first every package's ordinary files, then, in a second
+    // pass, the supporting ones. A top-level test/ or examples/ directory is a package of its
+    // own, so ranking within packages alone would still give it a turn in every round.
     let count = 0;
-    for (let round = 0; queues.some((queue) => round < queue.length); round++) {
-      for (const queue of queues) {
-        if (count >= settings.maxSourceFiles) return;
-        const path = queue[round];
-        if (path === undefined) continue;
-        const reason = RANK_REASONS[rankOf(path)] ?? "";
-        const added = await this.add(fill, path, reason, "code", settings.perFileCaps.tier5);
-        // An outline alone (IMPL §1.6) costs little and shows no code, so it takes no slot.
-        if (added === "added" && (this.items.at(-1)?.rendered.included.length ?? 0) > 0) count++;
+    for (const supporting of [false, true]) {
+      const queues = order.map((pkg) =>
+        (byPackage.get(pkg) ?? [])
+          .filter((path) => !tried.has(path) && (rankOf(path) === SUPPORTING_RANK) === supporting)
+          .sort((a, b) => rankOf(a) - rankOf(b) || byDepthThenPath(a, b)),
+      );
+      for (let round = 0; queues.some((queue) => round < queue.length); round++) {
+        for (const queue of queues) {
+          if (count >= settings.maxSourceFiles) return;
+          const path = queue[round];
+          if (path === undefined) continue;
+          const reason = RANK_REASONS[rankOf(path)] ?? "";
+          const added = await this.add(fill, path, reason, "code", settings.perFileCaps.tier5);
+          // An outline alone (IMPL §1.6) costs little and shows no code, so it takes no slot.
+          if (added === "added" && (this.items.at(-1)?.rendered.included.length ?? 0) > 0) count++;
+        }
       }
     }
   }

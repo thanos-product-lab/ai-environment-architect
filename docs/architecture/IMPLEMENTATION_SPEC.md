@@ -9,6 +9,7 @@
 
 Calibration on the development repositories (M2) changed the selection algorithm. `algorithmVersion` is `context-select/1.2.0`.
 
+- **Tier 5 ranking and extensions (§1.5).** Files under `test`, `tests`, `__tests__`, `examples` or `fixtures`, and `*.d.ts` files, are rank 4 (`tier5:rank4:supporting`), taken in a second round-robin pass after every package's other source files. `.vue`, `.svelte`, `.astro`, `.hbs`, `.handlebars`, `.ejs` and `.njk` are source extensions, excerpted by whole lines.
 - **Outline-only code items (§1.5, §1.6).** A source excerpt that would contain no declaration, only the import block or nothing, is sent as its outline alone, with every entry omitted. It takes no source file slot. On the development repositories, several excerpts held only imports, including the core file of a library.
 - **Tier 3 order (§1.5).** Workspace definitions, task runners, package manifests, tooling configuration, then CI last. Reasons renumber to `tier3:group3:package-manifest`, `tier3:group4:tooling` and `tier3:group5:ci`.
 - **Scan as selected (§1.3, §1.5, §1.7).** Each item is scanned as it is selected. A blocked file uses no bytes, item ID or source file slot, so the next candidate takes its place, and a blocked test example is replaced by the package's next test file. Before, blocked items were removed after selection without refilling, which let one false positive cost a tier a whole file's budget.
@@ -221,7 +222,7 @@ Within a tier, every item is tried in the tier's order. An item that exceeds its
 
 **Names.** Tier 1 names match exactly, because agents load those files by exact name. In tiers 2, 3 and 5, names and extensions compare ASCII letters case-insensitively, so `readme.md`, `makefile` and `App.TS` match. *Markdown* means the extensions `.md`, `.markdown` and `.mdx`. These lists and rules are part of `algorithmVersion`; any change to them increases it.
 
-**Reasons.** Items carry `tier1:destination`, `tier1:agent-config`, `tier1:import`, `tier2:group<N>:root-doc|decision-doc|docs|package-readme`, `tier3:group<N>:workspace|task-runner|package-manifest|tooling|ci`, `tier5:test-example` or `tier5:rank<N>:entry-point|boundary-name|other`. A file tried and never included is recorded with `tier<N>:cap-reached`.
+**Reasons.** Items carry `tier1:destination`, `tier1:agent-config`, `tier1:import`, `tier2:group<N>:root-doc|decision-doc|docs|package-readme`, `tier3:group<N>:workspace|task-runner|package-manifest|tooling|ci`, `tier5:test-example` or `tier5:rank<N>:entry-point|boundary-name|other|supporting`. A file tried and never included is recorded with `tier<N>:cap-reached`.
 
 **Default budget:** `initialContextBytes` = 240,000. The five tier caps may not add up to more than it; settings that do are rejected.
 
@@ -294,7 +295,7 @@ These files are the source of command evidence. Commands are always reported as 
 
 #### Tier 5 — Representative source
 
-**Source files** are candidates with a source extension. The default list covers TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, C#, Ruby, PHP, Swift and their common variants, and is a setting. By default it is the extension list of the declaration patterns (§1.6).
+**Source files** are candidates with a source extension. The default list covers TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, C#, Ruby, PHP, Swift and their common variants, and is a setting. By default it is the extension list of the declaration patterns (§1.6), plus components and templates: `.vue`, `.svelte`, `.astro`, `.hbs`, `.handlebars`, `.ejs` and `.njk`. These have no declaration patterns, so they are excerpted by whole lines from the start.
 
 **Packages** are determined in this order:
 
@@ -313,10 +314,11 @@ A file belongs to the deepest package that contains it. Source files in no packa
 | 1 | Entry-point names: `index`, `main`, `app`, `server`, `cli`, `mod`, `lib`, `__main__` | Shows structure and wiring |
 | 2 | Boundary names: `client`, `api`, `routes`, `router`, `schema`, `schemas`, `model`, `models`, `service`, `config` | Where conventions and contracts live |
 | 3 | All remaining source files | Fallback |
+| 4 | Supporting files: anything under a directory named `test`, `tests`, `__tests__`, `examples` or `fixtures` (at any depth), and `*.d.ts` files. This rank is checked first, so `test/index.ts` is rank 4 | Show less of the project's own code |
 
-A file's name for ranking is its base name without its last extension, so `index.ts` is rank 1 and `index.d.ts` is not. Within a rank, order is path depth (shallower first), then path order.
+A file's name for ranking is its base name without its last extension, so `index.ts` is rank 1 and `index.d.ts` is rank 4. Within a rank, order is path depth (shallower first), then path order.
 
-**Selection** is round-robin: in package path order, take each package's next-ranked file, repeating until the tier budget or `maxSourceFiles` (default 24, not counting test examples or outline-only items, §1.6) is reached.
+**Selection** is round-robin: in package path order, take each package's next-ranked file of ranks 1 to 3, repeating until every package's are tried; then the same for rank 4. Both passes stop when the tier budget or `maxSourceFiles` (default 24, not counting test examples or outline-only items, §1.6) is reached. Rank 4 has its own pass because a top-level `test/` or `examples/` directory is a package of its own, and would otherwise get a turn in every round.
 
 This sampling will miss conventions that only show up across many files. The expansion step (§1.8) exists for that reason.
 

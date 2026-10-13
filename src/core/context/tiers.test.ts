@@ -79,6 +79,12 @@ describe("settings (IMPL §1.14)", () => {
     });
   });
 
+  it("includes template and component files in its source extensions", () => {
+    for (const extension of [".vue", ".svelte", ".astro", ".hbs", ".handlebars", ".ejs", ".njk"]) {
+      expect(DEFAULT_CONTEXT_SETTINGS.sourceExtensions).toContain(extension);
+    }
+  });
+
   it("covers the declaration families and the listed languages in its source extensions", () => {
     for (const extension of [".ts", ".tsx", ".js", ".py", ".go", ".rs", ".java", ".kt", ".cs"]) {
       expect(DEFAULT_CONTEXT_SETTINGS.sourceExtensions).toContain(extension);
@@ -903,8 +909,48 @@ describe("tier 5: ranking and round-robin", () => {
       ["src/api.ts", "tier5:rank2:boundary-name"],
       ["src/a/Client.TS", "tier5:rank2:boundary-name"],
       ["src/alpha.ts", "tier5:rank3:other"],
-      ["src/index.d.ts", "tier5:rank3:other"],
       ["src/zeta.ts", "tier5:rank3:other"],
+      ["src/index.d.ts", "tier5:rank4:supporting"],
+    ]);
+  });
+
+  it("samples templates as source, excerpted by whole lines", async () => {
+    const result = await selected(
+      { "server/views/home.hbs": "<p>{{title}}</p>\n".repeat(400) },
+      { perFileCaps: { tier2: 12_000, tier3: 8_000, tier5: 1_000 } },
+    );
+    const item = itemOf(result, "server/views/home.hbs");
+    expect(item?.reason).toBe("tier5:rank3:other");
+    expect(item?.rendered.outline[0]?.label).toMatch(/^lines 1-/);
+  });
+
+  it("ranks tests, examples, fixtures and .d.ts files after every other source file", async () => {
+    const result = await selected(
+      {
+        "src/a.ts": "export const a = 1;\n",
+        "src/b.ts": "export const a = 1;\n",
+        "src/types.d.ts": "export const a = 1;\n",
+        "src/__tests__/helper.ts": "export const a = 1;\n",
+        "src/Fixtures/data.ts": "export const a = 1;\n",
+        "examples/demo.ts": "export const a = 1;\n",
+        "test/helper.ts": "export const a = 1;\n",
+        "tests/util.py": "def a():\n    pass\n",
+        "lib/index.ts": "export const a = 1;\n",
+      },
+      { testReserveBytes: 0 },
+    );
+    // Packages are the top-level directories. Every package's ordinary files come first, then
+    // the supporting files, each pass round-robin in package order.
+    expect(result.items.map((i) => [i.path, i.reason])).toEqual([
+      ["lib/index.ts", "tier5:rank1:entry-point"],
+      ["src/a.ts", "tier5:rank3:other"],
+      ["src/b.ts", "tier5:rank3:other"],
+      ["examples/demo.ts", "tier5:rank4:supporting"],
+      ["src/types.d.ts", "tier5:rank4:supporting"],
+      ["test/helper.ts", "tier5:rank4:supporting"],
+      ["tests/util.py", "tier5:rank4:supporting"],
+      ["src/Fixtures/data.ts", "tier5:rank4:supporting"],
+      ["src/__tests__/helper.ts", "tier5:rank4:supporting"],
     ]);
   });
 
