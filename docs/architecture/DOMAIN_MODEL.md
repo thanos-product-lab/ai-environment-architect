@@ -1,8 +1,8 @@
 # Domain Model
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 13 October 2026  
-**Version:** 0.7 — consolidated specification  
+**Date:** 14 October 2026  
+**Version:** 0.8 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,11 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.7
+
+1. **Ignored directories (§6.1).** Ignored entries are listed before capture. A wholly ignored directory is one `ignored` entry that capture doesn't enter, like an excluded directory.
+2. **Ignore rules recorded (§6.1).** The snapshot records whether ignore rules were applied, or the reason they weren't, separately from the git metadata. Git 2.38 to 2.43 is used except in a partial clone.
 
 ### Changes from v0.6
 
@@ -118,19 +123,20 @@ The bounded capture of repository content used for one analysis. Snapshots are i
 | Field | Notes |
 |---|---|
 | `id`, `capturedAt` | |
-| `git` | Supporting metadata only; never a substitute for file hashes. Either `unknown` with a reason (not inspected, git missing or too old, not a repository, refused as unsafe, or a git error), or known: object format (`sha1` or `sha256`), commit (none when HEAD names a branch with no commits yet; any other HEAD that can't be resolved is a git error), `workingTreeDirty` (`true`, `false` or `unknown`), and the modified, deleted and uncompared paths, the untracked count and the submodules. Git also lists the ignored files (below) |
+| `git` | Supporting metadata only; never a substitute for file hashes. Either `unknown` with a reason (not inspected, git missing or too old, not a repository, refused as unsafe, or a git error), or known: object format (`sha1` or `sha256`), commit (none when HEAD names a branch with no commits yet; any other HEAD that can't be resolved is a git error), `workingTreeDirty` (`true`, `false` or `unknown`), and the modified, deleted and uncompared paths, the untracked count and the submodules. Ignored entries are listed separately, before capture (`ignoreRules`, below) |
 | `scope` | Included roots and patterns |
 | `exclusions` | Default and user exclusions (secrets, dependencies, build output, lockfiles, personal agent configuration, binary files, session storage) |
 | `files` | One entry per path under scope: repository-relative path, content hash, byte size, status (`read`, `listed_only`, `ignored`, `unreadable`, `truncated`, `excluded`, `symlink`) |
 | `destination` | The captured target file: `absent`; original bytes, hash and parsed Guidance Blocks (§7); or `unavailable` with a reason, when a root `CLAUDE.md` exists but is a symbolic link, not a regular file, unreadable, larger than the readable-file limit, not valid UTF-8, contains a NUL byte, or is present only under another letter case (such as `claude.md`) |
 | `readFailures` | Path and reason |
 | `stability` | `stable`, or `unstable` with the paths that changed during capture |
+| `ignoreRules` | `applied`, or `not_applied` with the git reason, when git couldn't list ignored entries ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.4) |
 
 **Coverage** is the `files` list itself: every path under the declared scope and exclusions, whether or not its content was sent to the model. Comparing a later file list with this one detects additions and removals.
 
 - An **excluded** path is listed with the rule that matched it, and is never opened: it has no hash or size. An excluded directory is one entry, and nothing inside it is listed.
 - A **symbolic link** is listed with its target, and is never followed, whether the target is inside the repository root or outside it. It has no hash or size.
-- An **ignored** file is readable, not tracked by the commit, and matched by the repository's ignore rules as git lists them. It is listed with its hash and size, but is never sent to the model and never expanded, unless the developer keeps it as a candidate with the `includeIgnored` setting ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.4). The destination, tracked files, excluded entries and symbolic links are never `ignored`. Without git, ignore rules are not applied: only the default and user exclusions apply, and the inspect summary says so.
+- An **ignored** entry is untracked and matched by the repository's ignore rules, as git lists them before capture. A wholly ignored directory is one entry and is not entered, like an excluded directory. An ignored file is listed with its hash and size, but is never sent to the model and never expanded, unless the developer keeps it as a candidate with the `includeIgnored` setting ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.4). The destination, excluded entries and symbolic links are never `ignored`. Without git, ignore rules are not applied: only the default and user exclusions apply, and the inspect summary says so.
 - An entry whose name is not valid UTF-8, or a symbolic link whose target is not, is listed as `unreadable` under an escaped name (`\xNN` for each byte outside printable ASCII). If it is a directory, nothing inside it is listed. Every `unreadable` entry records its kind: file, directory, symbolic link or other.
 - `truncated` is not produced at capture. Capture reads files whole or not at all.
 

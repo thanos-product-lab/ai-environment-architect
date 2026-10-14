@@ -1,9 +1,17 @@
 # Implementation Specification
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 13 October 2026  
-**Version:** 0.12  
+**Date:** 14 October 2026  
+**Version:** 0.13  
 **Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
+
+### Changes from v0.12
+
+`algorithmVersion` is `context-select/1.3.0`, because ignored directories change capture and the tree.
+
+- **Ignored directories (§1.4, §1.6, §1.13).** Git lists ignored entries before capture. A wholly ignored directory is one `ignored` entry that capture doesn't enter, like an excluded directory, and the tree shows it as `name/ [ignored]`. Capture enters one only when an `includeIgnored` pattern could match inside it. Ignored files outside such directories are still hashed.
+- **Git version (§1.4).** The minimum is 2.38. Git 2.38 to 2.43 can't be told not to fetch missing objects, so it runs without `--no-lazy-fetch` and refuses only a partial clone, detected from `extensions.partialClone` or a `remote.*.promisor` key. Git 2.44 or later reads partial clones as before.
+- **Ignore rules in the snapshot and manifest (§1.4, §1.13, §2.4).** The snapshot records whether ignore rules were applied, or why not, separately from the git metadata. The manifest's `ignoreRules` is that record, and the summary names the reason.
 
 ### Changes from v0.11
 
@@ -181,15 +189,17 @@ A file that is not excluded but fails the size or content rules is `listed_only`
 
 Exclusions are recorded in the snapshot and the manifest. Excluded directories appear in the tree once, with no children and never by content (tier 4, §1.6); capture does not enter them, so there is no count.
 
-**Ignored files.** Files the repository's ignore rules match are not excluded, because capture runs no `git` command and doesn't parse ignore files. They are found afterwards, by the git adapter (below), and recorded as `ignored`:
+**Ignored files.** Files the repository's ignore rules match are not excluded, because capture doesn't parse ignore files itself. Before capture, the git adapter (below) lists the untracked entries git's ignore rules match, with `--directory`, so a directory whose whole content is ignored is one entry. Capture then records them as `ignored`:
 
-- An `ignored` file is one that is readable (it would otherwise be `read` or `listed_only`), not tracked by the commit, and matched by git's standard ignore rules: `.gitignore` files at any depth and `.git/info/exclude`. No excludes file is read, neither the user's global one (git runs without the user's configuration or `HOME`) nor one the repository's config names (`core.excludesFile` is overridden, below).
-- It stays in the snapshot with its hash and size, so coverage and freshness still see it, but it is a candidate for no tier and no expansion (§1.8). The tree shows it as `[I]`.
-- The destination, tracked files, excluded entries, symbolic links and unreadable entries are never `ignored`. A tracked file that an ignore pattern matches stays a candidate, as it does in git.
+- An `ignored` entry is an untracked path matched by git's standard ignore rules: `.gitignore` files at any depth and `.git/info/exclude`. No excludes file is read, neither the user's global one (git runs without the user's configuration or `HOME`) nor one the repository's config names (`core.excludesFile` is overridden, below).
+- A wholly ignored **directory** is one entry, like an excluded directory: capture doesn't enter it, so its contents are neither listed nor counted. The tree shows it as `name/ [ignored]`.
+- An ignored **file** that git lists on its own (outside a wholly ignored directory) is readable, and would otherwise be `read` or `listed_only`. It stays in the snapshot with its hash and size, so coverage and freshness still see it, but it is a candidate for no tier and no expansion (§1.8). The tree shows it as `[I]`.
+- The destination, excluded entries, symbolic links and unreadable entries are never `ignored`; exclusions are applied first. A tracked file that an ignore pattern matches stays a candidate, as it does in git.
 - Untracked files that no ignore rule matches stay candidates.
-- The setting `includeIgnored` (§1.14) lists patterns, in the exclusion grammar below, for ignored files to keep as candidates: such a file keeps its `read` or `listed_only` status. A pattern matches the file's path, or, with a trailing `/`, any directory above it, so `logs/` keeps every file under `logs`. It is a snapshot setting, so it is part of `settingsHash`.
-- Ignored files are listed by git after capture's two observations, so the stability check doesn't cover them: an ignore file edited during capture can give an `ignored` set that doesn't match the ignore file's hash in the snapshot.
-- When git metadata is `unknown` (no repository, git missing or too old, or an error), ignore rules are not applied: only the default and user exclusions apply. The manifest records `ignoreRules: "not_applied"`, and the summary says so (§2.4).
+- The setting `includeIgnored` (§1.14) lists patterns, in the exclusion grammar below, for ignored files to keep as candidates: such a file keeps its `read` or `listed_only` status. A pattern matches the file's path, or, with a trailing `/`, any directory above it, so `logs/` keeps every file under `logs`. It is a snapshot setting, so it is part of `settingsHash`. Capture enters a wholly ignored directory when a pattern could match inside it: an unanchored pattern, which can match at any depth; a pattern that covers the directory or a directory above it; or an anchored pattern whose leading segments match the directory's path. Inside, files the patterns don't keep are `ignored` and hashed.
+- Ignored entries are listed once, before capture's observations, so the stability check doesn't cover them: an ignore file edited during capture can give an `ignored` set that doesn't match the ignore file's hash in the snapshot, and an ignored file or directory created during capture, such as a log a running process writes, is not identified and stays a candidate. It is still secret-scanned before anything is sent.
+- Files git lists as ignored never count as untracked (DM §6.1), even when `includeIgnored` keeps them as candidates.
+- When git can't list ignored entries (no repository, git missing or too old, a partial clone on git older than 2.44, or an error), ignore rules are not applied: only the default and user exclusions apply. The snapshot and manifest record `ignoreRules` as `not_applied` with that reason, and the summary says that ignored files couldn't be identified (§2.4).
 
 **Patterns.** Default and user exclusions use one grammar:
 
@@ -205,11 +215,12 @@ Secret-bearing names and binary types compare ASCII letters case-insensitively, 
 
 **Capture** ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.1) is read-only. Files are opened read-only and never through a symbolic link; nothing is written inside the repository, including `.git/`. Symbolic links are recorded with their targets and never followed. Special files such as named pipes are never opened, and are recorded as `unreadable`. A name that is not valid UTF-8 is recorded as `unreadable` and as a read failure. After a file is opened, its parent directory must still resolve to the expected path under the root, or nothing is read; a directory is listed only if it resolves to its expected path before and after listing. One race remains, because Node has no `openat`: a directory swapped for a link and back again between the open and the check. The tool doesn't defend against a repository being changed adversarially while it runs. The repository is observed twice, listing and hashing every file that is not excluded. If any path's entry differs between the two, both observations are repeated once. If they still differ, the snapshot is `unstable` with those paths, and the second observation of the retry is kept.
 
-**Git metadata** ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.1) is read after the observations, by an adapter that treats the repository as untrusted:
+**Git metadata** ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.1) is read by an adapter that treats the repository as untrusted. Ignored entries are listed before the observations, and the commit and tree are read after them. Each read repeats the version, repository and object-format checks:
 
-- Only `git --version`, `git rev-parse` (top level, object format, `HEAD^{commit}`), `git symbolic-ref` and `git show-ref` (to recognise a branch with no commits), `git ls-tree -r -z -l --full-tree <commit>` and `git ls-files -z --others --ignored --exclude-standard --directory` run. None of them refreshes the index, or runs hooks, filters or fsmonitor. Only `ls-files` reads the working tree, and only directory listings and ignore files, never file content; `--directory` reports a wholly ignored directory as one entry. `git status` is never used.
-- The environment is built from scratch: `PATH`, `LANG=C`, `LC_ALL=C`, `GIT_OPTIONAL_LOCKS=0`, `GIT_CONFIG_NOSYSTEM=1`, `GIT_CONFIG_GLOBAL=/dev/null`, `GIT_ATTR_NOSYSTEM=1`, `GIT_TERMINAL_PROMPT=0`, `GIT_NO_LAZY_FETCH=1`, `GIT_NO_REPLACE_OBJECTS=1`, and `GIT_CEILING_DIRECTORIES` set to the root's parent unless that path contains `:`. `HOME` and variables such as `GIT_DIR` from the user's shell are dropped. Every command except `--version` also gets `--no-lazy-fetch -c core.fsmonitor=false -c core.untrackedCache=false -c safe.bareRepository=explicit -c core.excludesFile=/dev/null`. The last stops the repository's own config pointing `ls-files` at any file the user can read, or at a FIFO that would stall it.
-- Git older than 2.44 is refused (`git_too_old`), because it ignores `GIT_NO_LAZY_FETCH` and could fetch missing objects in a partial clone, running a command from the repository's config.
+- Only `git --version`, `git rev-parse` (top level, object format, `HEAD^{commit}`), `git config --get-regexp` (the partial-clone check, below 2.44 only), `git symbolic-ref` and `git show-ref` (to recognise a branch with no commits), `git ls-tree -r -z -l --full-tree <commit>` and `git ls-files -z --others --ignored --exclude-standard --directory` run. None of them refreshes the index, or runs hooks, filters or fsmonitor. Only `ls-files` reads the working tree, and only directory listings and ignore files, never file content; `--directory` reports a wholly ignored directory as one entry. `git status` is never used.
+- The environment is built from scratch: `PATH`, `LANG=C`, `LC_ALL=C`, `GIT_OPTIONAL_LOCKS=0`, `GIT_CONFIG_NOSYSTEM=1`, `GIT_CONFIG_GLOBAL=/dev/null`, `GIT_ATTR_NOSYSTEM=1`, `GIT_TERMINAL_PROMPT=0`, `GIT_NO_LAZY_FETCH=1`, `GIT_NO_REPLACE_OBJECTS=1`, and `GIT_CEILING_DIRECTORIES` set to the root's parent unless that path contains `:`. `HOME` and variables such as `GIT_DIR` from the user's shell are dropped. Every command except `--version` also gets `--no-lazy-fetch` (git 2.44 or later only) and `-c core.fsmonitor=false -c core.untrackedCache=false -c safe.bareRepository=explicit -c core.excludesFile=/dev/null`. The last stops the repository's own config pointing `ls-files` at any file the user can read, or at a FIFO that would stall it.
+- Git older than 2.38 is refused (`git_too_old`): 2.38 added `safe.bareRepository`, and 2.35.2 the `safe.directory` ownership check. The floor is set by feature, not patch level; the known flaws in 2.38.0–2.39.0 (CVE-2022-23521 in attribute parsing, CVE-2022-41903 in pretty formats) are in features none of these commands use.
+- Git 2.38 to 2.43 ignores `GIT_NO_LAZY_FETCH` and has no `--no-lazy-fetch`, so in a partial clone it could fetch missing objects, running the network, credential helpers and commands from the repository's config. Git fetches lazily only from a promisor remote, so this git refuses only a repository whose config, include files included, has `extensions.partialClone` or any `remote.<name>.promisor` key, whatever its value (`git_too_old`). Any other failure of that check, such as a config whose `~/` include can't be resolved without `HOME`, is treated as a partial clone: the read is refused as `git_too_old`, not `git_error`. On macOS, `/usr/bin/git` reports the version of the installed Command Line Tools, which can be 2.39.
 - Git runs only when the root has a `.git` entry, so discovery stops at the root. The work tree git reports must be the root: a subfolder of a larger repository, a bare-repository layout, or a `core.worktree` pointing elsewhere is `not_a_repository`. Discovery is used rather than setting `GIT_DIR`, because git checks `safe.directory` ownership only during discovery.
 - `safe.directory` refusals are recorded as `unsafe_repository`. Global config is ignored, so a `safe.directory` entry there doesn't apply.
 - The commit is `HEAD^{commit}`. It is absent only when HEAD is a symbolic ref to a branch that doesn't exist yet; any other failure to resolve HEAD is `git_error`.
@@ -388,8 +399,8 @@ The example shows only the first two of lines 40–96; a real item lists every i
 
 - Depth limit `treeDepth` (default 4). A directory at the limit shows the number of files under it: every entry except directories.
 - Directories with more than `treeCollapseThreshold` entries (default 40) show their first `treeCollapseThreshold` entries in path order, then `… N more`.
-- Excluded directories appear once, with an `[excluded]` marker and no children.
-- Each file has a marker: `[R]` fully included, `[E]` excerpt included, `[-]` readable but not selected (a plain `read` expansion can fetch it), `[L]` `listed_only` (only line ranges can be read), `[X]` excluded, `[I]` ignored by the repository's ignore rules (§1.4; not sent, and no expansion can read it), `[S]` blocked by secret scan, `[>]` symbolic link, shown with its target (`name -> target`), `[U]` unreadable (a directory too, with `/`).
+- Excluded directories appear once, with an `[excluded]` marker and no children, and wholly ignored directories once, with an `[ignored]` marker and no children (§1.4).
+- Each file has a marker: `[R]` fully included, `[E]` excerpt included, `[-]` readable but not selected (a plain `read` expansion can fetch it), `[L]` `listed_only` (only line ranges can be read), `[X]` excluded, `[I]` an ignored file (§1.4; not sent, and no expansion can read it), `[S]` blocked by secret scan, `[>]` symbolic link, shown with its target (`name -> target`), `[U]` unreadable (a directory too, with `/`).
 
 **Format.** A header `<<<TREE depth=<d> files=<n>>>>`, one line per entry, and `<<<END TREE>>>`, each ending with a line break. `n` counts every entry except directories. Entries are indented two spaces per level, and siblings are in bytewise name order. A directory is its name and `/`; a file is its marker, a space and its name. A name containing a control character (C0, DEL, C1, U+2028 or U+2029) is written as a JSON string, and the delimiter escape applies to names and link targets. A name or link target that matches the secret scan is written `<withheld>` (§1.7).
 
@@ -549,7 +560,7 @@ Every model call records an input manifest ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md)
 ```json
 {
   "manifestVersion": 1,
-  "algorithmVersion": "context-select/1.2.0",
+  "algorithmVersion": "context-select/1.3.0",
   "secretRulesVersion": "secret-scan/1.1.0",
   "declarationPatternsVersion": "declarations/1.0.0",
   "settingsHash": "sha256:…",
@@ -589,9 +600,9 @@ Every model call records an input manifest ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md)
     { "path": "node_modules", "rule": "node_modules/" },
     { "path": "config/local.ts", "reason": "secret-scan:generic-assignment" }
   ],
-  "ignoreRules": "applied",
+  "ignoreRules": { "state": "applied" },
   "ignored": [
-    { "path": "logs/app.log" },
+    { "path": "logs" },
     { "path": "server/config.js" }
   ],
   "expansion": null
@@ -604,7 +615,7 @@ Details:
 
 - Tiers are listed 1 to 5. Tiers 1, 2, 3 and 5 also record `budgetBytes`: the cap plus bytes passed down. Tier 4 records `capBytes`, `usedBytes` and `treeDepth`.
 - `budget.usedBytes` is the rendered context's size, tree included.
-- `ignoreRules` is `applied` when git metadata is known, and `not_applied` otherwise (§1.4). `ignored` lists the snapshot's `ignored` files in path order.
+- `ignoreRules` is the snapshot's record: `{ "state": "applied" }`, or `{ "state": "not_applied", "reason": … }` with the git reason (§1.4). `ignored` lists the snapshot's `ignored` entries in path order: files, and wholly ignored directories as one path each.
 - `excluded` lists the snapshot's excluded entries with their rule, in path order, then secret-blocked files with `secret-scan:<rule ID>`, in path order. Secret-blocked files include files whose path matches, whether or not a tier selected them.
 - A path that matches the secret scan is recorded as `pathHash` instead of `path` (§1.7).
 - `retainedInputRef` is `null` until inputs are retained for a call (§1.12), `tokenCheck` until the token check runs (§1.10), and `expansion` when there was no expansion.
@@ -642,7 +653,9 @@ All defaults are starting points. They are calibrated on the product-development
 - The destination is included in full, or the session stops before any call with a stated reason, for each of the four causes in §1.5.
 - The secret scan runs on every outgoing request and blocks each rule's fixtures. The manifest never contains matched text.
 - Excluded, `ignored`, `listed_only` (except requested ranges) and secret-blocked content never appears in a request.
-- Ignored files are recorded as `ignored` only when git lists them: never tracked files, the destination, excluded entries or links. Without git, the manifest says ignore rules were not applied.
+- Ignored files are recorded as `ignored` only when git lists them: never tracked files, the destination, excluded entries or links. Without git, the manifest says ignore rules were not applied, with the reason.
+- A wholly ignored directory is one entry that capture never lists or reads inside, unless an `includeIgnored` pattern could match there.
+- Git 2.38 to 2.43 reads an ordinary repository without `--no-lazy-fetch`, and refuses a partial clone.
 - Delimiter sequences inside file content are escaped.
 - Line-range expansion returns exactly the requested lines; out-of-range or already-included requests are rejected.
 - A file changed after the snapshot fails expansion with "changed since snapshot".
@@ -737,7 +750,7 @@ What will be sent for analysis  (228 KB of 240 KB)
   Source samples                21 files    79 KB   4 test examples, 9 excerpted
 
   Not sent: node_modules (not entered), 3 lockfiles, 1 file blocked (secret pattern)
-  Ignored by .gitignore: 6 files   logs/app.log, server/config.js, … ([v] lists all)
+  Ignored by .gitignore: 6 entries   logs/ (not entered), server/config.js, … ([v] lists all)
 
   [Enter] Send for analysis   [v] View file list   [a] Add paths
   [x] Add exclusions   [q] Save and quit
@@ -746,7 +759,7 @@ What will be sent for analysis  (228 KB of 240 KB)
 - `v` lists each item with its reason and excerpt range, and every skipped or blocked path with its reason.
 - `a` and `x` change the settings, recompute the selection, and show the summary again with the new size. Adding an `ignored` path with `a` adds it to `includeIgnored` (§1.4, §1.14), so a new snapshot keeps that file as a candidate; it then belongs to a tier as usual.
 - The "Not sent" line names each excluded directory followed by `(not entered)`, because capture never enters it and has no count of its contents (§1.4). Excluded files are counted by kind, and secret-blocked files are counted.
-- The ignored line lists `ignored` files (§1.4), first in path order, with the count. When ignore rules were not applied, because git metadata is `unknown`, it reads instead `Ignore rules not applied (<reason>): only the default exclusions were used.`
+- The ignored line lists `ignored` entries (§1.4), first in path order, with the count; an ignored directory is shown as `logs/ (not entered)`. When ignore rules were not applied, it reads instead `Ignored files couldn't be identified (<reason>): only the default exclusions were used.`
 - If the destination rule (§1.5) stops the session, this screen explains why and what to do, and nothing is sent.
 
 After **Enter**, analysis runs. Progress shows the current call, elapsed time and cost so far. If the model requests expansion, the CLI shows what was requested and what was accepted or rejected, then continues automatically: expansion has already been validated against scope, exclusions and budget.

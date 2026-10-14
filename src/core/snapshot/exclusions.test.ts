@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildExclusionRules, findExclusion, matchesPathOrAncestor } from "./exclusions.js";
+import {
+  buildExclusionRules,
+  findExclusion,
+  matchesPathOrAncestor,
+  mayMatchInside,
+} from "./exclusions.js";
 import type { EntryKind } from "./repository-fs.js";
 
 const defaults = buildExclusionRules({ userExclusions: [] });
@@ -136,6 +141,25 @@ describe("matchesPathOrAncestor (includeIgnored)", () => {
     expect(matchesPathOrAncestor(["logs/"], "logs")).toBe(false);
     expect(matchesPathOrAncestor(["config.js"], "server/config.json")).toBe(false);
     expect(matchesPathOrAncestor([], "a.txt")).toBe(false);
+  });
+});
+
+describe("mayMatchInside (includeIgnored)", () => {
+  it.each([
+    [["config.js"], "deep/dir", true],
+    [["logs/"], "anything", true],
+    [["/a/*.log"], "a", true],
+    [["a/*.log"], "a/b", false],
+    [["a/*/x.log"], "a/b", true],
+    [["/a/"], "a/b/c", true],
+    // Without a trailing slash, a pattern matches directories too.
+    [["a/b"], "a/b", true],
+    [["a/b"], "a/c", false],
+    [["a/b/"], "a/b", true],
+    [["/tmp/keep.txt"], "cache", false],
+    [[], "a", false],
+  ] as const)("%j inside %s: %s", (patterns, directory, expected) => {
+    expect(mayMatchInside(patterns, directory)).toBe(expected);
   });
 });
 

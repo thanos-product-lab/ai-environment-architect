@@ -3,6 +3,7 @@ import { lstat, realpath } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type {
   GitHead,
+  GitIgnoredList,
   GitReader,
   GitTreeEntry,
   GitUnknownReason,
@@ -10,10 +11,11 @@ import type {
 } from "../../core/snapshot/git.js";
 import { decodeName } from "../fs/node-repository-fs.js";
 
-// Reads the commit and its tree for snapshot metadata (DM §6.1). The repository is untrusted:
+// Lists ignored entries before capture, and reads the commit and its tree after it, for snapshot
+// metadata (DM §6.1). The repository is untrusted:
 //
-// - Only `git --version`, `rev-parse`, `symbolic-ref`, `show-ref`, `ls-tree` and
-//   `ls-files --others --ignored --exclude-standard --directory` run. None of them refreshes the
+// - Only `git --version`, `rev-parse`, `config --get-regexp` (below 2.44 only), `symbolic-ref`,
+//   `show-ref`, `ls-tree` and `ls-files --others --ignored --exclude-standard --directory` run. None of them refreshes the
 //   index or runs hooks, clean/smudge filters or fsmonitor. Only `ls-files` reads the working
 //   tree, and only its directory listings and ignore files, never file content. The working
 //   tree is compared in core, from the snapshot's own reads.
@@ -21,17 +23,22 @@ import { decodeName } from "../fs/node-repository-fs.js";
 // - The environment is rebuilt from scratch, so variables such as GIT_DIR can't redirect git.
 //   Global and system config are ignored. fsmonitor and the untracked cache are forced off.
 // - `GIT_NO_LAZY_FETCH=1` and `--no-lazy-fetch` stop a partial clone fetching missing objects,
-//   which could run a command from the repository's config. Both need git 2.44, so older git is
-//   refused. A missing object then fails the read (git_error) instead of being fetched.
+//   which could run a command from the repository's config. A missing object then fails the read
+//   (git_error) instead of being fetched. Both need git 2.44. Older git, down to 2.38, is used
+//   without them, except in a partial clone, the only kind of repository it could fetch into.
 // - Git runs only when the root has a `.git` entry, so discovery finds it at once and never
 //   climbs into an enclosing repository. GIT_CEILING_DIRECTORIES backs this up when the parent
 //   path can be expressed (it is colon-separated). A bare-repository layout at the root has no
 //   `.git` and is not read; `safe.bareRepository=explicit` refuses it as well.
 // - Discovery is kept, rather than setting GIT_DIR, because git checks safe.directory ownership
 //   only during discovery.
-// - HOME is not passed, so a repository config that includes `~/…` makes git fail: git_error.
+// - HOME is not passed, so a repository config that includes `~/…` makes git fail: git_error,
+//   or git_too_old below 2.44, where the partial-clone check fails closed.
 
-const MINIMUM_VERSION = [2, 44] as const;
+/** safe.bareRepository arrived in 2.38; safe.directory in 2.35.2. */
+const MINIMUM_VERSION = [2, 38] as const;
+/** GIT_NO_LAZY_FETCH and --no-lazy-fetch arrived in 2.44. */
+const NO_LAZY_FETCH_VERSION = [2, 44] as const;
 const TIMEOUT_MS = 60_000;
 const MAX_OUTPUT_BYTES = 1 << 30;
 
@@ -44,38 +51,11 @@ export interface GitReaderOptions {
 export function openGitReader(root: string, options: GitReaderOptions = {}): GitReader {
   const gitPath = options.gitPath ?? "git";
   return {
-    async readHead(): Promise<GitHead> {
-      const realRoot = await realpath(root);
-      const run = runner(gitPath, realRoot);
-
-      // Without the safety flags: git before 2.44 rejects --no-lazy-fetch.
-      const version = await run(["--version"], { bare: true });
-      if (!version.ok) return version;
-      if (!isAtLeast(version.stdout.toString("utf8"), MINIMUM_VERSION)) {
-        return { ok: false, reason: "git_too_old" };
-      }
-
-      try {
-        await lstat(join(realRoot, ".git"));
-      } catch {
-        return { ok: false, reason: "not_a_repository" };
-      }
-
-      const topLevel = await run(["rev-parse", "--show-toplevel"]);
-      if (!topLevel.ok) return topLevel;
-      if ((await realpath(withoutNewline(topLevel.stdout))) !== realRoot) {
-        return { ok: false, reason: "not_a_repository" };
-      }
-
-      const format = await run(["rev-parse", "--show-object-format"]);
-      if (!format.ok) return format;
-      const objectFormat = withoutNewline(format.stdout);
-      if (objectFormat !== "sha1" && objectFormat !== "sha256") {
-        return { ok: false, reason: "git_error" };
-      }
-
+    async readIgnored(): Promise<GitIgnoredList> {
+      const ready = await prepare(gitPath, root);
+      if (!ready.ok) return ready;
       // `--directory` lists a wholly ignored directory once, so node_modules/ is one entry.
-      const listed = await run([
+      const listed = await ready.run([
         "ls-files",
         "-z",
         "--others",
@@ -83,14 +63,16 @@ export function openGitReader(root: string, options: GitReaderOptions = {}): Git
         "--exclude-standard",
         "--directory",
       ]);
-      if (!listed.ok) return listed;
-      const ignored = splitNul(listed.stdout);
+      return listed.ok ? { ok: true, paths: splitNul(listed.stdout) } : listed;
+    },
 
+    async readHead(): Promise<GitHead> {
+      const ready = await prepare(gitPath, root);
+      if (!ready.ok) return ready;
+      const { run, objectFormat } = ready;
       const head = await run(["rev-parse", "--verify", "--quiet", "HEAD^{commit}"]);
       if (!head.ok) {
-        return (await isUnborn(run))
-          ? { ok: true, objectFormat, commit: null, tree: [], ignored }
-          : head;
+        return (await isUnborn(run)) ? { ok: true, objectFormat, commit: null, tree: [] } : head;
       }
       const commit = withoutNewline(head.stdout);
 
@@ -99,9 +81,70 @@ export function openGitReader(root: string, options: GitReaderOptions = {}): Git
       const entries = parseTree(tree.stdout, objectFormat);
       return entries === undefined
         ? { ok: false, reason: "git_error" }
-        : { ok: true, objectFormat, commit, tree: entries, ignored };
+        : { ok: true, objectFormat, commit, tree: entries };
     },
   };
+}
+
+type Prepared =
+  | { readonly ok: true; readonly run: Run; readonly objectFormat: ObjectFormat }
+  | { readonly ok: false; readonly reason: GitUnknownReason };
+
+/**
+ * The checks every read starts with: a git new enough, a repository whose top level is the root,
+ * its object format, and, for git older than 2.44, that it is not a partial clone. Run for each
+ * read, never cached, so a later snapshot sees the repository as it is then.
+ */
+async function prepare(gitPath: string, root: string): Promise<Prepared> {
+  const realRoot = await realpath(root);
+  const bare = runner(gitPath, realRoot, false);
+  // Without the safety flags: git before 2.44 rejects --no-lazy-fetch.
+  const version = await bare(["--version"], { bare: true });
+  if (!version.ok) return version;
+  const versionText = version.stdout.toString("utf8");
+  if (!isAtLeast(versionText, MINIMUM_VERSION)) return { ok: false, reason: "git_too_old" };
+  const lazyFetchFlag = isAtLeast(versionText, NO_LAZY_FETCH_VERSION);
+  const run = runner(gitPath, realRoot, lazyFetchFlag);
+
+  try {
+    await lstat(join(realRoot, ".git"));
+  } catch {
+    return { ok: false, reason: "not_a_repository" };
+  }
+
+  const topLevel = await run(["rev-parse", "--show-toplevel"]);
+  if (!topLevel.ok) return topLevel;
+  if ((await realpath(withoutNewline(topLevel.stdout))) !== realRoot) {
+    return { ok: false, reason: "not_a_repository" };
+  }
+
+  // Before 2.44, git can't be told not to fetch missing objects. Only a partial clone has a
+  // promisor remote to fetch them from, so only a partial clone is refused.
+  if (!lazyFetchFlag && (await isPartialClone(run))) return { ok: false, reason: "git_too_old" };
+
+  const format = await run(["rev-parse", "--show-object-format"]);
+  if (!format.ok) return format;
+  const objectFormat = withoutNewline(format.stdout);
+  if (objectFormat !== "sha1" && objectFormat !== "sha256") {
+    return { ok: false, reason: "git_error" };
+  }
+  return { ok: true, run, objectFormat };
+}
+
+/**
+ * Git fetches lazily only from a promisor remote: one named by `extensions.partialClone`, or a
+ * remote with `promisor` set. Any such key counts, whatever its value. `git config` reads config
+ * only, with include files, and exits 1 when nothing matches.
+ */
+async function isPartialClone(run: Run): Promise<boolean> {
+  const found = await run([
+    "config",
+    "--get-regexp",
+    "^(extensions\\.partialclone|remote\\..*\\.promisor)$",
+  ]);
+  if (found.ok) return found.stdout.length > 0;
+  // Exit 1 means no key matched; anything else is treated as a partial clone, to be safe.
+  return found.exitCode !== 1;
 }
 
 type RunResult =
@@ -132,7 +175,7 @@ function withoutNewline(output: Buffer): string {
   return text.endsWith("\n") ? text.slice(0, -1) : text;
 }
 
-function runner(gitPath: string, root: string): Run {
+function runner(gitPath: string, root: string, lazyFetchFlag: boolean): Run {
   const env: Record<string, string> = {
     PATH: process.env["PATH"] ?? "/usr/bin:/bin",
     LANG: "C",
@@ -147,7 +190,7 @@ function runner(gitPath: string, root: string): Run {
   };
   if (!dirname(root).includes(":")) env["GIT_CEILING_DIRECTORIES"] = dirname(root);
   const fixed = [
-    "--no-lazy-fetch",
+    ...(lazyFetchFlag ? ["--no-lazy-fetch"] : []),
     "-c",
     "core.fsmonitor=false",
     "-c",

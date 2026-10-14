@@ -56,13 +56,8 @@ async function run(
     ignored === undefined
       ? undefined
       : {
-          readHead: async () => ({
-            ok: true,
-            objectFormat: "sha1",
-            commit: null,
-            tree: [],
-            ignored,
-          }),
+          readIgnored: async () => ({ ok: true, paths: ignored }),
+          readHead: async () => ({ ok: true, objectFormat: "sha1", commit: null, tree: [] }),
         };
   const snapshot = await captureSnapshot(
     git === undefined ? deps : { ...deps, git },
@@ -300,24 +295,23 @@ describe("input manifest (IMPL §1.13)", () => {
     expect(result.context.text).not.toContain("SENTINEL_LOG");
     expect(result.items.map((item) => item.path)).not.toContain("server/config.js");
     expect(result.tree.text).toContain("[I] config.js");
-    expect(result.tree.text).toContain("[I] app.log");
-    expect(result.manifest.ignoreRules).toBe("applied");
-    expect(result.manifest.ignored).toEqual([
-      { path: "logs/app.log" },
-      { path: "server/config.js" },
-    ]);
+    // A wholly ignored directory is one entry, like an excluded one.
+    expect(result.tree.text).toContain("logs/ [ignored]\n");
+    expect(result.tree.text).not.toContain("app.log");
+    expect(result.manifest.ignoreRules).toEqual({ state: "applied" });
+    expect(result.manifest.ignored).toEqual([{ path: "logs" }, { path: "server/config.js" }]);
   });
 
   it("without git, applies only the default rules and says so", async () => {
     const result = await ready({ ...REPO, "server/config.js": "export const a = 1;\n" });
-    expect(result.manifest.ignoreRules).toBe("not_applied");
+    expect(result.manifest.ignoreRules).toEqual({ state: "not_applied", reason: "not_inspected" });
     expect(result.manifest.ignored).toEqual([]);
     expect(result.items.map((item) => item.path)).toContain("server/config.js");
   });
 
   it("records an ignored path that matches the secret scan by its hash", async () => {
     const path = `keys/${awsKey}.txt`;
-    const result = await ready({ ...REPO, [path]: "x\n" }, { ignored: ["keys/"] });
+    const result = await ready({ ...REPO, [path]: "x\n" }, { ignored: [path] });
     const pathHash = sha256(new TextEncoder().encode(path));
     expect(result.manifest.ignored).toEqual([{ pathHash }]);
     // Like any file whose path matches, it is recorded as secret-blocked and marked [S].
@@ -326,6 +320,19 @@ describe("input manifest (IMPL §1.13)", () => {
       reason: "secret-scan:aws-access-key-id",
     });
     expect(result.tree.text).toContain("[S] <withheld>");
+    expect(result.tree.text).not.toContain(awsKey);
+  });
+
+  it("records an ignored directory whose name matches the secret scan by its hash", async () => {
+    const directory = `keys-${awsKey}`;
+    const result = await ready(
+      { ...REPO, [`${directory}/a.txt`]: "x\n" },
+      { ignored: [`${directory}/`] },
+    );
+    expect(result.manifest.ignored).toEqual([
+      { pathHash: sha256(new TextEncoder().encode(directory)) },
+    ]);
+    expect(result.tree.text).toContain("<withheld>/ [ignored]");
     expect(result.tree.text).not.toContain(awsKey);
   });
 

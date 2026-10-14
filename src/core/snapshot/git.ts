@@ -5,8 +5,9 @@ import type { SnapshotFile } from "./snapshot.js";
 
 // Git metadata for a snapshot (DM §6.1): supporting data only, never a substitute for file
 // hashes. Git is read through an injected GitReader; core compares the committed tree with the
-// snapshot itself. The one command that looks at the working tree lists ignored files, so that
-// they can be kept out of the context (IMPL §1.4).
+// snapshot itself. The one command that looks at the working tree lists ignored entries, before
+// capture, so that capture can keep them out of the context and skip ignored directories
+// (IMPL §1.4).
 
 export type ObjectFormat = "sha1" | "sha256";
 
@@ -24,7 +25,10 @@ export type GitUnknownReason =
   /** No GitReader was supplied. */
   | "not_inspected"
   | "git_missing"
-  /** Older than the version that honours GIT_NO_LAZY_FETCH, so reading could fetch. */
+  /**
+   * Older than 2.38 (safe.bareRepository), or older than 2.44, which honours GIT_NO_LAZY_FETCH,
+   * in a partial clone, where reading could fetch.
+   */
   | "git_too_old"
   | "not_a_repository"
   /** Git refused the repository, for example because of safe.directory ownership checks. */
@@ -38,16 +42,60 @@ export type GitHead =
       /** Null when the branch has no commits yet. */
       readonly commit: string | null;
       readonly tree: readonly GitTreeEntry[];
+    }
+  | { readonly ok: false; readonly reason: GitUnknownReason };
+
+export type GitIgnoredList =
+  | {
+      readonly ok: true;
       /**
        * Untracked paths that the repository's ignore rules match, as git lists them: a directory
        * whose whole content is ignored is one entry ending in `/`.
        */
-      readonly ignored: readonly string[];
+      readonly paths: readonly string[];
     }
   | { readonly ok: false; readonly reason: GitUnknownReason };
 
 export interface GitReader {
+  /** Called before capture. */
+  readIgnored(): Promise<GitIgnoredList>;
+  /** Called after capture. */
   readHead(): Promise<GitHead>;
+}
+
+/** Whether the repository's ignore rules could be read (DM §6.1, IMPL §1.4). */
+export type IgnoreRules =
+  | { readonly state: "applied" }
+  | { readonly state: "not_applied"; readonly reason: GitUnknownReason };
+
+/** Ignored files and wholly ignored directories (without their trailing `/`), from git. */
+export interface IgnoredEntries {
+  readonly rules: IgnoreRules;
+  readonly files: ReadonlySet<string>;
+  readonly directories: ReadonlySet<string>;
+}
+
+/** Lists ignored entries before capture. Never fails: without git, nothing is ignored. */
+export async function readIgnoreRules(git: GitReader | undefined): Promise<IgnoredEntries> {
+  const none = (reason: GitUnknownReason): IgnoredEntries => ({
+    rules: { state: "not_applied", reason },
+    files: new Set(),
+    directories: new Set(),
+  });
+  if (git === undefined) return none("not_inspected");
+  try {
+    const listed = await git.readIgnored();
+    if (!listed.ok) return none(listed.reason);
+    return {
+      rules: { state: "applied" },
+      files: new Set(listed.paths.filter((path) => !path.endsWith("/"))),
+      directories: new Set(
+        listed.paths.filter((path) => path.endsWith("/")).map((path) => path.slice(0, -1)),
+      ),
+    };
+  } catch {
+    return none("git_error");
+  }
 }
 
 export type GitMetadata =
@@ -78,63 +126,30 @@ export function gitBlobId(bytes: Uint8Array, format: ObjectFormat): string {
     .digest("hex");
 }
 
-export interface GitReading {
-  readonly metadata: GitMetadata;
-  /**
-   * Snapshot paths the ignore rules match: readable files (`read` or `listed_only`) that the
-   * commit doesn't track, other than the destination. Empty when git is unknown.
-   */
-  readonly ignored: ReadonlySet<string>;
-}
-
+/**
+ * Compares the committed tree with the snapshot. `ignored` is git's own list: a file it names is
+ * not untracked, as in `git status`, even when `includeIgnored` kept it as a candidate.
+ */
 export async function readGitMetadata(
   git: GitReader | undefined,
   files: readonly SnapshotFile[],
   fs: RepositoryFs,
-  destinationPath: string,
-): Promise<GitReading> {
-  const unknown = (reason: GitUnknownReason): GitReading => ({
-    metadata: { state: "unknown", reason },
-    ignored: new Set(),
-  });
-  if (git === undefined) return unknown("not_inspected");
+  ignored: IgnoredEntries,
+): Promise<GitMetadata> {
+  if (git === undefined) return { state: "unknown", reason: "not_inspected" };
   try {
     const head = await git.readHead();
-    if (!head.ok) return unknown(head.reason);
-    const ignored = ignoredFiles(head, files, destinationPath);
+    if (!head.ok) return { state: "unknown", reason: head.reason };
     return {
-      metadata: {
-        state: "known",
-        objectFormat: head.objectFormat,
-        commit: head.commit,
-        ...(await compare(head.tree, head.objectFormat, files, fs, ignored)),
-      },
-      ignored,
+      state: "known",
+      objectFormat: head.objectFormat,
+      commit: head.commit,
+      ...(await compare(head.tree, head.objectFormat, files, fs, ignored)),
     };
   } catch {
     // Supporting data never fails the snapshot.
-    return unknown("git_error");
+    return { state: "unknown", reason: "git_error" };
   }
-}
-
-/** The readable, untracked snapshot files that git's ignored entries cover. */
-function ignoredFiles(
-  head: Extract<GitHead, { ok: true }>,
-  files: readonly SnapshotFile[],
-  destinationPath: string,
-): Set<string> {
-  const exact = new Set(head.ignored.filter((path) => !path.endsWith("/")));
-  const directories = head.ignored.filter((path) => path.endsWith("/"));
-  const tracked = new Set(head.tree.map((entry) => entry.path));
-  const result = new Set<string>();
-  for (const file of files) {
-    if (file.status !== "read" && file.status !== "listed_only") continue;
-    if (file.path === destinationPath || tracked.has(file.path)) continue;
-    if (exact.has(file.path) || directories.some((dir) => file.path.startsWith(dir))) {
-      result.add(file.path);
-    }
-  }
-  return result;
 }
 
 const SYMLINK_MODE = "120000";
@@ -145,7 +160,7 @@ async function compare(
   format: ObjectFormat,
   files: readonly SnapshotFile[],
   fs: RepositoryFs,
-  ignored: ReadonlySet<string>,
+  ignored: IgnoredEntries,
 ) {
   const byPath = new Map(files.map((file) => [file.path, file]));
   const submodules = tree.filter((e) => e.mode === SUBMODULE_MODE).map((e) => e.path);
@@ -160,14 +175,18 @@ async function compare(
     if (file === undefined) {
       // Missing, or inside something capture didn't enter.
       const ancestor = nearestAncestor(entry.path, byPath);
-      if (ancestor?.status === "excluded") continue;
+      // Capture enters neither excluded nor ignored directories.
+      if (ancestor?.status === "excluded" || ancestor?.status === "ignored") continue;
       if (ancestor?.status === "unreadable") uncompared.add(ancestor.path);
       else deleted.push(entry.path);
       continue;
     }
+    // Git lists only untracked paths as ignored, so an ignored file is tracked only if it was
+    // committed during capture; it is then compared like any other.
+    if (file.status === "excluded" || (file.status === "ignored" && file.kind === "directory")) {
+      continue;
+    }
     switch (file.status) {
-      case "excluded":
-        continue;
       case "unreadable":
         uncompared.add(file.path);
         continue;
@@ -180,7 +199,8 @@ async function compare(
         }
         continue;
       case "read":
-      case "listed_only": {
+      case "listed_only":
+      case "ignored": {
         if (entry.mode === SYMLINK_MODE || entry.size !== file.size) {
           modified.push(entry.path);
           continue;
@@ -198,8 +218,9 @@ async function compare(
 
   let untrackedCount = 0;
   for (const file of files) {
-    // As in `git status`, ignored files are not untracked changes.
-    if (file.status === "excluded" || tracked.has(file.path) || ignored.has(file.path)) continue;
+    // As in `git status`, ignored entries are not untracked changes.
+    if (file.status === "excluded" || file.status === "ignored" || tracked.has(file.path)) continue;
+    if (isListedIgnored(ignored, file.path)) continue;
     if (submodules.some((s) => file.path === s || file.path.startsWith(`${s}/`))) continue;
     if (file.status === "unreadable" && file.kind === "directory") uncompared.add(file.path);
     else untrackedCount += 1;
@@ -217,6 +238,15 @@ async function compare(
     uncomparedPaths,
     submodules: submodules.sort(comparePaths),
   };
+}
+
+/** Whether git listed the path as ignored, itself or through a directory above it. */
+function isListedIgnored(ignored: IgnoredEntries, path: string): boolean {
+  if (ignored.files.has(path)) return true;
+  for (let end = path.indexOf("/"); end !== -1; end = path.indexOf("/", end + 1)) {
+    if (ignored.directories.has(path.slice(0, end))) return true;
+  }
+  return false;
 }
 
 /** The snapshot entry for the closest enclosing path, if capture recorded one. */

@@ -127,7 +127,8 @@ function renderNode(
       out.push(`${indent}[${isWithheldPath(entry.path) ? "S" : "L"}] ${name}\n`);
       return;
     case "ignored":
-      out.push(`${indent}[${isWithheldPath(entry.path) ? "S" : "I"}] ${name}\n`);
+      if (entry.kind === "directory") out.push(`${indent}${name}/ [ignored]\n`);
+      else out.push(`${indent}[${isWithheldPath(entry.path) ? "S" : "I"}] ${name}\n`);
       return;
     case "read": {
       const mark = isWithheldPath(entry.path) ? "S" : (marks.get(entry.path) ?? "-");
@@ -169,7 +170,10 @@ function withheldSegments(files: readonly SnapshotFile[]): Set<string> {
 }
 
 function isDirectory(file: SnapshotFile): boolean {
-  return (file.status === "excluded" || file.status === "unreadable") && file.kind === "directory";
+  return (
+    (file.status === "excluded" || file.status === "unreadable" || file.status === "ignored") &&
+    file.kind === "directory"
+  );
 }
 
 function countFiles(node: Node): number {

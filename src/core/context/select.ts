@@ -1,5 +1,6 @@
 import { type Hash, sha256 } from "../hash.js";
 import { comparePaths } from "../paths.js";
+import type { IgnoreRules } from "../snapshot/git.js";
 import type { RepositoryFs } from "../snapshot/repository-fs.js";
 import type { Snapshot, SnapshotSettings } from "../snapshot/snapshot.js";
 import { DECLARATION_PATTERNS_VERSION } from "./declarations.js";
@@ -98,10 +99,13 @@ export interface InputManifest {
   readonly excluded: readonly ManifestExcluded[];
   /**
    * Whether the repository's ignore rules were applied (IMPL §1.4). They are read through git,
-   * so without it only the default and user exclusions apply.
+   * so without it only the default and user exclusions apply, and the reason is recorded.
    */
-  readonly ignoreRules: "applied" | "not_applied";
-  /** Ignored files, in path order. Hashed, but never a candidate for any tier or expansion. */
+  readonly ignoreRules: IgnoreRules;
+  /**
+   * Ignored entries, in path order: files, hashed but never a candidate for any tier or
+   * expansion, and wholly ignored directories, which capture doesn't enter.
+   */
   readonly ignored: readonly RecordedPath[];
   /** Set when the expansion round runs (IMPL §1.8). */
   readonly expansion: null;
@@ -137,9 +141,11 @@ export async function selectContext(
   const blocked: { readonly path: string; readonly ruleId: SecretRuleId }[] = [...scanned.blocked];
   const blockedPaths = new Set(blocked.map((b) => b.path));
   for (const file of snapshot.files) {
+    // Files only: an ignored directory, like an excluded one, has no content to block.
     if (file.status !== "read" && file.status !== "listed_only" && file.status !== "ignored") {
       continue;
     }
+    if (file.status === "ignored" && file.kind === "directory") continue;
     const ruleId = blockedPaths.has(file.path) ? undefined : scanText(file.path);
     if (ruleId !== undefined) blocked.push({ path: file.path, ruleId });
   }
@@ -206,7 +212,7 @@ export async function selectContext(
     })),
     skipped: scanned.skipped.map((file) => ({ ...recordedPath(file.path), reason: file.reason })),
     excluded,
-    ignoreRules: snapshot.git.state === "known" ? "applied" : "not_applied",
+    ignoreRules: snapshot.ignoreRules,
     ignored: snapshot.files.flatMap((file) =>
       file.status === "ignored" ? [recordedPath(file.path)] : [],
     ),

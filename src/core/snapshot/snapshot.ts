@@ -7,8 +7,16 @@ import {
   type ExclusionRule,
   findExclusion,
   matchesPathOrAncestor,
+  mayMatchInside,
 } from "./exclusions.js";
-import { type GitMetadata, type GitReader, readGitMetadata } from "./git.js";
+import {
+  type GitMetadata,
+  type GitReader,
+  type IgnoredEntries,
+  type IgnoreRules,
+  readGitMetadata,
+  readIgnoreRules,
+} from "./git.js";
 import type { EntryKind, FailureReason, ReadResult, RepositoryFs } from "./repository-fs.js";
 
 // Snapshot (DM §6.1) with the candidate rules of IMPL §1.4.
@@ -27,15 +35,18 @@ export type SnapshotFile =
       readonly reason: ListedOnlyReason;
     }
   /**
-   * Untracked and matched by the repository's ignore rules, read from git (IMPL §1.4). Hashed,
-   * but a candidate for no tier and no expansion.
+   * Untracked and matched by the repository's ignore rules, read from git (IMPL §1.4). A file is
+   * hashed, but a candidate for no tier and no expansion. A wholly ignored directory is one entry
+   * and is not entered, like an excluded one.
    */
   | {
       readonly path: string;
       readonly status: "ignored";
+      readonly kind: "file";
       readonly size: number;
       readonly hash: Hash;
     }
+  | { readonly path: string; readonly status: "ignored"; readonly kind: "directory" }
   /** Matched an exclusion. Never opened. An excluded directory is one entry and is not entered. */
   | {
       readonly path: string;
@@ -99,6 +110,8 @@ export interface Snapshot {
   readonly stability: Stability;
   /** Supporting metadata only; never a substitute for file hashes. */
   readonly git: GitMetadata;
+  /** Whether the repository's ignore rules were read from git and applied (IMPL §1.4). */
+  readonly ignoreRules: IgnoreRules;
 }
 
 export interface SnapshotSettings {
@@ -139,26 +152,21 @@ export async function captureSnapshot(
   const id = deps.ids.next("snap");
   const exclusions = buildExclusionRules(settings);
 
+  // Ignored entries come first, so capture can skip ignored directories.
+  const ignored = await readIgnoreRules(deps.git);
+  const pass = { rules: exclusions, ignored, settings };
+
   // Capture is not atomic. Observe twice and compare; if anything differed, retry once.
-  let earlier = await observe(deps.fs, exclusions, settings.maxReadableFileBytes);
-  let later = await observe(deps.fs, exclusions, settings.maxReadableFileBytes);
+  let earlier = await observe(deps.fs, pass);
+  let later = await observe(deps.fs, pass);
   let changedPaths = differences(earlier, later);
   if (changedPaths.length > 0) {
-    earlier = await observe(deps.fs, exclusions, settings.maxReadableFileBytes);
-    later = await observe(deps.fs, exclusions, settings.maxReadableFileBytes);
+    earlier = await observe(deps.fs, pass);
+    later = await observe(deps.fs, pass);
     changedPaths = differences(earlier, later);
   }
 
-  const observed = [...later.files.values()].sort((a, b) => comparePaths(a.path, b.path));
-  const git = await readGitMetadata(deps.git, observed, deps.fs, DESTINATION_PATH);
-  const files = observed.map(
-    (file): SnapshotFile =>
-      git.ignored.has(file.path) &&
-      (file.status === "read" || file.status === "listed_only") &&
-      !matchesPathOrAncestor(settings.includeIgnored, file.path)
-        ? { path: file.path, status: "ignored", size: file.size, hash: file.hash }
-        : file,
-  );
+  const files = [...later.files.values()].sort((a, b) => comparePaths(a.path, b.path));
   return {
     id,
     capturedAt,
@@ -171,7 +179,8 @@ export async function captureSnapshot(
       .sort((a, b) => comparePaths(a.path, b.path)),
     stability:
       changedPaths.length === 0 ? { state: "stable" } : { state: "unstable", changedPaths },
-    git: git.metadata,
+    git: await readGitMetadata(deps.git, files, deps.fs, ignored),
+    ignoreRules: ignored.rules,
   };
 }
 
@@ -185,11 +194,26 @@ interface Observation {
   caseVariant?: string;
 }
 
-async function observe(
-  fs: RepositoryFs,
-  rules: readonly ExclusionRule[],
-  maxReadableFileBytes: number,
-): Promise<Observation> {
+interface Pass {
+  readonly rules: readonly ExclusionRule[];
+  readonly ignored: IgnoredEntries;
+  readonly settings: SnapshotSettings;
+}
+
+async function observe(fs: RepositoryFs, pass: Pass): Promise<Observation> {
+  const { rules, ignored, settings } = pass;
+  const maxReadableFileBytes = settings.maxReadableFileBytes;
+  const include = settings.includeIgnored;
+  // A path is ignored if git lists it, or a directory above it, and includeIgnored doesn't
+  // keep it.
+  const isIgnored = (path: string): boolean => {
+    if (path === DESTINATION_PATH || matchesPathOrAncestor(include, path)) return false;
+    if (ignored.files.has(path)) return true;
+    for (let end = path.indexOf("/"); end !== -1; end = path.indexOf("/", end + 1)) {
+      if (ignored.directories.has(path.slice(0, end))) return true;
+    }
+    return false;
+  };
   const observation: Observation = {
     files: new Map(),
     failures: new Map(),
@@ -226,6 +250,13 @@ async function observe(
           kind: entry.kind,
           rule: rule.pattern,
         });
+      } else if (
+        entry.kind === "directory" &&
+        ignored.directories.has(path) &&
+        !mayMatchInside(include, path)
+      ) {
+        // Like an excluded directory: one entry, never entered.
+        observation.files.set(path, { path, status: "ignored", kind: "directory" });
       } else if (entry.kind === "directory") {
         observation.directories.add(path);
         pending.push(path);
@@ -246,7 +277,13 @@ async function observe(
           // A copy, so the record never shares memory with the adapter's buffer.
           observation.destinationBytes = new Uint8Array(result.bytes);
         }
-        observation.files.set(path, classify(path, result, maxReadableFileBytes));
+        const file = classify(path, result, maxReadableFileBytes);
+        observation.files.set(
+          path,
+          (file.status === "read" || file.status === "listed_only") && isIgnored(path)
+            ? { path, status: "ignored", kind: "file", size: file.size, hash: file.hash }
+            : file,
+        );
       }
     }
   }

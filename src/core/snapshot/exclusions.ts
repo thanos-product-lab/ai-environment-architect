@@ -138,8 +138,8 @@ function matches(rule: ExclusionRule, path: string, kind: EntryKind): boolean {
 
 /**
  * Whether a pattern matches the file at `path` or a directory above it, with the exclusion
- * grammar. Used for `includeIgnored`, which names files after capture, when only their paths
- * are known: a directory pattern such as `logs/` covers every file under it.
+ * grammar. Used for `includeIgnored`, which capture checks per file: a directory pattern such
+ * as `logs/` covers every file under it.
  */
 export function matchesPathOrAncestor(patterns: readonly string[], path: string): boolean {
   const rules = patterns.map((pattern) => ({
@@ -155,6 +155,28 @@ export function matchesPathOrAncestor(patterns: readonly string[], path: string)
         .slice(0, -1)
         .some((_, i) => matches(rule, segments.slice(0, i + 1).join("/"), "directory")),
   );
+}
+
+/**
+ * Whether a pattern could match something inside `directory`, so that capture must enter an
+ * ignored directory for `includeIgnored`. An unanchored pattern can match at any depth, so it
+ * always could. An anchored one could if it covers the directory or a directory above it, or if
+ * its leading segments match the directory's.
+ */
+export function mayMatchInside(patterns: readonly string[], directory: string): boolean {
+  const segments = directory.split("/");
+  return patterns.some((pattern) => {
+    const trimmed = pattern.endsWith("/") ? pattern.slice(0, -1) : pattern;
+    if (!trimmed.includes("/")) return true;
+    const rule = { pattern, source: "user" as const, ignoreCase: false };
+    const prefixes = segments.map((_, i) => segments.slice(0, i + 1).join("/"));
+    if (prefixes.some((prefix) => matches(rule, prefix, "directory"))) return true;
+    const patternSegments = (trimmed.startsWith("/") ? trimmed.slice(1) : trimmed).split("/");
+    return (
+      patternSegments.length > segments.length &&
+      segments.every((segment, i) => globMatches(patternSegments[i] ?? "", segment))
+    );
+  });
 }
 
 /** `*` matches any run of characters except `/`; everything else matches itself. */

@@ -74,15 +74,40 @@ async function gitMetadataOf(root: string, options: GitReaderOptions = {}): Prom
   return (await captureSnapshot(deps, DEFAULT_SNAPSHOT_SETTINGS)).git;
 }
 
-/** Whether the git on PATH is new enough for the reader (2.44, for GIT_NO_LAZY_FETCH). */
-const gitIsRecent = (() => {
+const installedVersion = (() => {
   const match = /git version (\d+)\.(\d+)/.exec(
     execFileSync("git", ["--version"], { encoding: "utf8" }),
   );
-  return (
-    match !== null && (Number(match[1]) > 2 || (Number(match[1]) === 2 && Number(match[2]) >= 44))
-  );
+  return match === null ? [0, 0] : [Number(match[1]), Number(match[2])];
 })();
+const atLeast = (major: number, minor: number) =>
+  (installedVersion[0] ?? 0) > major ||
+  ((installedVersion[0] ?? 0) === major && (installedVersion[1] ?? 0) >= minor);
+/** Whether the git on PATH is new enough for the reader (2.38, for safe.bareRepository). */
+const gitIsRecent = atLeast(2, 38);
+
+/**
+ * The real git, reporting an older version: like git before 2.44, it rejects --no-lazy-fetch.
+ * Shows how the reader treats older git without needing one installed.
+ */
+function olderGit(version: string): string {
+  const real = execFileSync("sh", ["-c", "command -v git"], { encoding: "utf8" }).trim();
+  const path = join(temporaryDirectory(), "git");
+  writeFileSync(
+    path,
+    [
+      "#!/bin/sh",
+      `if [ "$1" = "--version" ]; then echo "git version ${version}"; exit 0; fi`,
+      'for a in "$@"; do',
+      '  if [ "$a" = "--no-lazy-fetch" ]; then echo "unknown option: --no-lazy-fetch" >&2; exit 129; fi',
+      "done",
+      `exec "${real}" "$@"`,
+      "",
+    ].join("\n"),
+  );
+  chmodSync(path, 0o755);
+  return path;
+}
 
 /** A fake git executable: answers --version, and otherwise prints to stderr and fails. */
 function fakeGit(version: string, stderr: string): string {
@@ -230,14 +255,34 @@ describe.skipIf(!gitIsRecent)("ignored files (IMPL §1.4)", () => {
     const snapshot = await snapshotOf(root);
     expect(statuses(snapshot.files)).toMatchObject({
       "kept.log": "read",
-      "logs/old/app.log": "ignored",
+      logs: "ignored",
       "server/config.js": "ignored",
       "server/index.js": "read",
       "notes.md": "read",
       "local.txt": "ignored",
       "tab\there.log": "ignored",
     });
+    // A wholly ignored directory is one entry, never entered.
+    expect(snapshot.files.find((file) => file.path === "logs")).toEqual({
+      path: "logs",
+      status: "ignored",
+      kind: "directory",
+    });
+    expect(snapshot.files.some((file) => file.path.startsWith("logs/"))).toBe(false);
+    expect(snapshot.ignoreRules).toEqual({ state: "applied" });
     expect(snapshot.git).toMatchObject({ workingTreeDirty: true, untrackedCount: 1 });
+  });
+
+  it("enters a directory that holds a tracked file, listing its ignored files one by one", async () => {
+    const root = repository({ ".gitignore": "build-cache/\n", "build-cache/keep.txt": "k\n" });
+    git(root, "add", "-f", "build-cache/keep.txt");
+    git(root, "commit", "-q", "-m", "keep");
+    writeFileSync(join(root, "build-cache/x.bin.txt"), "x\n");
+    const snapshot = await snapshotOf(root);
+    expect(statuses(snapshot.files)).toMatchObject({
+      "build-cache/keep.txt": "read",
+      "build-cache/x.bin.txt": "ignored",
+    });
   });
 
   it("ignores a core.excludesFile set in the repository's own config", async () => {
@@ -352,12 +397,77 @@ describe("unknown, with a reason, never a failure", () => {
     });
   });
 
-  it("git is too old to honour GIT_NO_LAZY_FETCH", async () => {
+  it("git older than 2.38 is too old", async () => {
     const root = repository({ "a.txt": "a\n" });
-    expect(await gitMetadataOf(root, { gitPath: fakeGit("2.39.5", "unused") })).toEqual({
+    expect(await gitMetadataOf(root, { gitPath: fakeGit("2.37.9", "unused") })).toEqual({
       state: "unknown",
       reason: "git_too_old",
     });
+  });
+
+  it.skipIf(!gitIsRecent)(
+    "git older than 2.44 reads an ordinary repository, without --no-lazy-fetch",
+    async () => {
+      const root = repository({ ".gitignore": "*.log\n", "a.txt": "a\n" });
+      writeFileSync(join(root, "x.log"), "x\n");
+      const deps = {
+        fs: await openRepositoryFs(root),
+        clock: fixedClock,
+        ids: fixedIds,
+        git: openGitReader(root, { gitPath: olderGit("2.39.5") }),
+      };
+      const snapshot = await captureSnapshot(deps, DEFAULT_SNAPSHOT_SETTINGS);
+      expect(snapshot.git).toMatchObject({ state: "known", workingTreeDirty: false });
+      expect(snapshot.ignoreRules).toEqual({ state: "applied" });
+      expect(snapshot.files.find((file) => file.path === "x.log")?.status).toBe("ignored");
+    },
+  );
+
+  it.skipIf(!gitIsRecent).each([
+    ["extensions.partialClone", "origin"],
+    ["remote.origin.promisor", "true"],
+  ])("git older than 2.44 refuses a partial clone (%s)", async (key, value) => {
+    const root = repository({ "a.txt": "a\n" });
+    git(root, "config", key, value);
+    const deps = {
+      fs: await openRepositoryFs(root),
+      clock: fixedClock,
+      ids: fixedIds,
+      git: openGitReader(root, { gitPath: olderGit("2.39.5") }),
+    };
+    const snapshot = await captureSnapshot(deps, DEFAULT_SNAPSHOT_SETTINGS);
+    expect(snapshot.git).toEqual({ state: "unknown", reason: "git_too_old" });
+    expect(snapshot.ignoreRules).toEqual({ state: "not_applied", reason: "git_too_old" });
+  });
+
+  it.skipIf(!gitIsRecent).each([
+    ["a promisor key in an included file", "promisor"],
+    ["a config git can't read", "unreadable"],
+  ])("git older than 2.44 refuses %s", async (_, kind) => {
+    const root = repository({ "a.txt": "a\n" });
+    if (kind === "promisor") {
+      const included = join(temporaryDirectory(), "included.gitconfig");
+      writeFileSync(included, '[remote "origin"]\n\tpromisor = true\n');
+      git(root, "config", "include.path", included);
+    } else {
+      // HOME isn't passed to git, so a `~/` include can't be resolved.
+      git(root, "config", "include.path", "~/missing.gitconfig");
+    }
+    const deps = {
+      fs: await openRepositoryFs(root),
+      clock: fixedClock,
+      ids: fixedIds,
+      git: openGitReader(root, { gitPath: olderGit("2.39.5") }),
+    };
+    const snapshot = await captureSnapshot(deps, DEFAULT_SNAPSHOT_SETTINGS);
+    expect(snapshot.git).toMatchObject({ state: "unknown" });
+    expect(snapshot.ignoreRules).toMatchObject({ state: "not_applied" });
+  });
+
+  it.skipIf(!atLeast(2, 44))("git 2.44 or later reads a partial clone", async () => {
+    const root = repository({ "a.txt": "a\n" });
+    git(root, "config", "remote.origin.promisor", "true");
+    expect(await gitMetadataOf(root)).toMatchObject({ state: "known" });
   });
 
   it("git refuses the repository because of safe.directory", async () => {

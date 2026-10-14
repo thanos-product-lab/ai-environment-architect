@@ -8,6 +8,7 @@ import {
 import { sha256 } from "../hash.js";
 import {
   type GitHead,
+  type GitIgnoredList,
   type GitMetadata,
   type GitReader,
   type GitTreeEntry,
@@ -36,9 +37,12 @@ const submodule = (path: string): GitTreeEntry => ({
   size: null,
 });
 
-const reader = (head: GitHead): GitReader => ({ readHead: async () => head });
+const reader = (head: GitHead, ignored: GitIgnoredList = { ok: true, paths: [] }): GitReader => ({
+  readIgnored: async () => ignored,
+  readHead: async () => head,
+});
 const committed = (tree: GitTreeEntry[], format: ObjectFormat = "sha1"): GitReader =>
-  reader({ ok: true, objectFormat: format, commit: COMMIT, tree, ignored: [] });
+  reader({ ok: true, objectFormat: format, commit: COMMIT, tree });
 
 async function gitOf(
   nodes: Record<string, MemoryNode>,
@@ -87,6 +91,7 @@ describe("git metadata is unknown, never guessed (DM §6.1)", () => {
 
   it("a reader that throws gives git_error and never fails the snapshot", async () => {
     const throwing: GitReader = {
+      readIgnored: async () => ({ ok: true, paths: [] }),
       readHead: async () => {
         throw new Error("boom");
       },
@@ -111,7 +116,6 @@ describe("working tree compared with the commit", () => {
       objectFormat: "sha256",
       commit,
       tree: [blob("a.txt", "a\n", "sha256")],
-      ignored: [],
     });
     expect(await gitOf({ "a.txt": "a\n" }, git)).toEqual({
       ...clean,
@@ -261,7 +265,7 @@ describe("working tree compared with the commit", () => {
   });
 
   it("before the first commit, every file is untracked", async () => {
-    const git = reader({ ok: true, objectFormat: "sha1", commit: null, tree: [], ignored: [] });
+    const git = reader({ ok: true, objectFormat: "sha1", commit: null, tree: [] });
     expect(await gitOf({ "a.txt": "a", "b.txt": "b" }, git)).toEqual({
       ...clean,
       commit: null,
@@ -279,108 +283,164 @@ describe("working tree compared with the commit", () => {
 });
 
 describe("ignored files (DM §6.1, IMPL §1.4)", () => {
-  const ignoring = (tree: GitTreeEntry[], ignored: string[]): GitReader =>
-    reader({ ok: true, objectFormat: "sha1", commit: COMMIT, tree, ignored });
+  const ignoring = (tree: GitTreeEntry[], paths: string[]): GitReader =>
+    reader({ ok: true, objectFormat: "sha1", commit: COMMIT, tree }, { ok: true, paths });
 
-  async function snapshotOf(nodes: Record<string, MemoryNode>, git: GitReader | undefined) {
+  async function snapshotOf(
+    nodes: Record<string, MemoryNode>,
+    git: GitReader | undefined,
+    includeIgnored: string[] = [],
+  ) {
     const fs = new MemoryFs(nodes);
     const deps =
       git === undefined
         ? { fs, clock: fixedClock, ids: fixedIds }
         : { fs, clock: fixedClock, ids: fixedIds, git };
-    return captureSnapshot(deps, DEFAULT_SNAPSHOT_SETTINGS);
+    const snapshot = await captureSnapshot(deps, { ...DEFAULT_SNAPSHOT_SETTINGS, includeIgnored });
+    return { snapshot, fs };
   }
-  const statusOf = (files: readonly SnapshotFile[], path: string) =>
-    files.find((file) => file.path === path)?.status;
+  const entryOf = (files: readonly SnapshotFile[], path: string) =>
+    files.find((file) => file.path === path);
+  const statusOf = (files: readonly SnapshotFile[], path: string) => entryOf(files, path)?.status;
 
   it("records an ignored file as ignored, hashed, and not untracked", async () => {
     const nodes = { "a.txt": "a", "server/config.js": "x", "notes.md": "n" };
-    const snapshot = await snapshotOf(nodes, ignoring([blob("a.txt", "a")], ["server/config.js"]));
-    expect(snapshot.files.find((file) => file.path === "server/config.js")).toEqual({
+    const { snapshot } = await snapshotOf(
+      nodes,
+      ignoring([blob("a.txt", "a")], ["server/config.js"]),
+    );
+    expect(entryOf(snapshot.files, "server/config.js")).toEqual({
       path: "server/config.js",
       status: "ignored",
+      kind: "file",
       size: 1,
       hash: sha256(Buffer.from("x")),
     });
     expect(statusOf(snapshot.files, "notes.md")).toBe("read");
+    expect(snapshot.ignoreRules).toEqual({ state: "applied" });
     expect(snapshot.git).toMatchObject({ workingTreeDirty: true, untrackedCount: 1 });
   });
 
-  it("an ignored directory makes every readable file under it ignored", async () => {
+  it("records an ignored directory as one entry and never enters it", async () => {
     const nodes = { "a.txt": "a", "logs/app.log": "l", "logs/old/x.log": "o", "logs2/y": "y" };
-    const snapshot = await snapshotOf(nodes, ignoring([blob("a.txt", "a")], ["logs/"]));
-    expect(statusOf(snapshot.files, "logs/app.log")).toBe("ignored");
-    expect(statusOf(snapshot.files, "logs/old/x.log")).toBe("ignored");
+    const { snapshot, fs } = await snapshotOf(nodes, ignoring([blob("a.txt", "a")], ["logs/"]));
+    expect(entryOf(snapshot.files, "logs")).toEqual({
+      path: "logs",
+      status: "ignored",
+      kind: "directory",
+    });
+    expect(snapshot.files.map((file) => file.path)).not.toContain("logs/app.log");
+    expect(fs.listings).not.toContain("logs");
+    expect(fs.reads.some((path) => path.startsWith("logs/"))).toBe(false);
     expect(statusOf(snapshot.files, "logs2/y")).toBe("read");
+    // Only logs2/y is untracked; the ignored directory is not.
+    expect(snapshot.git).toMatchObject({ untrackedCount: 1 });
   });
 
   it("only ignored files make no difference to a clean tree", async () => {
     const nodes = { "a.txt": "a", "debug.log": "d" };
-    const snapshot = await snapshotOf(nodes, ignoring([blob("a.txt", "a")], ["debug.log"]));
+    const { snapshot } = await snapshotOf(nodes, ignoring([blob("a.txt", "a")], ["debug.log"]));
     expect(snapshot.git).toEqual(clean);
   });
 
   it("an ignored listed_only file is ignored too", async () => {
     const nodes = { "a.txt": "a", "dump.rdb": Uint8Array.from([0, 1, 2]) };
-    const snapshot = await snapshotOf(nodes, ignoring([blob("a.txt", "a")], ["dump.rdb"]));
+    const { snapshot } = await snapshotOf(nodes, ignoring([blob("a.txt", "a")], ["dump.rdb"]));
     expect(statusOf(snapshot.files, "dump.rdb")).toBe("ignored");
   });
 
-  it("tracked files, the destination, excluded entries and links are never ignored", async () => {
+  it("the destination, excluded entries and links are never ignored", async () => {
     const nodes = {
       "CLAUDE.md": "# Guide\n",
-      "kept.log": "k",
       ".env": "X=1",
-      "l.md": { kind: "symlink", target: "kept.log" },
+      "node_modules/x.js": "x",
+      "l.md": { kind: "symlink", target: "CLAUDE.md" },
     } as const;
-    const tree = [blob("CLAUDE.md", "# Guide\n"), blob("kept.log", "k")];
-    const ignored = ["CLAUDE.md", "kept.log", ".env", "l.md"];
-    const snapshot = await snapshotOf(nodes, ignoring(tree, ignored));
+    const tree = [blob("CLAUDE.md", "# Guide\n")];
+    const ignored = ["CLAUDE.md", ".env", "node_modules/", "l.md"];
+    const { snapshot } = await snapshotOf(nodes, ignoring(tree, ignored));
     expect(statusOf(snapshot.files, "CLAUDE.md")).toBe("read");
     expect(snapshot.destination.state).toBe("present");
-    expect(statusOf(snapshot.files, "kept.log")).toBe("read");
     expect(statusOf(snapshot.files, ".env")).toBe("excluded");
+    expect(statusOf(snapshot.files, "node_modules")).toBe("excluded");
     expect(statusOf(snapshot.files, "l.md")).toBe("symlink");
   });
 
-  it("keeps ignored files that includeIgnored names as candidates", async () => {
-    const fs = new MemoryFs({
+  it("enters an ignored directory only where includeIgnored could match inside it", async () => {
+    const nodes = {
       "a.txt": "a",
       "server/config.js": "c",
+      "server/other.js": "o",
       "logs/app.log": "l",
       "logs/old/x.log": "o",
+      "tmp/keep.txt": "k",
       "tmp/y.log": "y",
-    });
-    const git = ignoring([blob("a.txt", "a")], ["server/config.js", "logs/", "tmp/"]);
-    const snapshot = await captureSnapshot(
-      { fs, clock: fixedClock, ids: fixedIds, git },
-      { ...DEFAULT_SNAPSHOT_SETTINGS, includeIgnored: ["config.js", "logs/"] },
-    );
+      "cache/z": "z",
+    };
+    const git = ignoring([blob("a.txt", "a")], ["server/", "logs/", "tmp/", "cache/"]);
+    const { snapshot } = await snapshotOf(nodes, git, ["config.js", "logs/", "/tmp/keep.txt"]);
+    // An unanchored pattern could match anywhere, so ignored directories are entered.
     expect(statusOf(snapshot.files, "server/config.js")).toBe("read");
+    expect(statusOf(snapshot.files, "server/other.js")).toBe("ignored");
     expect(statusOf(snapshot.files, "logs/app.log")).toBe("read");
     expect(statusOf(snapshot.files, "logs/old/x.log")).toBe("read");
+    expect(statusOf(snapshot.files, "tmp/keep.txt")).toBe("read");
     expect(statusOf(snapshot.files, "tmp/y.log")).toBe("ignored");
+    expect(statusOf(snapshot.files, "cache/z")).toBe("ignored");
   });
 
-  it("without git, nothing is ignored and only the default rules apply", async () => {
-    const snapshot = await snapshotOf({ "server/config.js": "x" }, undefined);
+  it("files that includeIgnored keeps are still not untracked, as git ignores them", async () => {
+    const nodes = { "a.txt": "a", "server/config.js": "c", "logs/app.log": "l" };
+    const git = ignoring([blob("a.txt", "a")], ["server/config.js", "logs/"]);
+    const { snapshot } = await snapshotOf(nodes, git, ["config.js", "logs/"]);
     expect(statusOf(snapshot.files, "server/config.js")).toBe("read");
+    expect(statusOf(snapshot.files, "logs/app.log")).toBe("read");
+    expect(snapshot.git).toEqual(clean);
+  });
+
+  it("does not enter an ignored directory that no anchored pattern reaches", async () => {
+    const nodes = { "a.txt": "a", "tmp/keep.txt": "k", "cache/z": "z" };
+    const git = ignoring([blob("a.txt", "a")], ["tmp/", "cache/"]);
+    const { snapshot, fs } = await snapshotOf(nodes, git, ["/tmp/keep.txt"]);
+    expect(statusOf(snapshot.files, "tmp/keep.txt")).toBe("read");
+    expect(entryOf(snapshot.files, "cache")).toEqual({
+      path: "cache",
+      status: "ignored",
+      kind: "directory",
+    });
+    expect(fs.listings).not.toContain("cache");
+  });
+
+  it("without git, nothing is ignored, and the snapshot says why", async () => {
+    const { snapshot } = await snapshotOf({ "server/config.js": "x" }, undefined);
+    expect(statusOf(snapshot.files, "server/config.js")).toBe("read");
+    expect(snapshot.ignoreRules).toEqual({ state: "not_applied", reason: "not_inspected" });
     const failed = await snapshotOf(
       { "server/config.js": "x" },
-      reader({ ok: false, reason: "git_missing" }),
+      reader({ ok: false, reason: "git_missing" }, { ok: false, reason: "git_missing" }),
     );
-    expect(statusOf(failed.files, "server/config.js")).toBe("read");
+    expect(statusOf(failed.snapshot.files, "server/config.js")).toBe("read");
+    expect(failed.snapshot.ignoreRules).toEqual({ state: "not_applied", reason: "git_missing" });
+  });
+
+  it("a reader whose ignore listing throws gives git_error and never fails the snapshot", async () => {
+    const throwing: GitReader = {
+      readIgnored: async () => {
+        throw new Error("boom");
+      },
+      readHead: async () => ({ ok: true, objectFormat: "sha1", commit: null, tree: [] }),
+    };
+    const { snapshot } = await snapshotOf({ "x.log": "x" }, throwing);
+    expect(snapshot.ignoreRules).toEqual({ state: "not_applied", reason: "git_error" });
+    expect(statusOf(snapshot.files, "x.log")).toBe("read");
   });
 
   it("before the first commit, ignore rules still apply", async () => {
-    const git = reader({
-      ok: true,
-      objectFormat: "sha1",
-      commit: null,
-      tree: [],
-      ignored: ["x.log"],
-    });
-    const snapshot = await snapshotOf({ "a.txt": "a", "x.log": "x" }, git);
+    const git = reader(
+      { ok: true, objectFormat: "sha1", commit: null, tree: [] },
+      { ok: true, paths: ["x.log"] },
+    );
+    const { snapshot } = await snapshotOf({ "a.txt": "a", "x.log": "x" }, git);
     expect(statusOf(snapshot.files, "x.log")).toBe("ignored");
     expect(snapshot.git).toMatchObject({ untrackedCount: 1 });
   });
