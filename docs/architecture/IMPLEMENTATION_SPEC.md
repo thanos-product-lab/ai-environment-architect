@@ -9,6 +9,11 @@
 
 `algorithmVersion` is `context-select/1.3.0`, because ignored directories change capture and the tree.
 
+- **Default caps (§1.5, §1.14), calibrated on the development repositories (M2).** `initialContextBytes` 240,000 → 300,000; tier 2 cap 60,000 → 70,000; tier 5 cap 80,000 → 130,000; tier 5 per-file cap 6,000 → 12,000; `maxSourceFiles` 24 → 32. Tiers 1, 3 and 4 are unchanged. The evidence:
+  - The two smaller repositories used 48 KB and 88 KB of 240 KB. Only the per-file cap and the file limit bound them: a library's core file sent only its imports and one small declaration, and a web app stopped at 24 files with 136 KB of budget left.
+  - The third repository filled tiers 1, 2, 3 and 5, skipping its main usage document and 100 source files.
+  - These are settings, not algorithm, changes: `settingsHash` changes, `algorithmVersion` does not.
+
 - **Ignored directories (§1.4, §1.6, §1.13).** Git lists ignored entries before capture. A wholly ignored directory is one `ignored` entry that capture doesn't enter, like an excluded directory, and the tree shows it as `name/ [ignored]`. Capture enters one only when an `includeIgnored` pattern could match inside it. Ignored files outside such directories are still hashed.
 - **Git version (§1.4).** The minimum is 2.38. Git 2.38 to 2.43 can't be told not to fetch missing objects, so it runs without `--no-lazy-fetch` and refuses only a partial clone, detected from `extensions.partialClone` or a `remote.*.promisor` key. Git 2.44 or later reads partial clones as before.
 - **Ignore rules in the snapshot and manifest (§1.4, §1.13, §2.4).** The snapshot records whether ignore rules were applied, or why not, separately from the git metadata. The manifest's `ignoreRules` is that record, and the summary names the reason.
@@ -238,15 +243,15 @@ Within a tier, every item is tried in the tier's order. An item that exceeds its
 
 **Reasons.** Items carry `tier1:destination`, `tier1:agent-config`, `tier1:import`, `tier2:group<N>:root-doc|decision-doc|docs|package-readme`, `tier3:group<N>:workspace|task-runner|package-manifest|tooling|ci`, `tier5:test-example` or `tier5:rank<N>:entry-point|boundary-name|other|supporting`. A file tried and never included is recorded with `tier<N>:cap-reached`.
 
-**Default budget:** `initialContextBytes` = 240,000. The five tier caps may not add up to more than it; settings that do are rejected.
+**Default budget:** `initialContextBytes` = 300,000. The five tier caps may not add up to more than it; settings that do are rejected.
 
 | Tier | Contents | Default cap | Per-file cap | Excerpting |
 |---|---|---|---|---|
 | 1 | Existing agent configuration | 40,000 | Destination: `maxDestinationBytes`; others: none | Never |
-| 2 | Project documentation | 60,000 | 12,000 | By document section |
+| 2 | Project documentation | 70,000 | 12,000 | By document section |
 | 3 | Manifests and tooling configuration | 40,000 | 8,000 | By whole lines from the start |
 | 4 | Directory tree (reserved) | 20,000 | n/a | By depth reduction |
-| 5 | Representative source, including test reserve | 80,000 | 6,000 | By top-level declaration |
+| 5 | Representative source, including test reserve | 130,000 | 12,000 | By top-level declaration |
 
 #### Tier 1 — Existing agent configuration
 
@@ -332,7 +337,7 @@ A file belongs to the deepest package that contains it. Source files in no packa
 
 A file's name for ranking is its base name without its last extension, so `index.ts` is rank 1 and `index.d.ts` is rank 4. Within a rank, order is path depth (shallower first), then path order.
 
-**Selection** is round-robin: in package path order, take each package's next-ranked file of ranks 1 to 3, repeating until every package's are tried; then the same for rank 4. Both passes stop when the tier budget or `maxSourceFiles` (default 24, not counting test examples or outline-only items, §1.6) is reached. Rank 4 has its own pass because a top-level `test/` or `examples/` directory is a package of its own, and would otherwise get a turn in every round.
+**Selection** is round-robin: in package path order, take each package's next-ranked file of ranks 1 to 3, repeating until every package's are tried; then the same for rank 4. Both passes stop when the tier budget or `maxSourceFiles` (default 32, not counting test examples or outline-only items, §1.6) is reached. Rank 4 has its own pass because a top-level `test/` or `examples/` directory is a package of its own, and would otherwise get a turn in every round.
 
 This sampling will miss conventions that only show up across many files. The expansion step (§1.8) exists for that reason.
 
@@ -567,7 +572,7 @@ Every model call records an input manifest ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md)
   "snapshotId": "snap_…",
   "contextHash": "sha256:…",
   "retainedInputRef": "inputs/sha256-….txt",
-  "budget": { "initialContextBytes": 240000, "usedBytes": 228410 },
+  "budget": { "initialContextBytes": 300000, "usedBytes": 228410 },
   "tokenCheck": {
     "model": "…",
     "method": "provider_count",
@@ -624,14 +629,14 @@ Details:
 
 | Setting | Default |
 |---|---|
-| `initialContextBytes` | 240,000 |
-| Tier caps (1, 2, 3, 4, 5) | 40,000 / 60,000 / 40,000 / 20,000 / 80,000 |
+| `initialContextBytes` | 300,000 |
+| Tier caps (1, 2, 3, 4, 5) | 40,000 / 70,000 / 40,000 / 20,000 / 130,000 |
 | `maxDestinationBytes` | 40,000 |
-| Per-file caps (tiers 2, 3, 5) | 12,000 / 8,000 / 6,000 |
+| Per-file caps (tiers 2, 3, 5) | 12,000 / 8,000 / 12,000 |
 | `testReserveBytes`, `testExampleBytes` | 15,000, 3,000 |
 | `maxReadableFileBytes` | 262,144 |
 | `includeIgnored` | none (§1.4) |
-| `maxSourceFiles` | 24 |
+| `maxSourceFiles` | 32 |
 | `treeDepth`, `treeCollapseThreshold` | 4, 40 |
 | `maxExpansionRequests`, `expansionBytes`, `expansionEntryBytes` | 5, 60,000, 8,000 |
 | `reservedOutputTokens` per call | 16,000 / 12,000 / 4,000 / 16,000 |
@@ -669,7 +674,7 @@ All defaults are starting points. They are calibrated on the product-development
 
 ### 1.16 Open points for this section
 
-- Calibrating the default caps on two or three development repositories of different sizes and documentation levels.
+- Recalibrating the default caps once the token check (§1.10) gives real token counts, and on a larger repository than the three development repositories, which have fewer than 230 files each. Tiers 1, 3 and 4 were left unchanged for that reason: tier 4 never used more than 6,135 bytes, which says nothing about a large repository.
 - Declaration patterns for languages beyond the default families.
 - Whether `search` should support a restricted regular-expression syntax after the first slice.
 - Whether tier 2 should prefer recently changed documents. This is excluded for now, because it would make the result depend on Git history.
@@ -741,7 +746,7 @@ Deterministic steps print short progress lines: listing files, hashing, parsing 
 ```text
 INSPECT · step 1 of 5 · session ses_01J…
 
-What will be sent for analysis  (228 KB of 240 KB)
+What will be sent for analysis  (228 KB of 300 KB)
 
   Existing agent configuration   2 files     6 KB   CLAUDE.md (current, 41 blocks)
   Documentation                  7 files    58 KB   2 excerpted

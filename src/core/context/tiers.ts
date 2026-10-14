@@ -53,13 +53,13 @@ export interface ContextSettings {
 }
 
 export const DEFAULT_CONTEXT_SETTINGS: ContextSettings = {
-  initialContextBytes: 240_000,
-  tierCaps: { tier1: 40_000, tier2: 60_000, tier3: 40_000, tier4: 20_000, tier5: 80_000 },
+  initialContextBytes: 300_000,
+  tierCaps: { tier1: 40_000, tier2: 70_000, tier3: 40_000, tier4: 20_000, tier5: 130_000 },
   maxDestinationBytes: 40_000,
-  perFileCaps: { tier2: 12_000, tier3: 8_000, tier5: 6_000 },
+  perFileCaps: { tier2: 12_000, tier3: 8_000, tier5: 12_000 },
   testReserveBytes: 15_000,
   testExampleBytes: 3_000,
-  maxSourceFiles: 24,
+  maxSourceFiles: 32,
   sourceExtensions: [
     ...DECLARATION_FAMILIES.flatMap((family) => family.extensions),
     // Components and templates. No declaration patterns, so they are excerpted by whole lines.

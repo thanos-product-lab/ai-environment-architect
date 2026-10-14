@@ -264,7 +264,7 @@ describe("input manifest (IMPL §1.13)", () => {
       contextHash: result.context.hash,
       retainedInputRef: null,
       tokenCheck: null,
-      budget: { initialContextBytes: 240_000, usedBytes: result.context.bytes },
+      budget: { initialContextBytes: 300_000, usedBytes: result.context.bytes },
       expansion: null,
     });
     expect(m.tiers.map((t) => t.tier)).toEqual([1, 2, 3, 4, 5]);
