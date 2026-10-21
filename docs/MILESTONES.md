@@ -1,7 +1,7 @@
 # Milestones
 
 **AI Environment Architect · First slice**  
-**Last updated:** 20 October 2026
+**Last updated:** 21 October 2026
 
 This is the build order for the first slice: inspect → clarify → recommend → review → apply, for one repository and its root `CLAUDE.md`. It says *what to build when*. *How it behaves* is in the specs. Each step points to a spec section rather than repeating it.
 
@@ -21,8 +21,8 @@ The order is set by dependencies. Deterministic parts come first and are tested 
 |---|---|---|---|
 | M0 | Scaffold and development repositories | No | Done |
 | M1 | Snapshot and destination parsing | No | Done |
-| M2 | Context selection and "What we read" | No | In progress |
-| M3 | Validation core | No (recorded responses) | Not started |
+| M2 | Context selection and "What we read" | No | Done |
+| M3 | Validation core | No (recorded responses) | In progress |
 | M4 | Sessions and persistence | No | Not started |
 | M5 | Recommendations, assembly, review and apply | No (recorded responses) | Not started |
 | M6 | Claude adapter and model calls | Yes | Not started |
