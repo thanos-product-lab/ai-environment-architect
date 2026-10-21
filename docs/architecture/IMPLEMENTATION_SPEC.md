@@ -1,9 +1,27 @@
 # Implementation Specification
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 20 October 2026  
-**Version:** 0.13  
+**Date:** 21 October 2026  
+**Version:** 0.14  
 **Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
+
+### Changes from v0.13
+
+Section 3 and §1.11 reconciled with M1 and M2 before M3. No existing rule ID changes.
+
+- **Sent lines (§3.2.2, §3.3.2).** Only numbered `CONTENT` lines in an item's `included` ranges can be cited; header attributes, outline labels, `BLOCKS` lines and `…` lines can't. A citation or content notice on an item with no sent lines, such as an outline-only item, is rejected with the new rule `CIT-006`.
+- **Path resolution and globs (§1.11).** Every path or glob in model output resolves as `listed`, `uncovered` (under a directory capture didn't enter, or through a symbolic link) or `unlisted`. Globs use the workspace pattern grammar of §1.5. `SUP-001`, `SCOPE-001`, `GAP-001`, `not_inspected` relabelling and absence claims all use this.
+- **Gaps (§1.11, §3.3.2).** `GAP-001` rejects only unlisted related paths; uncovered ones make the gap `not_inspected`. A gap stays "missing" only if every file its related paths match was sent in full; otherwise it is relabelled with the new rule `GAP-002`, and code records the uninspected paths.
+- **Absence claims (§1.11).** New rules `ABS-001` (an entry of any status matches) and `ABS-002` (the glob can match only inside uncovered directories). Accepted claims name the uncovered directories the glob could reach.
+- **Excerpt awareness (§1.11).** Enforced by the citation rules: an outline entry is never evidence.
+- **Evidence basis (§3.2.4).** Basis follows the tier the file belongs to, through the initial context or expansion, so imported tier 1 files and expanded agent configuration are `existing_guidance`.
+- **Withheld paths (§1.11).** A path withheld by the secret scan doesn't satisfy `SUP-001` or `SCOPE-001`, and absence wording counts withheld directories without naming them.
+- **Deterministic gaps (§1.11).** The tier 1 budget gap and the outside-repository import gap are `not_inspected` from the start.
+- **Basis for `listed_only` files (§3.2.4).** Tier membership for basis is decided by pattern, whether or not the file is a candidate.
+- **Content notices (§3.3.2).** Checked with `CIT-006` and `CIT-003`, like citations.
+- **Known facts (§3.2.5).** Existing agent configuration includes imported files.
+- **Verification and fixtures (§1.15, §3.8).** New cases for outline-only citations, coverage relabelling, absence claims, withheld paths and basis.
+- **Open points (§1.16, §3.9).** Coverage of symbolic links and excluded directories is decided. Two checks are now open points instead of requirements: absence asserted in free text, and claims about omitted parts of a file that cite only sent lines. Neither had a deterministic check.
 
 ### Changes from v0.12
 
@@ -529,21 +547,38 @@ Every reduction is recorded in the manifest, and the tree markers are updated. T
 
 These checks run after calls 1 and 2, in addition to the evidence validation in the domain model.
 
+**Globs.** Gap `relatedPaths`, absence-claim `pathGlob`s and scope paths use the workspace pattern grammar (§1.5): `*` matches within one path segment, `**` matches zero or more whole segments, and there is no `!`. Patterns are anchored at the repository root, compare case-sensitively, and match entry paths, directories included. A path without wildcards that names a directory also covers everything under it. Expansion paths and search globs keep their own rules (§1.8).
+
+A glob **could match inside** a directory `D` when some path under `D` could match it: code matches `D`'s segments, in order, against the glob's leading segments, where `*` matches one segment and `**` may absorb any number of them, and the glob must have at least one segment left over, or end in `**`. So `**/*.test.ts` and `src/**/foo.ts` could match inside `src/a/node_modules/`, and `docs/*.md` could not.
+
+**Path resolution.** Each of these paths and globs resolves to one of three classes:
+
+- **listed:** it matches a snapshot entry of any status (`read`, `listed_only`, `ignored`, `excluded`, `symlink`, `unreadable`; capture never produces `truncated`), or a directory that contains entries. An excluded or wholly ignored directory is itself an entry, so `node_modules/` is listed.
+- **uncovered:** it doesn't match a listed entry, but lies under, or could match inside, a directory that capture didn't enter: an excluded directory, a wholly ignored directory, an unreadable directory, or a path through a symbolic link. Whether it exists is unknown.
+- **unlisted:** neither. Capture would have listed it, and didn't.
+
+A path withheld because its name matched the secret scan (§1.7) is listed for gaps and absence claims. The model never saw its name, so it does not anchor a statement (`SUP-001`) or satisfy a scope (`SCOPE-001`): those two rules accept only listed paths that are not withheld.
+
 **Gap findings** must include:
 
 - `gapType`: `no_command`, `no_documentation`, `undetermined_ownership`, `undetermined_convention`, or `other`;
 - `relatedPaths`: the paths or globs the gap concerns.
 
-If any related path exists in the snapshot but its relevant content was not sent (`[-]`, `[L]`, `[I]`, omitted outline entries, or outside the context and expansion), the gap is relabelled `not_inspected`. The review shows it as "not inspected", not "missing".
+Each related path must be listed or uncovered. An unlisted one rejects the gap: a gap about something that doesn't exist must be an absence claim instead (`GAP-001`).
 
-**Absence claims** must be expressed as `absenceClaim: { pathGlob, reason }`. Application code evaluates the glob against the **full snapshot file list**:
+A gap keeps the label "missing" only if every entry its related paths match is a file **sent in full** in that call: the sent lines of its items, initial and expansion, together cover every line of the file. Otherwise it is relabelled `not_inspected` (`GAP-002`, outcome `relabelled`), and code records on the finding ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.3) the matched entries that weren't sent in full, withheld ones by `pathHash`, and the directories capture didn't enter that a related path is under or could match inside. That covers files not selected (`[-]`), excerpted or outline-only, `listed_only` (`[L]`), `ignored` (`[I]`), excluded (`[X]`), secret-blocked (`[S]`), symbolic links (`[>]`), unreadable entries (`[U]`), excluded, ignored and unreadable directories, and every uncovered path. The review shows it as "not inspected", not "missing". A gap on a whole directory is therefore usually `not_inspected`; the prompt asks the model to name the specific files a gap concerns.
 
-- If matching files exist, the claim is rejected and the rejection recorded.
-- If none exist, the claim is accepted. Its statement is **generated by code, not the model**: "No files matched `<pathGlob>` within the inspected scope," followed by the scope and exclusions that applied.
+The deterministic gaps of §1.5 are `not_inspected` from the start: agent configuration skipped by the tier 1 budget records the skipped paths, and an import outside the repository records the importing file, because the imported file was never read.
 
-An accepted absence claim records a narrow fact about one pattern. It can support a gap or a question ("No files matched `**/*.test.ts`. How are frontend changes tested?"). It **cannot** support a recommendation that states a broader absence, such as "this project has no tests". Absence asserted in free text, without an `absenceClaim`, fails validation.
+**Absence claims** must be expressed as `absenceClaim: { pathGlob, reason }`. Application code evaluates the glob against the **full snapshot file list**, in this order:
 
-**Excerpt awareness:** a claim citing an excerpted file is accepted only if its cited range lies within the lines actually sent. A claim about what omitted parts of a file do or don't contain is rejected.
+1. If any entry matches, of any status, the claim is rejected (`ABS-001`). The rejection detail never names a withheld path.
+2. If the glob can match only inside uncovered directories, the claim is rejected (`ABS-002`): it is entirely about content that wasn't inspected.
+3. Otherwise the claim is accepted. Its statement is **generated by code, not the model**: "No files matched `<pathGlob>` within the inspected scope." If the glob could match inside uncovered directories, code adds them, for example "Not inspected: `node_modules/` (excluded), `logs/` (ignored), `vendor -> ../shared` (symbolic link)." Withheld names are never shown; code counts them instead ("and 1 withheld directory"). When ignore rules were not applied, code adds that ignored files could not be identified.
+
+An accepted absence claim records a narrow fact about one pattern. It can support a gap or a question ("No files matched `**/*.test.ts`. How are frontend changes tested?"). It **cannot** support a recommendation that states a broader absence, such as "this project has no tests". Absence asserted in free text, without an `absenceClaim`, is not yet detected (§3.9).
+
+**Excerpt awareness** is enforced by the citation rules: a citation is checked only against sent lines (§3.2.2, `CIT-003`, `CIT-006`). An outline entry shows that a declaration or section exists, not what it contains, so it is never evidence. A claim about what omitted parts contain that cites only sent lines is not detected by code (§3.9).
 
 ### 1.12 Retained model inputs and replay
 
@@ -666,9 +701,12 @@ All defaults are starting points. They are calibrated on the product-development
 - Line-range expansion returns exactly the requested lines; out-of-range or already-included requests are rejected.
 - A file changed after the snapshot fails expansion with "changed since snapshot".
 - A request that exceeds the token limit is reduced in the specified order, or not sent.
-- Gap findings concerning unsent content become `not_inspected`.
-- Absence claims contradicted by the file list are rejected; accepted ones use the code-generated narrow wording and cannot support broader recommendations.
-- Claims about omitted parts of excerpted files are rejected.
+- Gap findings concerning unsent content become `not_inspected`, including gaps on paths under an excluded or wholly ignored directory or through a symbolic link; gaps on unlisted paths are rejected.
+- Absence claims contradicted by the file list are rejected, including by an `ignored`, excluded or `listed_only` entry; a claim that can match only inside uncovered directories is rejected; accepted ones use the code-generated narrow wording, name the uncovered directories the glob could reach, and cannot support broader recommendations.
+- Citations of omitted outline entries, outline labels, `BLOCKS` lines or outline-only items are rejected.
+- A gap stays "missing" when expansion completes a file, and becomes `not_inspected` for an excerpted or outline-only file, a symbolic link, an unreadable directory, or a related path that matches an excluded directory entry. The §1.5 deterministic gaps are `not_inspected`.
+- A withheld path neither anchors `SUP-001` nor satisfies `SCOPE-001`, and never appears in an absence-claim rejection or wording; accepted wording counts withheld directories, and says when ignore rules were not applied.
+- Basis follows the file's tier: an imported tier 1 file and expanded `.claude/` configuration are `existing_guidance`, `@package.json` is `code_observation`, and a `listed_only` tier 2 document read by line range is `documentation`.
 - Calls 2–4 receive only validated material, and calls 3–4 no raw initial context.
 - A retained session replays byte-identical requests after repository files change.
 - A prompt-injection fixture inside a repository file does not change output schema, scope or behaviour.
@@ -679,7 +717,6 @@ All defaults are starting points. They are calibrated on the product-development
 - Declaration patterns for languages beyond the default families.
 - Whether `search` should support a restricted regular-expression syntax after the first slice.
 - Whether tier 2 should prefer recently changed documents. This is excluded for now, because it would make the result depend on Git history.
-- How coverage-aware validation (§1.11) treats paths under a symbolic link or an excluded directory, which capture never enters. Probably `not_inspected`. To decide in M3.
 
 ---
 
@@ -1106,17 +1143,20 @@ type Citation = {
 
 **Quote rules.** The quote is at least 12 characters and not only whitespace or punctuation. It is at most 200 characters, and may span lines using `\n`. It must match the sent content **exactly**: no normalisation of whitespace, case or punctuation.
 
+**Sent lines** are an item's numbered `CONTENT` lines within its `included` ranges. Header attributes, `OUTLINE` labels, the destination's `BLOCKS` lines and `…` lines are never sent lines: they can't be cited, and the search in step 6 doesn't cover them. Ignored, excluded, secret-blocked, unreadable and symbolic-link entries have no item at all, so a citation of one fails `CIT-001`.
+
 **Validation**, in order:
 
 1. **Item.** The item alias exists in this call's input (`CIT-001`).
 2. **File currency.** The cited file's current hash matches the snapshot hash recorded for the item (`CIT-002`). A mismatch rejects the citation and marks the snapshot as unstable.
-3. **Range.** `start ≤ end`, and the whole range lies within the lines actually sent for that item: its `included` lines, not omitted outline entries (`CIT-003`).
-4. **Quote in range.** If the quote occurs exactly within the text of the cited lines, the citation is accepted.
-5. **Line-range correction.** Otherwise, code counts exact occurrences of the quote in **all lines of that same item that were sent in this call**. It searches no other item, no other file, and no unsent content.
+3. **Sent content.** The item has at least one sent line (`CIT-006`). An outline-only item (§1.6) has none: its outline shows what exists, not what it contains.
+4. **Range.** `start ≤ end`, and the whole range lies within the item's sent lines, not omitted outline entries (`CIT-003`).
+5. **Quote in range.** If the quote occurs exactly within the text of the cited lines, the citation is accepted.
+6. **Line-range correction.** Otherwise, code counts exact occurrences of the quote in **all sent lines of that same item in this call**. It searches no other item, no other file, and no unsent content.
    - **Exactly one occurrence:** the range is corrected to the lines that occurrence spans. The quote and the claim are not changed. Both ranges are recorded: `{ originalLines, correctedLines, rule: "CIT-R01" }`.
    - **Zero occurrences** (including text that is only slightly different, or present only in unsent parts of the file): reject (`CIT-004`).
    - **Two or more occurrences:** reject (`CIT-005`).
-6. **Evidence creation.** Code creates the Evidence record: path, file hash, final line range, basis (§3.2.4), and an excerpt **extracted by code** from the sent lines of that range. The model never supplies excerpt text.
+7. **Evidence creation.** Code creates the Evidence record: path, file hash, final line range, basis (§3.2.4), and an excerpt **extracted by code** from the sent lines of that range. The model never supplies excerpt text.
 
 The rate of corrected citations is recorded per call. A rising rate is a signal to investigate the prompt or the rendering format.
 
@@ -1126,7 +1166,7 @@ These run after provenance and check what code can about whether citations justi
 
 | Rule | Check | On failure |
 |---|---|---|
-| `SUP-001` Anchoring | Every inline-code token and path-like token in a statement appears in at least one cited excerpt, or is a path that exists in the snapshot. | Reject |
+| `SUP-001` Anchoring | Every inline-code token and path-like token in a statement appears in at least one cited excerpt, or is a listed path (§1.11). | Reject |
 | `SUP-002` No model counts | A statement contains no quantity or frequency the model counted ("5 components", "most files"). Numbers are allowed only if they appear in a cited excerpt. Code computes and displays "seen in N cited files". | Reject |
 | `SUP-003` No universal claims from samples | A `descriptive` finding whose citations are all `code_observation` must not use universal quantifiers (*all*, *every*, *always*, *never*, *none*, *only*). Samples support "some" or "in the files inspected", not "all". | Reject |
 | `SUP-004` Prescriptive needs a prescriptive source | A `prescriptive` finding needs at least one citation with basis `documentation` or `existing_guidance` whose excerpt contains directive language (versioned word list: *must, should, always, never, do not, don't, required, prefer, use … instead*). | Reject |
@@ -1136,14 +1176,15 @@ Anything these rules can't check is shown to the developer. Every finding is dis
 
 #### 3.2.4 Evidence basis
 
-Basis is derived by code from where the cited item came from. The model never chooses it.
+Basis is derived by code from the tier the cited file belongs to (§1.5), whether it reached the model through the initial context or through expansion. The model never chooses it. For basis, a file belongs to the first tier whose patterns or `@path` imports match its path, whether or not it is a candidate, so a `listed_only` `docs/architecture.md` read by line range is `documentation`, and a `listed_only` file under `.claude/` is `existing_guidance`.
 
-| Source | Basis |
+| File belongs to | Basis |
 |---|---|
-| Tier 1 (agent configuration) | `existing_guidance` |
+| Tier 1 (agent configuration, including the destination and `@path` imports) | `existing_guidance` |
 | Tier 2 (documentation) | `documentation` |
-| Tiers 3 and 5, expansion items from source or configuration files | `code_observation` |
-| Expansion items from documentation files (tier 2 patterns) | `documentation` |
+| Tier 3, tier 5, or no tier | `code_observation` |
+
+An imported file that tier 2, 3 or 5 matches stays in that tier (§1.5), so `@package.json` is `code_observation`. A file that matches no tier's patterns, such as a changelog or a Markdown file under `src/`, is `code_observation`.
 
 A finding's basis is the set of its citations' bases.
 
@@ -1154,7 +1195,7 @@ Consequence: a code comment such as "always use X" is a `code_observation`. It c
 Before call 1, code extracts facts it can determine without a model, and records them as findings with `producedBy: deterministic` and code-generated wording:
 
 - commands from manifests: `package.json` scripts, Makefile targets, justfile recipes, Taskfile tasks, `pyproject.toml` script entries;
-- existing agent configuration files and their paths;
+- existing agent configuration files and their paths, including files imported with `@path` (§1.5);
 - workspace packages.
 
 They are sent to the model under a **known facts** heading, with aliases. The model must not restate them as new findings; restatements are dropped as duplicates (`DUP-002`). Commands from these facts always have the status `found_not_run`.
@@ -1233,13 +1274,13 @@ type AnalyseOutput = {
 1. Schema (§3.5).
 2. Aliases (`ALIAS-001`).
 3. Citations: provenance (§3.2.2), then support (§3.2.3), then basis derivation (§3.2.4).
-4. Scope paths: each path or path prefix exists in the snapshot (`SCOPE-001`).
-5. Gaps: each `relatedPath` matches at least one snapshot path. A gap about something that doesn't exist must be an absence claim instead (`GAP-001`). Then the coverage check: related content not sent → relabel `not_inspected` (§1.11).
-6. Absence claims: evaluated against the full file list, with code-generated wording (§1.11).
+4. Scope paths: each path or path prefix is listed (§1.11, `SCOPE-001`).
+5. Gaps: each `relatedPath` is listed or uncovered; an unlisted one rejects the gap, which must be an absence claim instead (`GAP-001`). Then the coverage check: a related file not sent in full → relabel `not_inspected` (`GAP-002`, §1.11).
+6. Absence claims: evaluated against the full file list (`ABS-001`, `ABS-002`), with code-generated wording (§1.11).
 7. Conflicts: at least two member findings survived validation; otherwise rejected (`CONF-001`). Then `SUP-005`.
 8. Duplicates: identical normalised statements with the same scope keep the first (`DUP-001`). Restatements of known facts are dropped (`DUP-002`).
 9. Expansion requests (§1.8).
-10. Content notices: the cited lines must be sent lines of the item. Valid notices are recorded on the snapshot and shown in the findings view. They never change behaviour.
+10. Content notices: the cited lines must be sent lines of the item (`CIT-006`, `CIT-003`; §3.2.2). Valid notices are recorded on the snapshot and shown in the findings view. They never change behaviour.
 
 #### 3.3.3 `analyse_expansion`
 
@@ -1302,7 +1343,7 @@ Every question accepts a typed answer and a skip; the schema doesn't model those
 
 1. Schema and aliases.
 2. **Asks about intent, not documented policy** (`Q-001`): `resolves` must include at least one unresolved conflict, gap, or finding without `documentation` basis. A question linked only to documented, uncontested findings is rejected.
-3. Scope paths exist (`SCOPE-001`).
+3. Scope paths are listed (§1.11, `SCOPE-001`).
 4. Duplicates: questions with an identical `resolves` set keep the first (`DUP-003`).
 
 **Ranking**, by code:
@@ -1374,7 +1415,7 @@ type RecommendOutput = {
    - commands match a known command or appear in a cited excerpt of the reference's supporting finding (`REF-003`);
    - each reference's supporting finding is in the recommendation's support (`REF-004`).
    Code sets each command's verification to `found_not_run`.
-8. Scope paths exist (`SCOPE-001`).
+8. Scope paths are listed (§1.11, `SCOPE-001`).
 9. **Duplicates:** identical target and content keep the first (`DUP-004`).
 10. **Held back:** each `blockedBy` alias must refer to a skipped or unreached question, or an unresolved conflict. Entries that fail are dropped (`HELD-001`).
 11. **No change:** `noChangeReason` is accepted only when `recommendations` is empty (`REC-009`). If every recommendation fails validation, the session shows that results couldn't be verified (§2.12). This is never presented as a no-change outcome.
@@ -1495,6 +1536,10 @@ A change to any prompt, schema, validator or detector requires the fixture suite
 - **Adversarial**, each with its expected rule ID:
   - unknown alias;
   - quote not in the sent content, a quote altered by one character, a quote present twice, a quote present only in omitted lines;
+  - a citation of an outline-only item (`CIT-006`), and a quote taken from an outline label or a `BLOCKS` line;
+  - a gap on an unlisted path (`GAP-001`), and a gap under an excluded directory (expect `GAP-002`);
+  - an absence claim matching an `ignored` file (`ABS-001`), and one that can match only inside `node_modules/` (`ABS-002`);
+  - a gap and an absence claim through a symbolic link and under an unreadable directory;
   - a shifted line range with a unique quote (expect `CIT-R01`, with quote and claim unchanged);
   - a model-asserted count, and a universal claim from samples;
   - a prescriptive finding citing only code;
@@ -1519,6 +1564,8 @@ A change to any prompt, schema, validator or detector requires the fixture suite
 ### 3.9 Open points for this section
 
 - Calibrating the directive-language and imperative-verb lists on development repositories, and measuring how often `REC-007` misses.
+- How to detect absence asserted in free text, without an `absenceClaim` (§1.11). No deterministic check is defined yet.
+- How to detect a claim about the omitted parts of an excerpted file when it cites only sent lines (§1.11). The citation rules catch citations of omitted lines, not claims about them.
 - Minimum quote length: 12 characters may allow unhelpfully generic quotes in code.
 - Output limits per call (finding, question and recommendation counts).
 - Whether a model-based support check is worth adding after the first slice. Adopt only if evaluation shows it reduces unsupported findings without excessive false rejections.

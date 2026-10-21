@@ -1,8 +1,8 @@
 # Domain Model
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 14 October 2026  
-**Version:** 0.8 — consolidated specification  
+**Date:** 21 October 2026  
+**Version:** 0.9 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,12 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.8
+
+1. **Evidence from `listed_only` files (§6.2).** Evidence may point at a `listed_only` entry, through a line-range expansion, as long as the cited lines were sent in that call.
+2. **Basis wording (§6.2).** Basis is derived from the tier the cited file belongs to.
+3. **Gap coverage (§6.3).** A gap records whether its related paths were inspected, or which ones weren't, set by code ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.11).
 
 ### Changes from v0.7
 
@@ -166,12 +172,12 @@ A reference to specific captured content.
 | Field | Notes |
 |---|---|
 | `id`, `snapshotId` | |
-| `path`, `fileHash` | Must match a `read` entry in the snapshot |
+| `path`, `fileHash` | Must match a `read` or `listed_only` entry in the snapshot, and the cited lines must have been sent in that call |
 | `lineStart`, `lineEnd` | Validated at capture time |
 | `excerpt` | The cited lines, bounded in length |
 | `basis` | `documentation`, `code_observation`, `existing_guidance` (§6.4) |
 
-Evidence is created by code, never by the model. The model cites a context item, a line range and a verbatim quote. Code verifies the quote against the content actually sent, may correct the line range under a narrow recorded rule, derives the basis from the item's source, and extracts the excerpt itself ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.2–§3.2.4). A corrected range records both the original and corrected lines. Citations that fail are discarded, and the model call records the failure. A valid citation proves where the quote came from, not that it supports the claim; support is checked separately ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.3).
+Evidence is created by code, never by the model. The model cites a context item, a line range and a verbatim quote. Code verifies the quote against the content actually sent, may correct the line range under a narrow recorded rule, derives the basis from the tier the cited file belongs to, and extracts the excerpt itself ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.2–§3.2.4). A corrected range records both the original and corrected lines. Citations that fail are discarded, and the model call records the failure. A valid citation proves where the quote came from, not that it supports the claim; support is checked separately ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.3).
 
 ### 6.3 Finding
 
@@ -186,6 +192,7 @@ One claim about the repository, or one explicit unknown.
 | `basis` | Derived from evidence: `documentation`, `code_observation`, `existing_guidance`, or mixed |
 | `scope` | `repository` or an explicit list of paths |
 | `evidenceIds` | Required for `claim`; may be empty for `gap` |
+| `coverage` | Gaps only, set by code: `inspected`, or `not_inspected` with what wasn't read: the entries the gap's related paths match that weren't sent in full (withheld ones by hash), and the directories capture didn't enter that those paths reach ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.11, §3.3.2). The review shows a `not_inspected` gap as "not inspected", not "missing" |
 | `uncertainty` | Short explanation; no numeric confidence score |
 | `producedBy` | Model call ID, or `deterministic` |
 
