@@ -131,6 +131,20 @@ describe("default exclusions (IMPL §1.4)", () => {
   it("records every default rule with source default", () => {
     expect(defaults.every((rule) => rule.source === "default")).toBe(true);
   });
+
+  it("records the group of each rule, for the inspect summary (IMPL §2.4)", () => {
+    const groupOf = (pattern: string) => defaults.find((rule) => rule.pattern === pattern)?.group;
+    expect(groupOf(".git")).toBe("version_control");
+    expect(groupOf("node_modules/")).toBe("dependencies");
+    expect(groupOf("*.min.js")).toBe("build_output");
+    expect(groupOf("pnpm-lock.yaml")).toBe("lockfiles");
+    expect(groupOf(".env")).toBe("secret_names");
+    expect(groupOf("CLAUDE.local.md")).toBe("personal_agent_config");
+    expect(groupOf("*.png")).toBe("binary_and_media");
+    const all = buildExclusionRules({ userExclusions: ["tmp/"], sessionStoragePath: ".s" });
+    expect(all.find((rule) => rule.pattern === "tmp/")?.group).toBe("user");
+    expect(all.find((rule) => rule.pattern === ".s/")?.group).toBe("session_storage");
+  });
 });
 
 describe("matchesPathOrAncestor (includeIgnored)", () => {

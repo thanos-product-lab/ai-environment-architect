@@ -85,6 +85,27 @@ describe("renderTree", () => {
     expect(tree.bytes).toBe(Buffer.byteLength(tree.text, "utf8"));
   });
 
+  it("reports how many files it lists, and shows an ignored directory once", () => {
+    const files: SnapshotFile[] = [
+      read("a.ts"),
+      excludedDir("node_modules"),
+      { path: "logs", status: "ignored", kind: "directory" },
+      { path: "x.log", status: "ignored", kind: "file", size: 1, hash: H },
+    ];
+    const tree = renderTree(files, new Map(), SETTINGS, 100_000);
+    expect(tree.files).toBe(2);
+    expect(tree.text).toBe(
+      lines(
+        "<<<TREE depth=4 files=2>>>",
+        "[-] a.ts",
+        "logs/ [ignored]",
+        "node_modules/ [excluded]",
+        "[I] x.log",
+        "<<<END TREE>>>",
+      ),
+    );
+  });
+
   it("shows file counts for directories at the depth limit", () => {
     const files = [read("a/b/c.ts"), read("a/b/d/e.ts"), excludedDir("a/b/d/node_modules")];
     const tree = renderTree(files, new Map(), { ...SETTINGS, treeDepth: 2 }, 100_000);

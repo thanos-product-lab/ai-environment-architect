@@ -1,7 +1,7 @@
 # Implementation Specification
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 14 October 2026  
+**Date:** 20 October 2026  
 **Version:** 0.13  
 **Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
 
@@ -9,6 +9,7 @@
 
 `algorithmVersion` is `context-select/1.3.0`, because ignored directories change capture and the tree.
 
+- **Inspect preview (§2.2, §2.4).** `<cli> inspect [path] [--list | --json] [--debug]` prints the "What we read" summary without a session and sends nothing. The summary's rows note files not read for budget, and the mock-up's destination note is `CLAUDE.md (41 blocks)`. Exclusion rules record their group, so the "Not sent" line can count excluded files by kind.
 - **Default caps (§1.5, §1.14), calibrated on the development repositories (M2).** `initialContextBytes` 240,000 → 300,000; tier 2 cap 60,000 → 70,000; tier 5 cap 80,000 → 130,000; tier 5 per-file cap 6,000 → 12,000; `maxSourceFiles` 24 → 32. Tiers 1, 3 and 4 are unchanged. The evidence:
   - The two smaller repositories used 48 KB and 88 KB of 240 KB. Only the per-file cap and the file limit bound them: a library's core file sent only its imports and one small declaration, and a web app stopped at 24 files with 136 KB of budget left.
   - The third repository filled tiers 1, 2, 3 and 5, skipping its main usage document and 100 source files.
@@ -707,8 +708,9 @@ The command name is a placeholder: `<cli>`.
 | `<cli> export <session-id> [--include-excerpts] [--include-inputs]` | Write the session export ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §14) |
 | `<cli> delete <session-id>` | Delete a session and its retained inputs, after confirmation |
 | `<cli> purge-inputs <session-id>` | Delete retained model inputs only |
+| `<cli> inspect [path] [--list \| --json] [--debug]` | Show the "What we read" summary (§2.4) for the repository at `path` without starting a session. Nothing is sent or written |
 
-`status`, `sessions` and `export` support `--json`. Interactive steps require a TTY; run in a non-TTY environment, `init` and `resume` print an explanation and exit without changing anything.
+`status`, `sessions`, `export` and `inspect` support `--json`. Interactive steps require a TTY; run in a non-TTY environment, `init` and `resume` print an explanation and exit without changing anything.
 
 ### 2.3 Start
 
@@ -748,7 +750,7 @@ INSPECT · step 1 of 5 · session ses_01J…
 
 What will be sent for analysis  (228 KB of 300 KB)
 
-  Existing agent configuration   2 files     6 KB   CLAUDE.md (current, 41 blocks)
+  Existing agent configuration   2 files     6 KB   CLAUDE.md (41 blocks)
   Documentation                  7 files    58 KB   2 excerpted
   Manifests and tooling         12 files    31 KB
   Directory tree                1,284 files listed, depth 3
@@ -765,9 +767,17 @@ What will be sent for analysis  (228 KB of 300 KB)
 - `a` and `x` change the settings, recompute the selection, and show the summary again with the new size. Adding an `ignored` path with `a` adds it to `includeIgnored` (§1.4, §1.14), so a new snapshot keeps that file as a candidate; it then belongs to a tier as usual.
 - The "Not sent" line names each excluded directory followed by `(not entered)`, because capture never enters it and has no count of its contents (§1.4). Excluded files are counted by kind, and secret-blocked files are counted.
 - The ignored line lists `ignored` entries (§1.4), first in path order, with the count; an ignored directory is shown as `logs/ (not entered)`. When ignore rules were not applied, it reads instead `Ignored files couldn't be identified (<reason>): only the default exclusions were used.`
+- Each row's notes count what was excerpted, sent as an outline alone (§1.6), and not read because the budget ran out (`N not read (budget)`). The agent configuration row names the destination with its block count, or says `no CLAUDE.md yet`.
 - If the destination rule (§1.5) stops the session, this screen explains why and what to do, and nothing is sent.
 
 After **Enter**, analysis runs. Progress shows the current call, elapsed time and cost so far. If the model requests expansion, the CLI shows what was requested and what was accepted or rejected, then continues automatically: expansion has already been validated against scope, exclusions and budget.
+
+**Preview without a session.** `<cli> inspect [path]` runs the same capture and selection and prints the same summary, then exits. It is not interactive and starts no session, so it differs from the screen above in three places: the header reads `INSPECT · preview · no session · nothing is sent`, followed by the repository path and the git state (the commit and whether there are uncommitted changes, or why git wasn't used); the heading reads "What would be sent for analysis"; and the key prompts are replaced by `Run with --list to see every file and the reason for each.` and these options:
+
+- `--list` prints what `v` shows: every item with its ID, path, reason, lines sent and bytes; the tree's size; every path not read for budget; and every path not sent, with the rule, the secret rule, `listed only`, `unreadable`, symbolic link or `ignored`. Any path or link target that matches the secret scan is shown as `<withheld>` with the start of its hash; the summary shows `<withheld>` alone.
+- `--json` prints the input manifest (§1.13), or the stop or instability as JSON, with changed paths recorded like manifest paths (`pathHash` when they match the secret scan). It goes to standard output even when the command exits with 1.
+- When the destination rule stops the session, or a file changes after capture, it prints the explanation and `Nothing was sent.`, and exits with 1. Usage errors exit with 2. Errors are one plain sentence; `--debug` adds the stack trace.
+- Lines stay within 80 columns, except where a single path is longer than the line.
 
 ### 2.5 Findings
 

@@ -12,25 +12,34 @@ import type { EntryKind } from "./repository-fs.js";
 
 export type ExclusionSource = "default" | "user" | "session_storage";
 
+/** The kind of thing a rule excludes, so a summary can count excluded files by kind. */
+export type ExclusionGroup =
+  | "version_control"
+  | "dependencies"
+  | "build_output"
+  | "lockfiles"
+  | "secret_names"
+  | "personal_agent_config"
+  | "binary_and_media"
+  | "user"
+  | "session_storage";
+
 export interface ExclusionRule {
   readonly pattern: string;
   readonly source: ExclusionSource;
+  readonly group: ExclusionGroup;
   /** Base names that the pattern would match but are not excluded. */
   readonly except?: readonly string[];
   /** Compare ASCII letters case-insensitively. Used for secret-bearing names and binary types. */
   readonly ignoreCase: boolean;
 }
 
-const caseSensitive = (pattern: string): ExclusionRule => ({
-  pattern,
-  source: "default",
-  ignoreCase: false,
-});
-const caseInsensitive = (pattern: string): ExclusionRule => ({
-  pattern,
-  source: "default",
-  ignoreCase: true,
-});
+const caseSensitive =
+  (group: ExclusionGroup) =>
+  (pattern: string): ExclusionRule => ({ pattern, source: "default", group, ignoreCase: false });
+const caseInsensitive =
+  (group: ExclusionGroup) =>
+  (pattern: string): ExclusionRule => ({ pattern, source: "default", group, ignoreCase: true });
 
 // `.git` matches a file too: in a linked worktree or submodule it is a `gitdir:` file.
 const VERSION_CONTROL = [".git", ".hg/", ".svn/"];
@@ -63,10 +72,10 @@ const LOCKFILES = [
   "Gemfile.lock",
 ];
 const SECRET_NAMES: readonly ExclusionRule[] = [
-  caseInsensitive(".env"),
-  { ...caseInsensitive(".env.*"), except: [".env.example", ".env.sample"] },
+  caseInsensitive("secret_names")(".env"),
+  { ...caseInsensitive("secret_names")(".env.*"), except: [".env.example", ".env.sample"] },
   ...["*.pem", "*.key", "*.p12", "id_rsa*", "*.keystore", "credentials*", "secrets*"].map(
-    caseInsensitive,
+    caseInsensitive("secret_names"),
   ),
 ];
 // Personal Claude Code files, usually git-ignored: never project guidance. Exact names, as tier 1
@@ -89,10 +98,13 @@ const BINARY_EXTENSIONS = [
 ];
 
 const DEFAULT_RULES: readonly ExclusionRule[] = [
-  ...[...VERSION_CONTROL, ...DEPENDENCIES, ...BUILD_OUTPUT, ...LOCKFILES].map(caseSensitive),
+  ...VERSION_CONTROL.map(caseSensitive("version_control")),
+  ...DEPENDENCIES.map(caseSensitive("dependencies")),
+  ...BUILD_OUTPUT.map(caseSensitive("build_output")),
+  ...LOCKFILES.map(caseSensitive("lockfiles")),
   ...SECRET_NAMES,
-  ...PERSONAL_AGENT_CONFIG.map(caseSensitive),
-  ...BINARY_EXTENSIONS.map((extension) => caseInsensitive(`*.${extension}`)),
+  ...PERSONAL_AGENT_CONFIG.map(caseSensitive("personal_agent_config")),
+  ...BINARY_EXTENSIONS.map((extension) => caseInsensitive("binary_and_media")(`*.${extension}`)),
 ];
 
 export function buildExclusionRules(options: {
@@ -101,7 +113,7 @@ export function buildExclusionRules(options: {
 }): readonly ExclusionRule[] {
   const rules = [...DEFAULT_RULES];
   for (const pattern of options.userExclusions) {
-    rules.push({ pattern, source: "user", ignoreCase: false });
+    rules.push({ pattern, source: "user", group: "user", ignoreCase: false });
   }
   if (options.sessionStoragePath !== undefined) {
     const path = options.sessionStoragePath.replace(/^(\.\/)+/, "").replace(/\/+$/, "");
@@ -110,7 +122,12 @@ export function buildExclusionRules(options: {
         `The session storage path must be inside the repository and relative to its root: ${options.sessionStoragePath}`,
       );
     }
-    rules.push({ pattern: `${path}/`, source: "session_storage", ignoreCase: false });
+    rules.push({
+      pattern: `${path}/`,
+      source: "session_storage",
+      group: "session_storage",
+      ignoreCase: false,
+    });
   }
   return rules;
 }
@@ -145,6 +162,7 @@ export function matchesPathOrAncestor(patterns: readonly string[], path: string)
   const rules = patterns.map((pattern) => ({
     pattern,
     source: "user" as const,
+    group: "user" as const,
     ignoreCase: false,
   }));
   const segments = path.split("/");
@@ -168,7 +186,7 @@ export function mayMatchInside(patterns: readonly string[], directory: string): 
   return patterns.some((pattern) => {
     const trimmed = pattern.endsWith("/") ? pattern.slice(0, -1) : pattern;
     if (!trimmed.includes("/")) return true;
-    const rule = { pattern, source: "user" as const, ignoreCase: false };
+    const rule = { pattern, source: "user" as const, group: "user" as const, ignoreCase: false };
     const prefixes = segments.map((_, i) => segments.slice(0, i + 1).join("/"));
     if (prefixes.some((prefix) => matches(rule, prefix, "directory"))) return true;
     const patternSegments = (trimmed.startsWith("/") ? trimmed.slice(1) : trimmed).split("/");

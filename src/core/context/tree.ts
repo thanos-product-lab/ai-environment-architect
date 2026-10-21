@@ -24,6 +24,8 @@ export interface RenderedTree {
   readonly bytes: number;
   /** The depth rendered: 0 when even depth 1 did not fit and only a summary is shown. */
   readonly depth: number;
+  /** The `files=` count: every entry except directories. */
+  readonly files: number;
 }
 
 export const WITHHELD_NAME = "<withheld>";
@@ -60,7 +62,7 @@ export function renderTree(
   const fileCount = files.filter((file) => !isDirectory(file)).length;
   const finish = (depth: number, body: string): RenderedTree => {
     const text = `<<<TREE depth=${depth} files=${fileCount}>>>\n${body}<<<END TREE>>>\n`;
-    return { text, bytes: Buffer.byteLength(text, "utf8"), depth };
+    return { text, bytes: Buffer.byteLength(text, "utf8"), depth, files: fileCount };
   };
 
   for (let depth = settings.treeDepth; depth >= 1; depth--) {
