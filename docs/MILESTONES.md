@@ -80,12 +80,11 @@ The token check (IMPL §1.10) waits for M6, because it needs the provider's toke
 **Goal:** everything that decides whether model output is accepted, built and tested before any model is called.
 
 - [ ] Aliases and the validation pipeline with events. `/implement-spec IMPL 3.5`, and IMPL §3.2.1
+- [ ] Zod schemas for all five calls, with JSON Schema generation (IMPL §3.3, §3.7).
 - [ ] Citations, provenance and the `CIT-R01` correction. `/implement-spec IMPL 3.2.2`
 - [ ] Support checks. `/implement-spec IMPL 3.2.3`
-- [ ] Evidence basis. `/implement-spec IMPL 3.2.4`
-- [ ] Known facts from manifests. `/implement-spec IMPL 3.2.5`
+- [ ] Evidence basis and known facts from manifests. `/implement-spec IMPL 3.2.4`, then `IMPL 3.2.5`
 - [ ] Coverage-aware gap and absence checks. `/implement-spec IMPL 1.11`
-- [ ] Zod schemas for all five calls, with JSON Schema generation (IMPL §3.3, §3.7).
 - [ ] Item validation for `analyse`, `analyse_expansion` and `generate_questions`, including question ranking (IMPL §3.3.2–§3.3.4).
 - [ ] Adversarial fixtures for every rule, from the `fixture-adversary` agent.
 
@@ -171,3 +170,4 @@ Maintenance checks for stale paths and commands; scoped rule files; a local web 
 - **11 October 2026:** M2 reordered: excerpting first, then tiers, the secret scan, and the pipeline with the tree and manifest. Selection needs the excerpt function, and the tree is rendered after selection.
 - **14 October 2026:** M2 calibration ran before the "What we read" command existed, through a scratch script that calls the same capture and selection pipeline and sends nothing. It led to the selection changes in IMPL v0.12 and v0.13 and the new default caps. The command step stays open.
 - **20 October 2026:** the command is `<cli> inspect [path]` (IMPL §2.2), a preview of the screen `init` will show.
+- **21 October 2026:** M3 reordered: the pipeline and schemas come first, so each rule is built on parsed output, and evidence basis and known facts are one step. Before it started, IMPL §3 and §1.11 were reconciled with M1 and M2 (IMPL v0.14, DM v0.9).
