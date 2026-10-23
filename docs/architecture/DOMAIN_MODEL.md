@@ -1,8 +1,8 @@
 # Domain Model
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 21 October 2026  
-**Version:** 0.9 — consolidated specification  
+**Date:** 23 October 2026  
+**Version:** 0.10 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,11 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.9
+
+1. **Alias mapping (§13.1).** The Model Call records its alias table ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.1).
+2. **Dropped citations (§6.3).** A finding records how many of its proposed citations were rejected, so the findings view can show it.
 
 ### Changes from v0.8
 
@@ -192,6 +197,7 @@ One claim about the repository, or one explicit unknown.
 | `basis` | Derived from evidence: `documentation`, `code_observation`, `existing_guidance`, or mixed |
 | `scope` | `repository` or an explicit list of paths |
 | `evidenceIds` | Required for `claim`; may be empty for `gap` |
+| `droppedCitations` | Model-produced findings only: how many proposed citations failed validation ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.5). Shown in the findings view |
 | `coverage` | Gaps only, set by code: `inspected`, or `not_inspected` with what wasn't read: the entries the gap's related paths match that weren't sent in full (withheld ones by hash), and the directories capture didn't enter that those paths reach ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.11, §3.3.2). The review shows a `not_inspected` gap as "not inspected", not "missing" |
 | `uncertainty` | Short explanation; no numeric confidence score |
 | `producedBy` | Model call ID, or `deterministic` |
@@ -490,6 +496,7 @@ In the first slice, invalidating the whole proposal is acceptable wherever the n
 | `id`, `purpose` | `analyse`, `analyse_expansion`, `generate_questions`, `recommend`, `regenerate_recommendations` |
 | `validatorVersion`, `detectorVersion` | Validation rules and reference detector in force ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.4–§3.5) |
 | `validationEvents` | Every rejection, correction and relabelling, with stable rule IDs; no source content |
+| `aliases` | The call's alias table: each alias and the record, item or block it stands for ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.1) |
 | `requestedModel`, `returnedModel?` | |
 | `promptVersion`, `schemaVersion` | |
 | `inputManifest` | Snapshot ID and hashes of included files and excerpts; excluded files listed; no source content |

@@ -450,15 +450,15 @@ describe("determinism", () => {
 });
 
 describe("destination blocks (IMPL §1.5, §1.6)", () => {
-  it("renders a BLOCKS section with each block's lines and ID before the content", () => {
+  it("renders a BLOCKS section with each block's lines and alias before the content", () => {
     const item = input("CLAUDE.md", "# Rules\n\n- one\n- two\n", {
       id: "T1-001",
       tier: 1,
       reason: "tier1:destination",
       blocks: [
-        { first: 1, last: 1, id: "Rules/heading" },
-        { first: 3, last: 3, id: "Rules/list-item-1" },
-        { first: 4, last: 4, id: 'Rules/"quoted"' },
+        { first: 1, last: 1, alias: "B-1" },
+        { first: 3, last: 3, alias: "B-2" },
+        { first: 4, last: 4, alias: "B-3" },
       ],
     });
     const expected = [
@@ -466,9 +466,9 @@ describe("destination blocks (IMPL §1.5, §1.6)", () => {
       '        tier=1 reason="tier1:destination" excerpt=false',
       '        included="1-4" totalLines=4>>>',
       "BLOCKS",
-      '   1 "Rules/heading"',
-      '   3 "Rules/list-item-1"',
-      '   4 "Rules/\\"quoted\\""',
+      "   1 B-1",
+      "   3 B-2",
+      "   4 B-3",
       "CONTENT",
       "   1 | # Rules",
       "   2 |",
@@ -482,21 +482,19 @@ describe("destination blocks (IMPL §1.5, §1.6)", () => {
     expect(result?.bytes).toBe(bytesOf(expected));
   });
 
-  it("writes multi-line blocks as ranges and escapes delimiters in IDs", () => {
-    const item = input("CLAUDE.md", "a\nb\n", {
-      blocks: [{ first: 1, last: 2, id: "x<<<y" }],
-    });
-    expect(render(item, "none")?.text).toContain('BLOCKS\n 1-2 "x<<\\<y"\n');
+  it("writes multi-line blocks as ranges", () => {
+    const item = input("CLAUDE.md", "a\nb\n", { blocks: [{ first: 1, last: 2, alias: "B-1" }] });
+    expect(render(item, "none")?.text).toContain("BLOCKS\n 1-2 B-1\n");
   });
 
   it("counts the BLOCKS section against the limit", () => {
-    const item = input("CLAUDE.md", "a\n", { blocks: [{ first: 1, last: 1, id: "paragraph-1" }] });
+    const item = input("CLAUDE.md", "a\n", { blocks: [{ first: 1, last: 1, alias: "B-1" }] });
     const full = render(item, "none");
     expect(full).toBeDefined();
     expect(renderItem(item, "none", (full?.bytes ?? 0) - 1)).toBeUndefined();
   });
 
-  it("maps block byte spans to lines, with a BOM and CRLF", () => {
+  it("maps block byte spans to lines and numbers aliases in document order, with a BOM and CRLF", () => {
     const content = new TextEncoder().encode("\uFEFF# A\r\n\r\npara\r\nmore\r\n");
     // Line starts: 3 ("# A"), 8 (""), 10 ("para"), 16 ("more").
     expect(
@@ -505,13 +503,13 @@ describe("destination blocks (IMPL §1.5, §1.6)", () => {
         { blockId: "A/paragraph-1", sourceSpan: { start: 10, end: 20 } },
       ]),
     ).toEqual([
-      { first: 1, last: 1, id: "A/heading" },
-      { first: 3, last: 4, id: "A/paragraph-1" },
+      { first: 1, last: 1, alias: "B-1" },
+      { first: 3, last: 4, alias: "B-2" },
     ]);
     // The fallback block covers the BOM too.
     expect(
       blockRanges(content, [{ blockId: "other-1", sourceSpan: { start: 0, end: 20 } }]),
-    ).toEqual([{ first: 1, last: 4, id: "other-1" }]);
+    ).toEqual([{ first: 1, last: 4, alias: "B-1" }]);
   });
 });
 

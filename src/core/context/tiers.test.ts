@@ -296,8 +296,8 @@ describe("tier 1: existing agent configuration", () => {
         content: Buffer.from(content),
         // The block list counts against the limit too.
         blocks: [
-          { first: 1, last: 1, id: "Doc/heading" },
-          { first: 3, last: 3, id: "Doc/paragraph-1" },
+          { first: 1, last: 1, alias: "B-1" },
+          { first: 3, last: 3, alias: "B-2" },
         ],
       },
       "none",

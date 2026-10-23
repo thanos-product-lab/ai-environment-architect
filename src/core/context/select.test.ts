@@ -123,13 +123,16 @@ describe("selectContext (IMPL §1.3)", () => {
     expect((await ready(REPO)).context.text).toBe(reference.context.text);
   });
 
-  it("sends the destination in full with its block IDs", async () => {
+  it("sends the destination in full with block aliases, never block IDs", async () => {
     const result = await ready(REPO);
     const destination = result.items[0];
     expect(destination?.path).toBe("CLAUDE.md");
-    expect(destination?.rendered.text).toContain(
-      'BLOCKS\n   1 "Rules/heading"\n   3 "Rules/list-item-1"\nCONTENT\n',
-    );
+    expect(destination?.rendered.text).toContain("BLOCKS\n   1 B-1\n   3 B-2\nCONTENT\n");
+    expect(destination?.rendered.text).not.toContain("Rules/heading");
+  });
+
+  it("is context-select/1.4.0, since BLOCKS lines show aliases", () => {
+    expect(ALGORITHM_VERSION).toBe("context-select/1.4.0");
   });
 
   it("counts the block list against maxDestinationBytes", async () => {

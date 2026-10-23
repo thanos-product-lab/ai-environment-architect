@@ -79,7 +79,7 @@ The token check (IMPL §1.10) waits for M6, because it needs the provider's toke
 
 **Goal:** everything that decides whether model output is accepted, built and tested before any model is called.
 
-- [ ] Aliases and the validation pipeline with events. `/implement-spec IMPL 3.5`, and IMPL §3.2.1
+- [x] Aliases and the validation pipeline with events. `/implement-spec IMPL 3.5`, and IMPL §3.2.1
 - [ ] Zod schemas for all five calls, with JSON Schema generation (IMPL §3.3, §3.7).
 - [ ] Citations, provenance and the `CIT-R01` correction. `/implement-spec IMPL 3.2.2`
 - [ ] Support checks. `/implement-spec IMPL 3.2.3`

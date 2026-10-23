@@ -6,6 +6,7 @@ import {
   splitLines,
 } from "../destination/guidance-blocks.js";
 import type { Hash } from "../hash.js";
+import { blockAlias } from "../validation/aliases.js";
 import { cutLabel, findDeclarations } from "./declarations.js";
 import { escapeDelimiters } from "./escape.js";
 
@@ -31,15 +32,16 @@ export interface ItemInput {
   readonly reason: string;
   /** The file's bytes, valid UTF-8 and already verified against `hash`. */
   readonly content: Uint8Array;
-  /** The destination's Guidance Blocks, rendered in a BLOCKS section (IMPL §1.5). */
+  /** The destination's Guidance Blocks, rendered by alias in a BLOCKS section (IMPL §1.5). */
   readonly blocks?: readonly BlockLines[];
 }
 
-/** A Guidance Block's ID and the lines it covers. */
+/** A Guidance Block's alias and the lines it covers. The block ID and hash are never sent. */
 export interface BlockLines {
   readonly first: number;
   readonly last: number;
-  readonly id: string;
+  /** `B-<n>`, numbered from 1 in document order (IMPL §3.2.1). */
+  readonly alias: string;
 }
 
 /** 1-based, inclusive. */
@@ -144,10 +146,10 @@ export function blockRanges(
     }
     return low + 1;
   };
-  return blocks.map((block) => ({
+  return blocks.map((block, index) => ({
     first: lineAt(block.sourceSpan.start),
     last: lineAt(Math.max(block.sourceSpan.start, block.sourceSpan.end - 1)),
-    id: block.blockId,
+    alias: blockAlias(index + 1),
   }));
 }
 
@@ -198,7 +200,7 @@ class Layout {
       input.blocks === undefined
         ? ""
         : `BLOCKS\n${input.blocks
-            .map((block) => `${formatRange(block).padStart(this.width, " ")} ${quote(block.id)}\n`)
+            .map((block) => `${formatRange(block).padStart(this.width, " ")} ${block.alias}\n`)
             .join("")}`;
   }
 
