@@ -73,6 +73,10 @@ const ITEMS: Record<string, CitableItem> = {
     { path: "CONTRIBUTING.md", basis: "documentation", totalLines: 5 },
   ),
   "T5-002": item([], { path: "src/outline-only.ts", totalLines: 300 }),
+  "T5-005": item(
+    [{ first: 1, lines: Array.from({ length: 60 }, (_, k) => `line ${k + 1} of the long file`) }],
+    { path: "src/long.ts", totalLines: 60 },
+  ),
   "T5-003": item([{ first: 1, lines: ["export const answer = 42; // fine"] }], {
     path: "src/changed.ts",
     currentHash: CHANGED,
@@ -152,9 +156,16 @@ describe("quote rules (CIT-007)", () => {
     expect(result.ok ? "accepted" : result.rule).toBe("CIT-007");
   });
 
-  it("CIT-007 counts a format character such as U+FEFF as content, not whitespace", () => {
-    const result = cite("T5-007", "41-41", `${"\uFEFF".repeat(6)}!!!!!!`);
-    expect(result.ok ? "accepted" : result.rule).toBe("CIT-004");
+  it("CIT-007 doesn't count format characters or combining marks (provisional)", () => {
+    // U+FEFF and U+200B are Cf, U+0301 is Mn, U+20DD is Me.
+    expect(ruleOf(cite("T5-007", "41-41", `${"\uFEFF".repeat(6)}!!!!!!`))).toBe("CIT-007");
+    expect(ruleOf(cite("T5-007", "41-41", "=> {}\u200B (); ||"))).toBe("CIT-007");
+    expect(ruleOf(cite("T5-007", "41-41", "createClien\u0301"))).toBe("CIT-007");
+    expect(ruleOf(cite("T5-007", "41-41", "createClien\u20DD"))).toBe("CIT-007");
+  });
+
+  it("CIT-007 still requires them to match exactly when enough other characters remain", () => {
+    expect(ruleOf(cite("T5-007", "41-41", "const client\u200B = createClient"))).toBe("CIT-004");
   });
 
   it("CIT-007 is checked first, before the item", () => {
@@ -258,6 +269,43 @@ describe("quote in range", () => {
 
   it("accepts an E item like a T item", () => {
     expect(ruleOf(cite("E-1", "20-21", "withRetry(fn) {\n  return fn();"))).toBe("accepted");
+  });
+});
+
+describe("range length (CIT-010, provisional)", () => {
+  it("CIT-010 accepts a final range of 40 lines", () => {
+    const result = cite("T5-005", "1-40", "line 40 of the long file");
+    expect(result).toMatchObject({ ok: true, evidence: { lineStart: 1, lineEnd: 40 } });
+    expect(result.ok && result.evidence.excerpt.split("\n")).toHaveLength(40);
+  });
+
+  it("CIT-010 rejects a final range of 41 lines, and never truncates it", () => {
+    expect(ruleOf(cite("T5-005", "1-41", "line 41 of the long file"))).toBe("CIT-010");
+  });
+
+  it("CIT-010 checks the range after correction", () => {
+    // The cited range is long and misses the quote; the corrected range is one line.
+    expect(cite("T5-005", "1-50", "line 55 of the long file")).toMatchObject({
+      ok: true,
+      correction: { originalLines: "1-50", correctedLines: "55-55" },
+    });
+  });
+
+  // A quote from the end of line 10 to the end of line `last`, cited at the wrong line.
+  const spanning = (last: number) =>
+    Array.from({ length: last - 9 }, (_, k) => `line ${k + 10} of the long file`)
+      .join("\n")
+      .slice("line 10 ".length);
+
+  it("CIT-010 accepts a correction onto 40 lines", () => {
+    expect(cite("T5-005", "1-1", spanning(49))).toMatchObject({
+      ok: true,
+      correction: { originalLines: "1-1", correctedLines: "10-49" },
+    });
+  });
+
+  it("CIT-010 rejects a correction onto 41 lines", () => {
+    expect(ruleOf(cite("T5-005", "1-1", spanning(50)))).toBe("CIT-010");
   });
 });
 
@@ -402,6 +450,56 @@ function check(citations: Citation[]) {
   const run = citationCheck<Finding, CitationContext>();
   return run({ key: "f1", citations }, context, { localKeys: new Set(["f1"]) });
 }
+
+describe("duplicate citations (CIT-009)", () => {
+  const first = { item: "T5-007", lines: "41-41", quote: "const client = createClient" };
+
+  it("CIT-009 keeps the first of two citations of the same path and final range", () => {
+    const sameRangeOtherQuote = {
+      item: "T5-007",
+      lines: "41-41",
+      quote: "client = createClient();",
+    };
+    const correctedOntoIt = { item: "T5-007", lines: "1-1", quote: "  const client = create" };
+    const result = check([first, sameRangeOtherQuote, correctedOntoIt]);
+    expect(result).toMatchObject({
+      kind: "accept",
+      value: { citations: [first], droppedCitations: 2 },
+      events: [
+        { subKey: "citations/1", rule: "CIT-009", outcome: "rejected" },
+        { subKey: "citations/2", rule: "CIT-R01", outcome: "corrected" },
+        { subKey: "citations/2", rule: "CIT-009", outcome: "rejected" },
+      ],
+    });
+  });
+
+  it("CIT-009 keeps overlapping but different ranges", () => {
+    const overlapping = { item: "T5-007", lines: "40-41", quote: "const client = createClient" };
+    const result = check([first, overlapping]);
+    expect(result).toMatchObject({ kind: "accept", value: { droppedCitations: 0 } });
+    expect(result.kind === "accept" && result.value.citations).toHaveLength(2);
+  });
+
+  it("CIT-009 compares paths, so an expansion item re-reading the same lines is a duplicate", () => {
+    const sameFile = item([{ first: 41, lines: ["  const client = createClient();"] }]);
+    const local: CitationContext = {
+      aliases: createAliasTable("analyse_expansion", { items: ["T5-007", "E-1"] }),
+      items: new Map([
+        ["T5-007", CLIENT],
+        ["E-1", sameFile],
+      ]),
+    };
+    const result = citationCheck<Finding, CitationContext>()(
+      { key: "f1", citations: [first, { ...first, item: "E-1" }] },
+      local,
+      { localKeys: new Set(["f1"]) },
+    );
+    expect(result).toMatchObject({
+      kind: "accept",
+      events: [{ subKey: "citations/1", rule: "CIT-009" }],
+    });
+  });
+});
 
 describe("citationCheck on a finding", () => {
   const good = { item: "T5-007", lines: "41-41", quote: "const client = createClient" };

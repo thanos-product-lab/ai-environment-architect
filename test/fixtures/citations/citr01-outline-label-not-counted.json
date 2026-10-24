@@ -1,13 +1,13 @@
 {
   "citations": [
-    { "item": "T5-001", "lines": "20-20", "quote": "export async function fetchUser" },
-    { "item": "T5-001", "lines": "21-22", "quote": "export async function fetchUser" }
+    {"item": "T5-001", "lines": "20-20", "quote": "export async function fetchUser"},
+    {"item": "T5-001", "lines": "21-22", "quote": "export async function fetchUser"}
   ],
   "expect": [
-    { "outcome": "accepted", "rule": null },
-    { "outcome": "corrected", "rule": "CIT-R01", "correctedLines": "20-20" }
+    {"outcome": "accepted", "rule": null},
+    {"outcome": "corrected", "rule": "CIT-R01", "correctedLines": "20-20", "duplicateOf": 0}
   ],
-  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 0 },
+  "finding": {"outcome": "accepted", "rule": null, "droppedCitations": 1},
   "section": "IMPL §3.2.2 sent lines, step 7",
-  "note": "'export async function fetchUser' is both T5-001's outline label for line 20 and text of sent line 20. The label is not a sent line, so it neither blocks acceptance nor counts as a second occurrence: the shifted citation is corrected to 20-20, not CIT-005."
+  "note": "'export async function fetchUser' is both T5-001's outline label for line 20 and text of sent line 20. The label is not a sent line, so it neither blocks acceptance nor counts as a second occurrence: the shifted citation is corrected to 20-20, not CIT-005. Its corrected range equals citation 0's, so CIT-009 merges it into citation 0 (IMPL v0.18)."
 }

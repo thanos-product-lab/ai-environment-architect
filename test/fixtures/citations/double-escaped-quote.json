@@ -1,0 +1,13 @@
+{
+  "citations": [
+    {"item": "T5-004", "lines": "1-1", "quote": "OPEN = \"<<\\\\<\";"},
+    {"item": "T5-004", "lines": "3-3", "quote": "banner = \"<<\\<\\< start"}
+  ],
+  "expect": [
+    {"outcome": "rejected", "rule": "CIT-004"},
+    {"outcome": "rejected", "rule": "CIT-004"}
+  ],
+  "finding": {"outcome": "rejected", "rule": "CIT-008", "droppedCitations": 2},
+  "section": "IMPL §1.6 delimiter escape, §3.2.2",
+  "note": "Settled by IMPL v0.18 §1.6: escaping counts equal brackets since the last inserted backslash, so line 3's '<<<<' renders as '<<\\<<', and reversal is one pass over the escaped text. First quote: the model escaped twice, writing '<<\\\\<'; one pass gives '<<\\<', not in the file: CIT-004. Second quote, '<<\\<\\<': the first backslash follows two brackets and is removed; the second follows one counted bracket and stays, giving '<<<\\<', not in the file: CIT-004."
+}

@@ -1,0 +1,17 @@
+{
+  "citations": [
+    {"item": "T5-001", "lines": "23-23", "quote": "const res = await request(url"},
+    {"item": "T5-001", "lines": "23-23", "quote": "const res = await request(url"},
+    {"item": "T5-001", "lines": "21-22", "quote": "const res = await request(url"},
+    {"item": "T5-001", "lines": "23-23", "quote": "{ timeoutMs: config.timeoutMs }"}
+  ],
+  "expect": [
+    {"outcome": "accepted", "rule": null},
+    {"outcome": "accepted", "rule": null, "duplicateOf": 0},
+    {"outcome": "corrected", "rule": "CIT-R01", "correctedLines": "23-23", "duplicateOf": 0},
+    {"outcome": "accepted", "rule": null, "duplicateOf": 0}
+  ],
+  "finding": {"outcome": "accepted", "rule": null, "droppedCitations": 3},
+  "section": "IMPL §3.2.2, duplicates",
+  "note": "Two identical citations, a third that becomes identical after correction, and a fourth at the same range with another quote. Same path and same final range keeps the first (CIT-009, IMPL v0.18); each later one is a rejected sub-item and counts as dropped. Each still passes on its own."
+}

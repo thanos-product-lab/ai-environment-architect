@@ -24,6 +24,29 @@ describe("escapeDelimiters", () => {
     expect(escapeDelimiters(">>>>>>")).toBe(">>\\>>\\>>");
   });
 
+  it("matches the examples in IMPL §1.6", () => {
+    expect(escapeDelimiters("<<<")).toBe("<<\\<");
+    expect(escapeDelimiters("<<<<")).toBe("<<\\<<");
+    expect(escapeDelimiters("<<<<<")).toBe("<<\\<<\\<");
+    expect(escapeDelimiters("<<\\")).toBe("<<\\\\");
+    expect(escapeDelimiters("<<>>>")).toBe("<<>>\\>");
+    expect(unescapeDelimiters("<<\\\\<")).toBe("<<\\<");
+  });
+
+  it("escape then unescape is the identity on any text", () => {
+    // Mostly brackets and backslashes, with any other code point mixed in.
+    const unit = fc.oneof(
+      { weight: 4, arbitrary: fc.constantFrom("<", ">", "\\") },
+      { weight: 1, arbitrary: fc.string({ unit: "binary", minLength: 1, maxLength: 1 }) },
+    );
+    fc.assert(
+      fc.property(fc.string({ unit }), (s) => {
+        expect(unescapeDelimiters(escapeDelimiters(s))).toBe(s);
+      }),
+      { numRuns: 2000 },
+    );
+  });
+
   it("never leaves three equal angle brackets and always reverses", () => {
     const text = fc.string({ unit: fc.constantFrom("<", ">", "\\", "a", " ") });
     fc.assert(

@@ -14,8 +14,9 @@ import {
 } from "../src/core/validation/citations.js";
 
 // Adversarial citation fixtures (IMPL §3.2.2, §3.8), written from the spec without seeing the
-// implementation. Each case is one finding's citations, with the expected outcome of each and of
-// the finding, against one shared synthetic context.
+// implementation; the cases once marked undecided, and the duplicate expectations, were settled
+// later with the developer. Each case is one finding's citations, with the expected outcome of each on its
+// own and of the finding, against one shared synthetic context.
 
 const DIR = join(import.meta.dirname, "fixtures", "citations");
 
@@ -34,6 +35,8 @@ interface Case {
     readonly outcome: "accepted" | "rejected" | "corrected";
     readonly rule: string | null;
     readonly correctedLines?: string;
+    /** The earlier citation this one duplicates, so the finding merges it (CIT-009). */
+    readonly duplicateOf?: number;
   }[];
   readonly finding: {
     readonly outcome: "accepted" | "rejected";
@@ -85,13 +88,21 @@ function run(name: string, fixtureCase: Case): void {
             rule: "CIT-R01",
             correctedLines: result.correction.correctedLines,
           };
-    expect(actual, `${name} citation ${index}`).toEqual(expected);
+    const { duplicateOf: _, ...alone } = expected ?? { outcome: "missing" };
+    expect(actual, `${name} citation ${index}`).toEqual(alone);
   });
   const finding = citationCheck<Cited & { key: string }, CitationContext>()(
     { key: "f1", citations: fixtureCase.citations },
     context,
     { localKeys: new Set(["f1"]) },
   );
+  const duplicates = fixtureCase.expect.flatMap((entry, index) =>
+    entry.duplicateOf === undefined ? [] : [`citations/${index}`],
+  );
+  expect(
+    finding.events.filter((event) => event.rule === "CIT-009").map((event) => event.subKey),
+    `${name} duplicates`,
+  ).toEqual(duplicates);
   if (fixtureCase.finding.outcome === "rejected")
     expect(finding).toMatchObject({ kind: "reject", rule: fixtureCase.finding.rule });
   else
@@ -103,9 +114,4 @@ function run(name: string, fixtureCase: Case): void {
 
 describe("citation fixtures (IMPL §3.2.2)", () => {
   for (const [name, fixtureCase] of cases(DIR)) it(name, () => run(name, fixtureCase));
-});
-
-describe("citation fixtures for points the spec leaves open (IMPL §3.9)", () => {
-  for (const [name, fixtureCase] of cases(join(DIR, "undecided")))
-    it(name, () => run(name, fixtureCase));
 });

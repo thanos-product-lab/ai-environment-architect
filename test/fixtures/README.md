@@ -26,7 +26,7 @@ Standalone `CLAUDE.md` inputs for Guidance Block parsing (DM §7). Each isolates
 
 Citation provenance cases (IMPL §3.2.2), tested without context selection. `context.json` is one shared synthetic call context: each item's `sent` runs hold the file's raw line text (delimiter escape not applied), and `unsent` holds some omitted lines for property checks. The call's alias table is every item ID in it plus `F-1`.
 
-Every other file is one finding's citations, with `expect` parallel to `citations`, the finding's outcome, the spec section and a note. `undecided/` holds cases the spec doesn't settle yet (IMPL §3.9): double-escaped quotes and runs of four or more angle brackets, duplicate citations, and invisible characters in quotes. Their expectations record the current behaviour, so a change to it is noticed; the spec decides whether that behaviour is right.
+Every other file is one finding's citations, with `expect` parallel to `citations`, the finding's outcome, the spec section and a note. An entry in `expect` may name `duplicateOf`, the earlier citation it repeats; the finding merges it (`CIT-009`).
 
 ## `responses/`
 

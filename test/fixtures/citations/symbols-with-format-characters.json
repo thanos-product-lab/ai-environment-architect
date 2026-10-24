@@ -1,0 +1,13 @@
+{
+  "citations": [
+    {"item": "T5-004", "lines": "6-6", "quote": "=> {}​ (); ||"},
+    {"item": "T5-005", "lines": "4-4", "quote": "\t\t\t\t\t\t\t\t\t\t\t\t"}
+  ],
+  "expect": [
+    {"outcome": "rejected", "rule": "CIT-007"},
+    {"outcome": "rejected", "rule": "CIT-007"}
+  ],
+  "finding": {"outcome": "rejected", "rule": "CIT-008", "droppedCitations": 2},
+  "section": "IMPL §3.2.2 quote rules",
+  "note": "Provisional CIT-007 (IMPL v0.18): format characters (Cf) and combining marks (Mn, Me) don't count. The zero-width space (U+200B, Cf) leaves a symbols-only quote, so CIT-007. Tabs are White_Space, so twelve of them are CIT-007 too."
+}

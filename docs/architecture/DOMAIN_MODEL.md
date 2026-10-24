@@ -2,7 +2,7 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 24 October 2026  
-**Version:** 0.11 — consolidated specification  
+**Version:** 0.12 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,10 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.11
+
+1. **Excerpts and dropped citations (§6.2, §6.3).** An excerpt holds at most 40 cited lines, provisionally, and is never truncated: a longer citation is rejected. `droppedCitations` includes duplicate citations merged into an earlier one ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.2).
 
 ### Changes from v0.10
 
@@ -183,7 +187,7 @@ A reference to specific captured content.
 | `id`, `snapshotId` | |
 | `path`, `fileHash` | Must match a `read` or `listed_only` entry in the snapshot, and the cited lines must have been sent in that call |
 | `lineStart`, `lineEnd` | Validated at capture time |
-| `excerpt` | The cited lines, bounded in length |
+| `excerpt` | The cited lines: at most 40, provisionally, and never truncated, so a citation of a longer range is rejected ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.2, `CIT-010`) |
 | `basis` | `documentation`, `code_observation`, `existing_guidance` (§6.4) |
 
 Evidence is created by code, never by the model. The model cites a context item, a line range and a verbatim quote. Code verifies the quote against the content actually sent, may correct the line range under a narrow recorded rule, derives the basis from the tier the cited file belongs to, and extracts the excerpt itself ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.2–§3.2.4). A corrected range records both the original and corrected lines. Citations that fail are discarded, and the model call records the failure. A valid citation proves where the quote came from, not that it supports the claim; support is checked separately ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.3).
@@ -201,7 +205,7 @@ One claim about the repository, or one explicit unknown.
 | `basis` | Derived from evidence: `documentation`, `code_observation`, `existing_guidance`, or mixed |
 | `scope` | `repository` or an explicit list of paths |
 | `evidenceIds` | Required for `claim`; may be empty for `gap` |
-| `droppedCitations` | Model-produced findings only: how many proposed citations failed validation ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.5). Shown in the findings view |
+| `droppedCitations` | Model-produced findings only: how many proposed citations failed validation or were merged into an earlier duplicate ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.5). Shown in the findings view |
 | `coverage` | Gaps only, set by code: `inspected`, or `not_inspected` with what wasn't read: the entries the gap's related paths match that weren't sent in full (withheld ones by hash), and the directories capture didn't enter that those paths reach ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.11, §3.3.2). The review shows a `not_inspected` gap as "not inspected", not "missing" |
 | `uncertainty` | Short explanation; no numeric confidence score |
 | `producedBy` | Model call ID, or `deterministic` |

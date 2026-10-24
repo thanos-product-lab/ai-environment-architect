@@ -89,7 +89,11 @@ export type CitationResult =
     };
 
 const MIN_QUOTE_CODE_POINTS = 12;
-// Unicode White_Space, not `\s`, which also matches U+FEFF, a format character (IMPL §3.9).
+/** Provisional (IMPL §3.9): the longest final range a citation may have. Excerpts are never cut. */
+export const MAX_CITED_LINES = 40;
+/** Format characters and combining marks: invisible on their own, so not counted (provisional). */
+const UNCOUNTED = /[\p{Cf}\p{Mn}\p{Me}]/gu;
+// Unicode White_Space, not `\s`, which also matches U+FEFF, a format character.
 const ONLY_PUNCTUATION = /^[\p{White_Space}\p{P}\p{S}]*$/u;
 /** A lone surrogate: half of a character, which no UTF-8 file text contains. */
 const LONE_SURROGATE = /\p{Cs}/u;
@@ -99,11 +103,13 @@ export function validateCitation(
   context: CitationContext,
   localKeys: ReadonlySet<string>,
 ): CitationResult {
-  // 1. Quote rules (CIT-007), on the file's text the quote stands for.
+  // 1. Quote rules (CIT-007), on the file's text the quote stands for. Uncounted characters
+  // still have to match exactly below.
   const quote = unescapeDelimiters(citation.quote);
-  if ([...quote].length < MIN_QUOTE_CODE_POINTS)
+  const counted = quote.replace(UNCOUNTED, "");
+  if ([...counted].length < MIN_QUOTE_CODE_POINTS)
     return failure("CIT-007", `quote shorter than ${MIN_QUOTE_CODE_POINTS} characters`);
-  if (ONLY_PUNCTUATION.test(quote))
+  if (ONLY_PUNCTUATION.test(counted))
     return failure("CIT-007", "quote is only whitespace, punctuation or symbols");
 
   // 2. Item (CIT-001), or an alias of another kind (ALIAS-003).
@@ -146,7 +152,9 @@ export function validateCitation(
 
   // 6. Quote in range.
   if (lineText(run, start, end).includes(quote))
-    return { ok: true, citation, evidence: evidence(item, run, start, end) };
+    return end - start + 1 > MAX_CITED_LINES
+      ? tooLong()
+      : { ok: true, citation, evidence: evidence(item, run, start, end) };
 
   // 7. Line-range correction (CIT-R01), searching only this item's sent lines.
   const occurrences = item.sent.flatMap((candidate) => findOccurrences(candidate, quote));
@@ -155,6 +163,7 @@ export function validateCitation(
   if (occurrences.length > 1)
     return failure("CIT-005", `quote occurs ${occurrences.length} times in ${alias}'s sent lines`);
   const [only] = occurrences as [Occurrence];
+  if (only.end - only.start + 1 > MAX_CITED_LINES) return tooLong();
   const correctedLines = `${only.start}-${only.end}`;
   return {
     ok: true,
@@ -166,6 +175,11 @@ export function validateCitation(
 
 function failure(rule: string, detail: string): CitationResult {
   return { ok: false, rule, detail };
+}
+
+/** CIT-010 (provisional), on the final range: after correction, when there is one. */
+function tooLong(): CitationResult {
+  return failure("CIT-010", `range longer than ${MAX_CITED_LINES} lines`);
 }
 
 function lineText(run: SentRun, start: number, end: number): string {
@@ -222,13 +236,14 @@ export interface Cited {
   readonly citations: readonly Citation[];
   /** Parallel to the accepted `citations`. */
   readonly evidence?: readonly Evidence[];
-  /** How many proposed citations failed (DM §6.3). */
+  /** How many proposed citations were dropped, merged duplicates included (DM §6.3). */
   readonly droppedCitations?: number;
 }
 
 /**
- * Validates each citation of an item. A failed citation drops only itself; the item is rejected
- * with CIT-008 when none is left, after its citations' events.
+ * Validates each citation of an item. A failed citation drops only itself, and a duplicate of an
+ * earlier one is merged into it (CIT-009); the item is rejected with CIT-008 when none is left,
+ * after its citations' events.
  */
 export function citationCheck<V extends Cited, C extends CitationContext>(): ItemCheck<V, C> {
   return (value, context, response) => {
@@ -256,6 +271,20 @@ export function citationCheck<V extends Cited, C extends CitationContext>(): Ite
           original: result.correction,
           subKey,
         });
+      // CIT-009: a second citation of the same path and final range adds nothing. Overlapping but
+      // different ranges are kept.
+      const { path, lineStart, lineEnd } = result.evidence;
+      if (
+        found.some((e) => e.path === path && e.lineStart === lineStart && e.lineEnd === lineEnd)
+      ) {
+        events.push({
+          rule: "CIT-009",
+          outcome: "rejected",
+          detail: "same path and range as an earlier citation of this item",
+          subKey,
+        });
+        return;
+      }
       kept.push(result.citation);
       found.push(result.evidence);
     });

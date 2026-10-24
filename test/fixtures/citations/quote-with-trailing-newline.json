@@ -1,13 +1,13 @@
 {
   "citations": [
-    { "item": "T5-005", "lines": "7-7", "quote": "router.get(\"/ready\", (req, res) => {\n" },
-    { "item": "T5-005", "lines": "7-8", "quote": "router.get(\"/ready\", (req, res) => {\n" }
+    {"item": "T5-005", "lines": "7-7", "quote": "router.get(\"/ready\", (req, res) => {\n"},
+    {"item": "T5-005", "lines": "7-8", "quote": "router.get(\"/ready\", (req, res) => {\n"}
   ],
   "expect": [
-    { "outcome": "corrected", "rule": "CIT-R01", "correctedLines": "7-8" },
-    { "outcome": "accepted", "rule": null }
+    {"outcome": "corrected", "rule": "CIT-R01", "correctedLines": "7-8"},
+    {"outcome": "accepted", "rule": null, "duplicateOf": 0}
   ],
-  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 0 },
+  "finding": {"outcome": "accepted", "rule": null, "droppedCitations": 1},
   "section": "IMPL §3.2.2 steps 6-7",
-  "note": "Settled in IMPL v0.17 step 7: a \\n at either end of a quote spans the lines on both sides of the break, and there is no break after a run's last line. The quote ends with the \\n that separates lines 7 and 8. The text of the cited lines 7-7 is line 7 alone, without that \\n, so step 6 fails; step 7 finds one occurrence. Does it 'span' line 8? Best guess 7-8 (the separator belongs to the join of 7 and 8), but 7-7 is also defensible, and then the 'correction' would equal the original range."
+  "note": "Settled in IMPL v0.17 step 7: a \\n at either end of a quote spans the lines on both sides of the break, and there is no break after a run's last line. The quote ends with the \\n that separates lines 7 and 8. The text of the cited lines 7-7 is line 7 alone, without that \\n, so step 6 fails; step 7 finds one occurrence. Does it 'span' line 8? Best guess 7-8 (the separator belongs to the join of 7 and 8), but 7-7 is also defensible, and then the 'correction' would equal the original range. Its corrected range equals citation 0's, so CIT-009 merges it into citation 0 (IMPL v0.18)."
 }
