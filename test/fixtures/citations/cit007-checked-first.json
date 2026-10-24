@@ -1,0 +1,19 @@
+{
+  "citations": [
+    { "item": "T9-999", "lines": "1-1", "quote": "short" },
+    { "item": "F-1", "lines": "1-1", "quote": "too short" },
+    { "item": "T5-003", "lines": "3-3", "quote": "store.get" },
+    { "item": "T5-002", "lines": "3-3", "quote": "withRetry" },
+    { "item": "T5-001", "lines": "29-20", "quote": "readConfig" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-007" },
+    { "outcome": "rejected", "rule": "CIT-007" },
+    { "outcome": "rejected", "rule": "CIT-007" },
+    { "outcome": "rejected", "rule": "CIT-007" },
+    { "outcome": "rejected", "rule": "CIT-007" }
+  ],
+  "finding": { "outcome": "rejected", "rule": "CIT-008", "droppedCitations": 5 },
+  "section": "IMPL §3.2.2",
+  "note": "Rule order: the quote rules are step 1, so a short quote is CIT-007 even when the citation would also fail CIT-001 (unknown alias), ALIAS-003 (finding alias), CIT-002 (T5-003 changed), CIT-006 (T5-002 outline-only) or CIT-003 (start > end). Only one event per citation, then CIT-008 for the finding."
+}

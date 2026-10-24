@@ -1,0 +1,15 @@
+{
+  "citations": [
+    { "item": "T5-004", "lines": "1-1", "quote": "OPEN = \"<<<\";" },
+    { "item": "T5-004", "lines": "4-4", "quote": "(n: number) => n >>> 1" },
+    { "item": "T5-004", "lines": "5-5", "quote": "const esc = \"<<\\n\";" }
+  ],
+  "expect": [
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "rejected", "rule": "CIT-004" }
+  ],
+  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 1 },
+  "section": "IMPL §3.2.2 quote rules, §1.6 delimiter escape",
+  "note": "Quotes in the file's raw form, which the model never saw. '<<<' and '>>>' contain no backslash to remove, so reversal leaves them unchanged and they match the file: accepted. Line 5's raw form 'const esc = \"<<\\n\";' has a backslash right after '<<', which reversal removes, giving 'const esc = \"<<n\";': not in the file, CIT-004. Reversal is applied to every quote unconditionally."
+}

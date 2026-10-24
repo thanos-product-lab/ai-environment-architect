@@ -160,6 +160,18 @@ const GAP = " …\n";
 // later line is content.
 const utf8 = new TextDecoder("utf-8", { ignoreBOM: true });
 
+/**
+ * Each line's text, as the CONTENT lines show it before the delimiter escape. A BOM inside a line
+ * is text; only the file's leading BOM is not part of line 1. Validation reads sent lines with
+ * this too, so a quote is checked against exactly what was rendered (IMPL §3.2.2).
+ */
+export function lineTexts(
+  content: Uint8Array,
+  raw: readonly Line[] = splitLines(content),
+): string[] {
+  return raw.map((line) => utf8.decode(content.subarray(line.start, line.end)));
+}
+
 function byteLength(text: string): number {
   return Buffer.byteLength(text, "utf8");
 }
@@ -190,7 +202,7 @@ class Layout {
   constructor(input: ItemInput) {
     this.input = input;
     this.raw = splitLines(input.content);
-    this.lines = this.raw.map((line) => utf8.decode(input.content.subarray(line.start, line.end)));
+    this.lines = lineTexts(input.content, this.raw);
     this.width = Math.max(4, `${this.lines.length}`.length);
     this.prefix = [0];
     this.lines.forEach((_, index) => {

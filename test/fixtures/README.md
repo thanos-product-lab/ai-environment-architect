@@ -22,6 +22,12 @@ The root `.gitignore` drops `node_modules/`, `dist/` and `coverage/` at any dept
 
 Standalone `CLAUDE.md` inputs for Guidance Block parsing (DM §7). Each isolates one feature: `crlf`, `bom`, `no-trailing-newline`, `setext-headings`, `fenced-hash-lines`, `nested-lists`, `html-comments`, `front-matter` and `trailing-whitespace`. Three combine the cases most likely to break a lossless round trip: `mixed-line-endings` (LF, CRLF and a lone CR), `bom-crlf` and `unclosed-fence`. All use LF except `crlf`, `bom-crlf` and `mixed-line-endings`.
 
+## `citations/`
+
+Citation provenance cases (IMPL §3.2.2), tested without context selection. `context.json` is one shared synthetic call context: each item's `sent` runs hold the file's raw line text (delimiter escape not applied), and `unsent` holds some omitted lines for property checks. The call's alias table is every item ID in it plus `F-1`.
+
+Every other file is one finding's citations, with `expect` parallel to `citations`, the finding's outcome, the spec section and a note. `undecided/` holds cases the spec doesn't settle yet (IMPL §3.9): double-escaped quotes and runs of four or more angle brackets, duplicate citations, and invisible characters in quotes. Their expectations record the current behaviour, so a change to it is noticed; the spec decides whether that behaviour is right.
+
 ## `responses/`
 
 Recorded model responses, one directory per call (IMPL §3.7).

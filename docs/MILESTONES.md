@@ -81,7 +81,7 @@ The token check (IMPL §1.10) waits for M6, because it needs the provider's toke
 
 - [x] Aliases and the validation pipeline with events. `/implement-spec IMPL 3.5`, and IMPL §3.2.1
 - [x] Zod schemas for all five calls, with JSON Schema generation (IMPL §3.3, §3.7).
-- [ ] Citations, provenance and the `CIT-R01` correction. `/implement-spec IMPL 3.2.2`
+- [x] Citations, provenance and the `CIT-R01` correction. `/implement-spec IMPL 3.2.2`
 - [ ] Support checks. `/implement-spec IMPL 3.2.3`
 - [ ] Evidence basis and known facts from manifests. `/implement-spec IMPL 3.2.4`, then `IMPL 3.2.5`
 - [ ] Coverage-aware gap and absence checks. `/implement-spec IMPL 1.11`

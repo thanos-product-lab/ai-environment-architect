@@ -1,0 +1,15 @@
+{
+  "citations": [
+    { "item": "T5-005", "lines": "5-5", "quote": "res.status(200).send(\"ok\");" },
+    { "item": "T5-005", "lines": "1-2", "quote": "(req, res) => {\n  res.status(200).send(\"ok\");" },
+    { "item": "T5-005", "lines": "11-12", "quote": "  res.status(200).send(\"ok\");\n});" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-005" },
+    { "outcome": "rejected", "rule": "CIT-005" },
+    { "outcome": "rejected", "rule": "CIT-005" }
+  ],
+  "finding": { "outcome": "rejected", "rule": "CIT-008", "droppedCitations": 3 },
+  "section": "IMPL §3.2.2 step 7",
+  "note": "Each quote is absent from its cited lines and occurs twice in T5-005's sent lines (lines 4 and 8, 3-4 and 7-8, 4-5 and 8-9). Picking the first occurrence would be a guess: CIT-005. The same quotes cited at a right range are accepted in accepted-repeated-text-in-cited-range.json."
+}

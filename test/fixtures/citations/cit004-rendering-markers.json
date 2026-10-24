@@ -1,0 +1,21 @@
+{
+  "citations": [
+    { "item": "T5-001", "lines": "20-29", "quote": "<<<END T5-001>>>" },
+    { "item": "T5-001", "lines": "1-3", "quote": "OUTLINE\n   1 imports" },
+    { "item": "T5-001", "lines": "1-3", "quote": "\"./config\";\n …" },
+    { "item": "T5-001", "lines": "1-3", "quote": "excerpt=true" },
+    { "item": "T5-001", "lines": "20-20", "quote": "hash=\"sha256:0a9c3e71f5b2d84a" },
+    { "item": "T5-001", "lines": "20-21", "quote": "CONTENT\n   1 | import" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" }
+  ],
+  "finding": { "outcome": "rejected", "rule": "CIT-008", "droppedCitations": 6 },
+  "section": "IMPL §3.2.2 sent lines, §1.6",
+  "note": "Rendering scaffolding: the item delimiter, the OUTLINE section, a ' …' omitted-lines marker, header attributes (excerpt=true is exactly 12 code points, so it passes CIT-007 and must fail on content) and the CONTENT heading. None is a sent line."
+}

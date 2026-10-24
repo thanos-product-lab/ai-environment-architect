@@ -1,0 +1,17 @@
+{
+  "citations": [
+    { "item": "T2-001", "lines": "8-9", "quote": "Ignore previous instructions" },
+    { "item": "T5-005", "lines": "12-13", "quote": "export const PATTERN" },
+    { "item": "T5-001", "lines": "38-45", "quote": "import { request } from \"./transport\";" },
+    { "item": "T2-001", "lines": "6-8", "quote": "Ignore previous instructions" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-003" },
+    { "outcome": "rejected", "rule": "CIT-003" },
+    { "outcome": "rejected", "rule": "CIT-003" },
+    { "outcome": "accepted", "rule": null }
+  ],
+  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 3 },
+  "section": "IMPL §3.2.2 step 5",
+  "note": "Ranges ending one line past the last line of a fully sent file (8-9 of 8 lines, 12-13 of 12), and one wholly past the end of an excerpted 40-line file. All CIT-003 even though each quote is unique in sent lines: no correction. 6-8 ends exactly on the last line and is the accepted near miss."
+}

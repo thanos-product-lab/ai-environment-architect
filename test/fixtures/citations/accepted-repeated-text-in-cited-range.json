@@ -1,0 +1,19 @@
+{
+  "citations": [
+    { "item": "T5-005", "lines": "4-4", "quote": "res.status(200).send(\"ok\");" },
+    { "item": "T5-005", "lines": "8-8", "quote": "res.status(200).send(\"ok\");" },
+    { "item": "T5-005", "lines": "7-8", "quote": "(req, res) => {\n  res.status(200).send(\"ok\");" },
+    { "item": "T5-005", "lines": "3-8", "quote": "res.status(200).send(\"ok\");" },
+    { "item": "T5-005", "lines": "12-12", "quote": "abababababab" }
+  ],
+  "expect": [
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "accepted", "rule": null }
+  ],
+  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 0 },
+  "section": "IMPL §3.2.2",
+  "note": "Step 6 accepts whenever the quote occurs within the cited lines; the occurrence count only matters in step 7. Text repeated on lines 4 and 8, repeated twice inside the range 3-8, and 'abababababab' (exactly 12 code points) occurring three times, overlapping, within line 12, must all be accepted, not CIT-005."
+}

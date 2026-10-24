@@ -1,0 +1,17 @@
+{
+  "citations": [
+    { "item": "T5-002", "lines": "3-3", "quote": "export async function withRetry<T>" },
+    { "item": "T5-002", "lines": "1-1", "quote": "import { sleep } from \"./sleep\";" },
+    { "item": "T5-002", "lines": "50-60", "quote": "withRetry<T>(fn" },
+    { "item": "T5-002", "lines": "4-4", "quote": "attempt < 3; attempt += 1" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-006" },
+    { "outcome": "rejected", "rule": "CIT-006" },
+    { "outcome": "rejected", "rule": "CIT-006" },
+    { "outcome": "rejected", "rule": "CIT-006" }
+  ],
+  "finding": { "outcome": "rejected", "rule": "CIT-008", "droppedCitations": 4 },
+  "section": "IMPL §3.2.2 step 4, §1.6",
+  "note": "T5-002 is outline-only (sent: []). Its outline would show 'export async function withRetry' at line 3, and the quotes are real file text (see unsent), but nothing was sent. CIT-006 comes before the range check, so 50-60 (past the end of an 18-line file) is CIT-006, not CIT-003."
+}

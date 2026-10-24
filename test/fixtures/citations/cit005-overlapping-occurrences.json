@@ -1,0 +1,13 @@
+{
+  "citations": [
+    { "item": "T5-005", "lines": "11-11", "quote": "babababababab" },
+    { "item": "T5-005", "lines": "11-11", "quote": "bababababababab" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-005" },
+    { "outcome": "corrected", "rule": "CIT-R01", "correctedLines": "12-12" }
+  ],
+  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 1 },
+  "section": "IMPL §3.2.2 step 7",
+  "note": "Line 12 holds 'abababababababab' (16 code points). 'babababababab' (13) occurs at offsets 1 and 3, overlapping; a non-overlapping search (String.split, a global regex, indexOf advancing by the quote length) finds only one and would wrongly correct. Overlaps count separately: CIT-005. 'bababababababab' (15) fits only at offset 1, so it is unique and corrected to 12-12: the near miss."
+}

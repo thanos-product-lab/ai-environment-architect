@@ -1,0 +1,13 @@
+{
+  "citations": [
+    { "item": "T3-001", "lines": "2-2", "quote": "\"name\": \"tiny-client\"," },
+    { "item": "T3-001", "lines": "3-4", "quote": "\"scripts\": {\n    \"test\": \"vitest run\"" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-002" },
+    { "outcome": "rejected", "rule": "CIT-002" }
+  ],
+  "finding": { "outcome": "rejected", "rule": "CIT-008", "droppedCitations": 2 },
+  "section": "IMPL §3.2.2 step 3",
+  "note": "T3-001's currentHash is null: the file could not be read again, which counts as changed. The quotes are exact. A validator that treats null as 'no information, assume unchanged' would wrongly accept. Each event records the path package.json."
+}

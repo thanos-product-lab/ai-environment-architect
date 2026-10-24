@@ -1,0 +1,15 @@
+{
+  "citations": [
+    { "item": "F-1", "lines": "23-23", "quote": "const res = await request(url" },
+    { "item": "F-1", "lines": "99-1", "quote": "this text is nowhere at all" },
+    { "item": "T5-001", "lines": "21-21", "quote": "const config = readConfig();" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "ALIAS-003" },
+    { "outcome": "rejected", "rule": "ALIAS-003" },
+    { "outcome": "accepted", "rule": null }
+  ],
+  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 2 },
+  "section": "IMPL §3.2.2 step 2, §3.2.1",
+  "note": "F-1 exists in the table but is a finding alias, not T or E: ALIAS-003, rejecting the citation only. The second F-1 citation also has start > end and an absent quote, but step 2 stops it first, so its only event is ALIAS-003."
+}

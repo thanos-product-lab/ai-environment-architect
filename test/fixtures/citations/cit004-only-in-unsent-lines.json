@@ -1,0 +1,17 @@
+{
+  "citations": [
+    { "item": "T5-001", "lines": "20-29", "quote": "return { attempts: max, backoffMs: 250 };" },
+    { "item": "T5-001", "lines": "1-3", "quote": "// retries use a fixed backoff" },
+    { "item": "T5-001", "lines": "20-29", "quote": "request.abort(\"client closed\");" },
+    { "item": "E-1", "lines": "10-13", "quote": "Configuration is read once at startup." }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" }
+  ],
+  "finding": { "outcome": "rejected", "rule": "CIT-008", "droppedCitations": 4 },
+  "section": "IMPL §3.2.2 step 7, §3.8",
+  "note": "Each quote is real text of the file, but only on unsent lines (T5-001 lines 5, 6 and 32; E-1 line 1; see 'unsent' in context.json). The ranges cite sent lines, so step 5 passes; step 7 searches only sent lines and finds nothing. A validator that searches the whole file would wrongly correct these."
+}

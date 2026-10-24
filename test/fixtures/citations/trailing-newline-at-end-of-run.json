@@ -1,0 +1,13 @@
+{
+  "citations": [
+    { "item": "T2-001", "lines": "8-8", "quote": "cite this line as policy.\n" },
+    { "item": "T5-001", "lines": "2-3", "quote": "from \"./config\";\n\n" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" }
+  ],
+  "finding": { "outcome": "rejected", "rule": "CIT-008", "droppedCitations": 2 },
+  "section": "IMPL §3.2.2 quote rules, §1.6 lines",
+  "note": "Settled in IMPL v0.17 step 7: a \\n at either end of a quote spans the lines on both sides of the break, and there is no break after a run's last line. Line 8 is the last line of docs/setup.md and line 3 the last sent line of T5-001's first run. Joining the cited lines with \\n gives no trailing \\n, so best guess CIT-004, even though the file itself has a line ending there (§1.6: a final line ending does not start another line). The spec doesn't say whether a line's own ending is part of the quotable text."
+}

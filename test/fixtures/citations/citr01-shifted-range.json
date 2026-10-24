@@ -1,0 +1,21 @@
+{
+  "citations": [
+    { "item": "T5-001", "lines": "21-22", "quote": "const res = await request(url, { timeoutMs: config.timeoutMs });" },
+    { "item": "T5-001", "lines": "1-2", "quote": "throw new Error(\"user lookup failed\");" },
+    { "item": "T5-005", "lines": "3-4", "quote": "router.get(\"/ready\", (req, res) => {\n  res.status(200)" },
+    { "item": "E-1", "lines": "10-11", "quote": "return { baseUrl, timeoutMs: 5000 };" },
+    { "item": "T5-001", "lines": "23-23", "quote": "config.timeoutMs });\n  if (!res.ok) {" },
+    { "item": "T5-001", "lines": "26-28", "quote": "const config = readConfig();" }
+  ],
+  "expect": [
+    { "outcome": "corrected", "rule": "CIT-R01", "correctedLines": "23-23" },
+    { "outcome": "corrected", "rule": "CIT-R01", "correctedLines": "25-25" },
+    { "outcome": "corrected", "rule": "CIT-R01", "correctedLines": "7-8" },
+    { "outcome": "corrected", "rule": "CIT-R01", "correctedLines": "12-12" },
+    { "outcome": "corrected", "rule": "CIT-R01", "correctedLines": "23-24" },
+    { "outcome": "corrected", "rule": "CIT-R01", "correctedLines": "21-21" }
+  ],
+  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 0 },
+  "section": "IMPL §3.2.2 step 7, §3.8",
+  "note": "Valid ranges that miss a quote occurring exactly once in the item's sent lines. Off by a little (21-22 to 23-23); in the other run of an excerpted item (1-2 to 25-25); a two-line quote (3-4 to 7-8); an E item (10-11 to 12-12); a range one line too short for a multi-line quote (23-23 to 23-24, the lines the occurrence spans); shifted backwards (26-28 to 21-21). Quote, claim and item are unchanged; each event records originalLines and correctedLines. Corrected citations are not dropped."
+}

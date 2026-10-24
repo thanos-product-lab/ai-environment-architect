@@ -1,0 +1,11 @@
+{
+  "citations": [
+    { "item": "T5-005", "lines": "12-12", "quote": "\nexport const PATTERN = \"abab" }
+  ],
+  "expect": [
+    { "outcome": "corrected", "rule": "CIT-R01", "correctedLines": "11-12" }
+  ],
+  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 0 },
+  "section": "IMPL §3.2.2 steps 6-7",
+  "note": "Settled in IMPL v0.17 step 7: a \\n at either end of a quote spans the lines on both sides of the break, and there is no break after a run's last line. Mirror of the trailing-newline case: the quote starts with the \\n between lines 11 and 12. Best guess the occurrence spans 11-12; 12-12 is also defensible."
+}

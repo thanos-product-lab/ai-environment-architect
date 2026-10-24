@@ -1,0 +1,21 @@
+{
+  "citations": [
+    { "item": "T5-004", "lines": "1-1", "quote": "OPEN = \"<<\\<\";" },
+    { "item": "T5-004", "lines": "2-2", "quote": "CLOSE = \">>\\>\";" },
+    { "item": "T5-004", "lines": "3-3", "quote": "banner = \"<<\\<< start >>\\>>\"" },
+    { "item": "T5-004", "lines": "4-4", "quote": "(n: number) => n >>\\> 1" },
+    { "item": "T5-004", "lines": "5-5", "quote": "const esc = \"<<\\\\n\";" },
+    { "item": "T5-004", "lines": "1-1", "quote": "CLOSE = \">>\\>\";\nconst banner = \"<<\\<<" }
+  ],
+  "expect": [
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "corrected", "rule": "CIT-R01", "correctedLines": "2-3" }
+  ],
+  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 0 },
+  "section": "IMPL §3.2.2 quote rules, §1.6 delimiter escape",
+  "note": "Quotes copied from the rendered (escaped) T5-004. The model saw line 1 as 'export const OPEN = \"<<\\<\";', line 3 as 'const banner = \"<<\\<< start >>\\>>\";', line 4 as '... n >>\\> 1;', and line 5 (file text 'const esc = \"<<\\n\";', a literal backslash-n) as 'const esc = \"<<\\\\n\";'. After removing each backslash that follows two equal angle brackets, every quote matches the file. A validator comparing the escaped quote with the raw file would reject them all. The last one is escaped, multi-line and shifted: reversal happens before the search, so it is corrected to 2-3."
+}

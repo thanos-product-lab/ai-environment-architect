@@ -1,0 +1,21 @@
+{
+  "citations": [
+    { "item": "T5-099", "lines": "23-23", "quote": "const res = await request(url" },
+    { "item": "T3-001", "lines": "4-4", "quote": "\"test\": \"vitest run\"" },
+    { "item": "T5-002", "lines": "3-3", "quote": "export async function withRetry<T>" },
+    { "item": "T5-001", "lines": "10-12", "quote": "export function buildRetryPolicy" },
+    { "item": "T5-001", "lines": "20-29", "quote": "return { attempts: max, backoffMs: 250 };" },
+    { "item": "T5-005", "lines": "11-11", "quote": "res.status(200).send(\"ok\");" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-001" },
+    { "outcome": "rejected", "rule": "CIT-002" },
+    { "outcome": "rejected", "rule": "CIT-006" },
+    { "outcome": "rejected", "rule": "CIT-003" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-005" }
+  ],
+  "finding": { "outcome": "rejected", "rule": "CIT-008", "droppedCitations": 6 },
+  "section": "IMPL §3.2.2, §3.5",
+  "note": "Six citations, each failing a different rule. The finding is rejected with CIT-008, recorded after its six citation events (itemKey f1/citations/0 ... f1/citations/5, then f1). droppedCitations is all six; the spec only defines the field for accepted findings, see the report."
+}

@@ -1,0 +1,13 @@
+{
+  "citations": [
+    { "item": "T5-004", "lines": "6-6", "quote": "=> {}​ (); ||" },
+    { "item": "T5-005", "lines": "4-4", "quote": "\t\t\t\t\t\t\t\t\t\t\t\t" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-007" }
+  ],
+  "finding": { "outcome": "rejected", "rule": "CIT-008", "droppedCitations": 2 },
+  "section": "IMPL §3.2.2 quote rules",
+  "note": "UNDECIDED. CIT-007 names 'whitespace' and Unicode P and S. A zero-width space (U+200B, category Cf, not White_Space) inside a symbols-only quote is neither, so a literal reading lets it pass CIT-007 and fail later as CIT-004; the same goes for ZWJ, variation selectors and combining marks (M). Best guess CIT-004 here, but the rule's intent suggests CIT-007. Tabs (Cc, but White_Space) count as whitespace: CIT-007. The spec should say whether 'whitespace' means Unicode White_Space or category Z, and whether Cf/M/Cc characters count as content."
+}

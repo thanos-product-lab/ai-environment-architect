@@ -1,0 +1,17 @@
+{
+  "citations": [
+    { "item": "T5-001", "lines": "20-21", "quote": "fetchUser(id: string) {\n  const config = readConfig();" },
+    { "item": "T5-005", "lines": "7-8", "quote": "router.get(\"/ready\", (req, res) => {\n  res.status(200)" },
+    { "item": "T5-001", "lines": "27-29", "quote": "  const body = await res.json();\n  return body as User;\n}" },
+    { "item": "T5-001", "lines": "24-26", "quote": "{\n    throw new Error(\"user lookup failed\");\n  }" }
+  ],
+  "expect": [
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "accepted", "rule": null }
+  ],
+  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 0 },
+  "section": "IMPL §3.2.2",
+  "note": "Quotes spanning lines with \\n, starting and ending mid-line or on whole lines with their indentation. All lie inside one run of sent lines and inside the cited range."
+}

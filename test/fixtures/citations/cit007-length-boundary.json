@@ -1,0 +1,17 @@
+{
+  "citations": [
+    { "item": "T2-001", "lines": "4-4", "quote": "Tests use t" },
+    { "item": "T2-001", "lines": "4-4", "quote": "Tests use th" },
+    { "item": "T2-001", "lines": "4-4", "quote": "" },
+    { "item": "T2-001", "lines": "1-1", "quote": "# Setup" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-007" },
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "rejected", "rule": "CIT-007" },
+    { "outcome": "rejected", "rule": "CIT-007" }
+  ],
+  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 3 },
+  "section": "IMPL §3.2.2",
+  "note": "11 code points is rejected even though the text is present; exactly 12 ('Tests use th') is the accepted near miss. The empty quote and a whole short line ('# Setup', the entire sent text of line 1) are also CIT-007: length wins even when the quote is the full line."
+}

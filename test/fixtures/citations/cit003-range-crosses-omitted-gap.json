@@ -1,0 +1,19 @@
+{
+  "citations": [
+    { "item": "T5-001", "lines": "2-21", "quote": "const config = readConfig();" },
+    { "item": "T5-001", "lines": "3-20", "quote": "export async function fetchUser" },
+    { "item": "T5-001", "lines": "1-30", "quote": "import { readConfig } from \"./config\";" },
+    { "item": "T5-001", "lines": "20-20", "quote": "export async function fetchUser(id: string) {" },
+    { "item": "T5-001", "lines": "3-3", "quote": "import { readConfig } from \"./config\";" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-003" },
+    { "outcome": "rejected", "rule": "CIT-003" },
+    { "outcome": "rejected", "rule": "CIT-003" },
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "corrected", "rule": "CIT-R01", "correctedLines": "2-2" }
+  ],
+  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 3 },
+  "section": "IMPL §3.2.2 step 5",
+  "note": "T5-001 sends 1-3 and 20-30; lines 4-19 are omitted. A range that includes any omitted line is CIT-003, even when the quote lies in a sent part of it (2-21, 1-30) and is unique. 3-3 is a valid range on the blank sent line 3, so its unique quote from line 2 IS corrected; this contrast shows correction is reachable only from a valid range."
+}

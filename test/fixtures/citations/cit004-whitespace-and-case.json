@@ -1,0 +1,21 @@
+{
+  "citations": [
+    { "item": "T5-001", "lines": "23-23", "quote": "request(url, {timeoutMs: config.timeoutMs})" },
+    { "item": "T2-001", "lines": "4-4", "quote": "Tests use the In-memory store by default." },
+    { "item": "T5-001", "lines": "21-21", "quote": "\tconst config = readConfig();" },
+    { "item": "T5-001", "lines": "20-21", "quote": "fetchUser(id: string) {\r\n  const config" },
+    { "item": "T5-001", "lines": "28-29", "quote": "return body as User; \n}" },
+    { "item": "T5-001", "lines": "21-21", "quote": "  const config = readConfig();" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "accepted", "rule": null }
+  ],
+  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 5 },
+  "section": "IMPL §3.2.2 quote rules",
+  "note": "No normalisation of whitespace or case: inner spaces removed, one letter upper-cased, a tab for two spaces, CRLF between lines (cited lines are joined with \\n only), an added trailing space. The near miss keeps line 21's two-space indent exactly and is accepted."
+}

@@ -1,0 +1,17 @@
+{
+  "citations": [
+    { "item": "T5-001", "lines": "1-3", "quote": "\"./config\";\n\nexport async function fetchUser" },
+    { "item": "T5-001", "lines": "2-3", "quote": "import { readConfig } from \"./config\";\n\nexport async" },
+    { "item": "T5-001", "lines": "20-20", "quote": "\n\nexport async function fetchUser(id" },
+    { "item": "T5-001", "lines": "29-30", "quote": "}\n\nexport function closeClient" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" }
+  ],
+  "finding": { "outcome": "rejected", "rule": "CIT-008", "droppedCitations": 4 },
+  "section": "IMPL §3.2.2 step 7",
+  "note": "The first three quotes join sent line 2 or 3 directly to sent line 20, as if the omitted lines 4-19 were not there. Each range is valid, so step 5 passes; step 7 must never let an occurrence span two runs, so there are zero occurrences: CIT-004, never CIT-R01. A validator that concatenates all sent lines into one string would find exactly one occurrence and wrongly correct to 2-20 or 3-20. The last quote runs from sent line 29 into unsent line 31."
+}

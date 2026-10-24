@@ -1,0 +1,19 @@
+{
+  "citations": [
+    { "item": "T5-001", "lines": "4-6", "quote": "export function buildRetryPolicy" },
+    { "item": "T5-001", "lines": "31-32", "quote": "request.abort(\"client closed\")" },
+    { "item": "T5-001", "lines": "30-31", "quote": "export function closeClient" },
+    { "item": "E-1", "lines": "1-1", "quote": "export function readConfig() {" },
+    { "item": "E-1", "lines": "2-4", "quote": "return { baseUrl, timeoutMs: 5000 };" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-003" },
+    { "outcome": "rejected", "rule": "CIT-003" },
+    { "outcome": "rejected", "rule": "CIT-003" },
+    { "outcome": "rejected", "rule": "CIT-003" },
+    { "outcome": "rejected", "rule": "CIT-003" }
+  ],
+  "finding": { "outcome": "rejected", "rule": "CIT-008", "droppedCitations": 5 },
+  "section": "IMPL §3.2.2 step 5, §3.8",
+  "note": "Citations of omitted outline entries (4-6 buildRetryPolicy, 31-32 closeClient), one ending past a run (30-31), and two E-1 citations numbered from 1 within the expansion instead of by file line (the sent lines are 10-13). The E-1 quotes are unique in E-1's sent lines, but step 5 rejects before correction can run."
+}

@@ -1,0 +1,19 @@
+{
+  "citations": [
+    { "item": "T5-003", "lines": "3-3", "quote": "return store.get(key);" },
+    { "item": "T5-003", "lines": "2-3", "quote": "export function getCached(key: string) {" },
+    { "item": "T5-003", "lines": "9-9", "quote": "return store.get(key);" },
+    { "item": "T5-003", "lines": "2-2", "quote": "export function setCached(" },
+    { "item": "T2-001", "lines": "4-4", "quote": "Tests use the in-memory store by default." }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-002" },
+    { "outcome": "rejected", "rule": "CIT-002" },
+    { "outcome": "rejected", "rule": "CIT-002" },
+    { "outcome": "rejected", "rule": "CIT-002" },
+    { "outcome": "accepted", "rule": null }
+  ],
+  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 4 },
+  "section": "IMPL §3.2.2 step 3",
+  "note": "T5-003's current hash differs from its snapshot hash. Even exact, correctly placed quotes are CIT-002, and currency is checked before range (9-9 is past the end) and quote-in-range (setCached is absent), so those are CIT-002 too. Each CIT-002 event records the path src/lib/cache.ts so the session marks the snapshot unstable."
+}

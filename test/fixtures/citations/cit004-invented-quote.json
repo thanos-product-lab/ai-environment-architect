@@ -1,0 +1,15 @@
+{
+  "citations": [
+    { "item": "T5-001", "lines": "20-29", "quote": "const client = createClient({ retries: 3 });" },
+    { "item": "E-1", "lines": "10-13", "quote": "export const DEFAULT_TIMEOUT_MS = 5000;" },
+    { "item": "T2-001", "lines": "3-4", "quote": "Run `pnpm test` before every commit." }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" }
+  ],
+  "finding": { "outcome": "rejected", "rule": "CIT-008", "droppedCitations": 3 },
+  "section": "IMPL §3.2.2 step 7",
+  "note": "Plausible code and a plausible directive that appear nowhere in the file, cited at believable ranges."
+}

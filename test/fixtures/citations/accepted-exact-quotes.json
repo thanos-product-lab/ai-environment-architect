@@ -1,0 +1,21 @@
+{
+  "citations": [
+    { "item": "T5-001", "lines": "23-23", "quote": "const res = await request(url, { timeoutMs: config.timeoutMs });" },
+    { "item": "T2-001", "lines": "4-4", "quote": "Tests use the in-memory store by default." },
+    { "item": "T5-001", "lines": "20-29", "quote": "throw new Error(\"user lookup failed\")" },
+    { "item": "T5-001", "lines": "1-3", "quote": "import { request } from \"./transport\";" },
+    { "item": "T5-001", "lines": "20-30", "quote": "return body as User;" },
+    { "item": "E-1", "lines": "10-13", "quote": "return { baseUrl, timeoutMs: 5000 };" }
+  ],
+  "expect": [
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "accepted", "rule": null }
+  ],
+  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 0 },
+  "section": "IMPL §3.2.2",
+  "note": "Near misses for over-rejection. A quote may be a substring of one line, or sit inside a wider range (20-29, a whole run 1-3, or 20-30 ending on a blank sent line). E-1 is cited by real file line numbers (10-13), not 1-based within the expansion."
+}

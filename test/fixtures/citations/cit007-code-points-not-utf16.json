@@ -1,0 +1,17 @@
+{
+  "citations": [
+    { "item": "T2-001", "lines": "6-6", "quote": "y 🚀🚀 to sta" },
+    { "item": "T2-001", "lines": "6-6", "quote": "y 🚀🚀 to stag" },
+    { "item": "T2-001", "lines": "5-5", "quote": "café menu i" },
+    { "item": "T2-001", "lines": "5-5", "quote": "café menu is" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-007" },
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "rejected", "rule": "CIT-007" },
+    { "outcome": "accepted", "rule": null }
+  ],
+  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 2 },
+  "section": "IMPL §3.2.2",
+  "note": "Length is code points. The first quote is 11 code points but 13 UTF-16 units (each rocket is a surrogate pair) and more UTF-8 bytes, so String.length or byte length would wrongly pass it. The second is exactly 12 code points. 'café menu i' is 11 code points and 12 UTF-8 bytes; 'café menu is' is 12 code points."
+}

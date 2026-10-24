@@ -1,0 +1,15 @@
+{
+  "citations": [
+    { "item": "T5-001", "lines": "29-20", "quote": "const res = await request(url" },
+    { "item": "T5-001", "lines": "24-23", "quote": "const res = await request(url" },
+    { "item": "T5-001", "lines": "23-23", "quote": "const res = await request(url" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-003" },
+    { "outcome": "rejected", "rule": "CIT-003" },
+    { "outcome": "accepted", "rule": null }
+  ],
+  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 2 },
+  "section": "IMPL §3.2.2 step 5",
+  "note": "start > end is CIT-003, and step 5 runs before correction, so the unique quote on line 23 must NOT rescue these through CIT-R01, and they must not be silently swapped to 20-29 / 23-24. The single-line 23-23 is the accepted near miss."
+}

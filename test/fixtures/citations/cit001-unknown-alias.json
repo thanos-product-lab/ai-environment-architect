@@ -1,0 +1,21 @@
+{
+  "citations": [
+    { "item": "T5-009", "lines": "23-23", "quote": "const res = await request(url" },
+    { "item": "T5-01", "lines": "23-23", "quote": "const res = await request(url" },
+    { "item": "t5-001", "lines": "23-23", "quote": "const res = await request(url" },
+    { "item": "T5-001 ", "lines": "23-23", "quote": "const res = await request(url" },
+    { "item": "E-2", "lines": "10-10", "quote": "export function readConfig() {" },
+    { "item": "B-1", "lines": "1-1", "quote": "Run the local server" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-001" },
+    { "outcome": "rejected", "rule": "CIT-001" },
+    { "outcome": "rejected", "rule": "CIT-001" },
+    { "outcome": "rejected", "rule": "CIT-001" },
+    { "outcome": "rejected", "rule": "CIT-001" },
+    { "outcome": "rejected", "rule": "CIT-001" }
+  ],
+  "finding": { "outcome": "rejected", "rule": "CIT-008", "droppedCitations": 6 },
+  "section": "IMPL §3.2.2, §3.2.1",
+  "note": "Every alias is absent from the call's table. An invented but well-formed T5-009; padding changed (T5-01) and case changed (t5-001), which must not be normalised to T5-001 (§3.2.1: aliases match exactly); a trailing space, not trimmed; an E alias that was never assigned; a B alias, which this call's table does not hold. CIT-001, not ALIAS-001. The quotes are valid text of the item the model probably meant, so a validator that normalises aliases would wrongly accept."
+}

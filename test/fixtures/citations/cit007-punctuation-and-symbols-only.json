@@ -1,0 +1,21 @@
+{
+  "citations": [
+    { "item": "T5-004", "lines": "6-6", "quote": "=> {} (); ||" },
+    { "item": "T5-004", "lines": "6-6", "quote": "\"=> {} (); ||\";" },
+    { "item": "T5-001", "lines": "20-29", "quote": "            " },
+    { "item": "T2-001", "lines": "6-6", "quote": "🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀" },
+    { "item": "T5-005", "lines": "8-9", "quote": "(\"ok\");\n});" },
+    { "item": "T5-005", "lines": "3-5", "quote": "\", (req, res) => {\n  res.status(200)" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-007" },
+    { "outcome": "rejected", "rule": "CIT-007" },
+    { "outcome": "rejected", "rule": "CIT-007" },
+    { "outcome": "rejected", "rule": "CIT-007" },
+    { "outcome": "rejected", "rule": "CIT-007" },
+    { "outcome": "accepted", "rule": null }
+  ],
+  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 5 },
+  "section": "IMPL §3.2.2",
+  "note": "Quotes of 12+ code points made only of whitespace, P and S are CIT-007 even when present verbatim: '=> {} (); ||' (exactly 12) and '\"=> {} (); ||\";' are in line 6; 12 spaces; 12 rockets (category So). '(\"ok\");\\n});' has letters but is only 11 code points, so CIT-007 on length. The last quote is symbol-heavy but has letters and is 36 code points; it lies within lines 3-4 and must be accepted (over-rejection trap)."
+}

@@ -1,0 +1,17 @@
+{
+  "citations": [
+    { "item": "docs/setup.md", "lines": "4-4", "quote": "Tests use the in-memory store by default." },
+    { "item": "f1", "lines": "23-23", "quote": "const res = await request(url" },
+    { "item": "F-2", "lines": "23-23", "quote": "const res = await request(url" },
+    { "item": "T5-001", "lines": "23-23", "quote": "const res = await request(url" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-001" },
+    { "outcome": "rejected", "rule": "ALIAS-003" },
+    { "outcome": "rejected", "rule": "CIT-001" },
+    { "outcome": "accepted", "rule": null }
+  ],
+  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 3 },
+  "section": "IMPL §3.2.2, §3.2.1",
+  "note": "A path instead of an alias (docs/setup.md is T2-001's path; kept under the 16 code point alias limit so LIMIT-001 does not fire first); f1, a local key the response defines, which a citation's item doesn't accept (ALIAS-003, as in §3.2.1); F-2, a well-formed finding alias that is not in the table (CIT-001, not ALIAS-003: ALIAS-003 needs an alias that exists). One valid citation keeps the finding."
+}

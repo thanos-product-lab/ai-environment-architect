@@ -2,8 +2,18 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 24 October 2026  
-**Version:** 0.16  
+**Version:** 0.17  
 **Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
+
+### Changes from v0.16
+
+- **Quote rules (§3.2.2).** A quote shorter than 12 code points, or made only of whitespace, punctuation and symbols, is rejected with the new rule `CIT-007`, checked first. Length is counted after the delimiter escape is reversed.
+- **Citation aliases (§3.2.1–§3.2.2, §3.3, §3.3.2).** A citation's item not in the call's input is `CIT-001`, not `ALIAS-001`. An alias of the wrong kind, or a defined local key, is `ALIAS-003`. Either rejects the citation alone, and the alias step of `analyse` and `analyse_expansion` leaves citation items to the citation step.
+- **File currency (§3.2.2).** Current hashes are read before validation, and a file that can't be read again counts as changed. Each `CIT-002` event records the path, so the session can mark the snapshot unstable.
+- **Line-range correction (§3.2.2).** Overlapping occurrences count separately, and an occurrence never spans the omitted lines between two included ranges. A quote starting or ending with `\n` spans the lines on both sides of that break.
+- **No citation left (§3.2.2).** A finding whose citations are all rejected is rejected with the new rule `CIT-008`.
+- **Excerpts (§3.2.2).** An excerpt is the file's own text for the final range, as decoded for rendering, with lines joined by `\n`. A quote holding a lone surrogate, half of a character, is `CIT-004`.
+- `validatorVersion` is `validate/0.3.0`.
 
 ### Changes from v0.15
 
@@ -1157,7 +1167,7 @@ Aliases and keys match exactly: no change of case, no trimming, no change of pad
 |---|---|---|
 | `ALIAS-001` | Every alias in a response exists in that call's table, and every local key it refers to is defined in the same response. | Reject the item that uses it |
 | `ALIAS-002` | No local key is defined twice in one response. | Reject every item with that key |
-| `ALIAS-003` | Every alias is of a kind its field accepts, for example `F` or `D` in `recommend` `support`. | Reject the item that uses it |
+| `ALIAS-003` | Every alias is of a kind its field accepts, for example `F` or `D` in `recommend` `support`. | Reject the item that uses it; for a citation's `item`, the citation alone (§3.2.2) |
 
 A reference to a local key whose item was rejected fails the referring item's own rule, for example `CONF-001`, not an alias rule.
 
@@ -1175,22 +1185,25 @@ type Citation = {
 };
 ```
 
-**Quote rules.** The quote is at least 12 characters and not only whitespace or punctuation. It is at most 200 characters, and may span lines using `\n`. It must match the sent content **exactly**: no normalisation of whitespace, case or punctuation.
+**Quote rules.** The quote is at least 12 characters and not only whitespace, punctuation or symbols (Unicode `White_Space`, `P` and `S`), counted in code points after the delimiter escape is reversed (`CIT-007`). It is at most 200 characters (`LIMIT-001`), and may span lines using `\n`. It must match the sent content **exactly**: no normalisation of whitespace, case or punctuation. The quote is compared with the file's own text: the delimiter escape is reversed on the quote (§1.6), and the cited lines are joined with `\n` whatever the file's line endings.
 
-**Sent lines** are an item's numbered `CONTENT` lines within its `included` ranges. Header attributes, `OUTLINE` labels, the destination's `BLOCKS` lines and `…` lines are never sent lines: they can't be cited, and the search in step 6 doesn't cover them. Ignored, excluded, secret-blocked, unreadable and symbolic-link entries have no item at all, so a citation of one fails `CIT-001`.
+**Sent lines** are an item's numbered `CONTENT` lines within its `included` ranges. Header attributes, `OUTLINE` labels, the destination's `BLOCKS` lines and `…` lines are never sent lines: they can't be cited, and the search in step 7 doesn't cover them. Ignored, excluded, secret-blocked, unreadable and symbolic-link entries have no item at all, so a citation of one fails `CIT-001`.
 
 **Validation**, in order:
 
-1. **Item.** The item alias exists in this call's input (`CIT-001`).
-2. **File currency.** The cited file's current hash matches the snapshot hash recorded for the item (`CIT-002`). A mismatch rejects the citation and marks the snapshot as unstable.
-3. **Sent content.** The item has at least one sent line (`CIT-006`). An outline-only item (§1.6) has none: its outline shows what exists, not what it contains.
-4. **Range.** `start ≤ end`, and the whole range lies within the item's sent lines, not omitted outline entries (`CIT-003`).
-5. **Quote in range.** If the quote occurs exactly within the text of the cited lines, the citation is accepted.
-6. **Line-range correction.** Otherwise, code counts exact occurrences of the quote in **all sent lines of that same item in this call**. It searches no other item, no other file, and no unsent content.
+1. **Quote.** The quote rules above (`CIT-007`).
+2. **Item.** The item alias exists in this call's input (`CIT-001`). An alias in the table that isn't a `T` or `E` alias, or a local key the response defines, fails `ALIAS-003`, as in §3.2.1. Either rejects the citation, not the finding.
+3. **File currency.** The cited file's current hash matches the snapshot hash recorded for the item (`CIT-002`). Code reads the current hashes before validation; a file that can't be read again counts as changed. A mismatch rejects the citation, and its event records the path, so the session marks the snapshot as unstable.
+4. **Sent content.** The item has at least one sent line (`CIT-006`). An outline-only item (§1.6) has none: its outline shows what exists, not what it contains.
+5. **Range.** `start ≤ end`, and the whole range lies within the item's sent lines, not omitted outline entries (`CIT-003`).
+6. **Quote in range.** If the quote occurs exactly within the text of the cited lines, the citation is accepted.
+7. **Line-range correction.** Otherwise, code counts exact occurrences of the quote in **all sent lines of that same item in this call**. It searches no other item, no other file, and no unsent content. Overlapping occurrences count separately, and an occurrence lies within one run of consecutive sent lines: it never spans the omitted lines between two included ranges. A `\n` in a quote stands for the break between two lines, so an occurrence that starts or ends with one spans both of them; a line ending after the last line of a run is not part of the text, so a quote ending with `\n` there doesn't occur.
    - **Exactly one occurrence:** the range is corrected to the lines that occurrence spans. The quote and the claim are not changed. Both ranges are recorded: `{ originalLines, correctedLines, rule: "CIT-R01" }`.
    - **Zero occurrences** (including text that is only slightly different, or present only in unsent parts of the file): reject (`CIT-004`).
    - **Two or more occurrences:** reject (`CIT-005`).
-7. **Evidence creation.** Code creates the Evidence record: path, file hash, final line range, basis (§3.2.4), and an excerpt **extracted by code** from the sent lines of that range. The model never supplies excerpt text.
+8. **Evidence creation.** Code creates the Evidence record: path, file hash, final line range, basis (§3.2.4), and an excerpt **extracted by code** from the sent lines of that range: the file's text for those lines, joined with `\n`. The model never supplies excerpt text.
+
+A rejected citation drops only itself (§3.5). A finding whose citations are all rejected is rejected with `CIT-008`, after the events of its citations.
 
 The rate of corrected citations is recorded per call. A rising rate is a signal to investigate the prompt or the rendering format.
 
@@ -1252,7 +1265,7 @@ Records are ordered by alias. Excerpts are code-extracted and pass the secret sc
 Every call has a fixed purpose, input, output schema, validation sequence and output limit. Schemas below are written as TypeScript types. Implementation defines them in Zod and generates JSON Schema from them (§3.7). Unknown fields are rejected everywhere.
 
 - **Lengths** count Unicode code points. Every string has a maximum: the one stated, or for a path or glob 512, for an alias or alias reference 16, for a reference `value` 512, for a line range 32, for an expansion range list 512, for a `B` target 16. A local key's pattern limits it to five characters.
-- **Patterns.** Response-local keys match their letter and a number from 1 to 9999 (`^f[1-9][0-9]{0,3}$` for findings, and `g`, `a`, `c`, `q`, `r`). Line ranges are `^[1-9][0-9]*-[1-9][0-9]*$`. Expansion ranges are one or more line ranges separated by commas. `B` targets are `^B-[1-9][0-9]*$`. Alias references (`support`, `resolves`, `blockedBy`, a citation's `item`, a conflict's `findings`, a revision's `target`) have no pattern, so a wrong alias rejects one item (`ALIAS-001`, `ALIAS-003`), not the response.
+- **Patterns.** Response-local keys match their letter and a number from 1 to 9999 (`^f[1-9][0-9]{0,3}$` for findings, and `g`, `a`, `c`, `q`, `r`). Line ranges are `^[1-9][0-9]*-[1-9][0-9]*$`. Expansion ranges are one or more line ranges separated by commas. `B` targets are `^B-[1-9][0-9]*$`. Alias references (`support`, `resolves`, `blockedBy`, a citation's `item`, a conflict's `findings`, a revision's `target`) have no pattern, so a wrong alias rejects one item (`ALIAS-001`, `ALIAS-003`), or for a citation's `item` one citation (`CIT-001`, `ALIAS-003`, §3.2.2), not the response.
 - **Where limits apply.** The size of a top-level collection, such as at most 40 findings, and the length of a top-level string that belongs to no item, such as `noChangeReason`, are checked at the schema stage, and fail the response. A length or size inside one item, such as a statement's 300 characters or a finding's 1–6 citations, rejects only that item (`LIMIT-001`, §3.5).
 
 #### 3.3.1 Overview
@@ -1328,7 +1341,7 @@ A `Citation`'s `quote` is at most 200 characters in the schema; its other quote 
 **Validation**, in order:
 
 1. Schema (§3.5), then per-item limits (`LIMIT-001`).
-2. Aliases (`ALIAS-001`, `ALIAS-002`, `ALIAS-003`).
+2. Aliases (`ALIAS-001`, `ALIAS-002`, `ALIAS-003`), except citation items, which step 3 checks one citation at a time (§3.2.2).
 3. Citations: provenance (§3.2.2), then support (§3.2.3), then basis derivation (§3.2.4).
 4. Scope paths: each path or path prefix is listed (§1.11, `SCOPE-001`).
 5. Gaps: each `relatedPath` is listed or uncovered; an unlisted one rejects the gap, which must be an absence claim instead (`GAP-001`). Then the coverage check: a related file not sent in full → relabel `not_inspected` (`GAP-002`, §1.11).
@@ -1553,7 +1566,7 @@ A schema failure rejects the whole response with one event per issue, in the ord
 
 No event repeats text from the response. An `itemKey` is a local key or alias only when it is well formed (a local key is one or two lowercase letters and a number, an alias as in §3.2.1); otherwise the item is named by its position, `<collection>/<index>`, and a malformed local key defines nothing. A detail names only code-made values, such as an alias from the table, never an unknown value the model wrote. A rejected item keeps the events of its sub-items, such as each failed citation. Events are ordered by stage. In the item stage they follow the response's item order, collections in schema order, and within an item the rule order; `ALIAS-002` is checked first, for each item in turn. In the cross-item stage they follow rule order, then item order.
 
-Each call also records counts: proposed, accepted, corrected and relabelled items, and rejections by rule. An item counts as corrected or relabelled if it was accepted with such an event. Rule IDs are stable across versions. The validator has its own version (`validatorVersion`, `validate/0.2.0` since `LIMIT-001`), recorded with every call, because changing a rule changes what is accepted even when the model output is identical. Any change to what is accepted increases it, changed thresholds and word lists included. A test pins the list of rule IDs to the version.
+Each call also records counts: proposed, accepted, corrected and relabelled items, and rejections by rule. An item counts as corrected or relabelled if it was accepted with such an event. Rule IDs are stable across versions. The validator has its own version (`validatorVersion`, `validate/0.3.0` since the citation rules), recorded with every call, because changing a rule changes what is accepted even when the model output is identical. Any change to what is accepted increases it, changed thresholds and word lists included. A test pins the list of rule IDs to the version.
 
 ### 3.6 Retry and failure policy
 
@@ -1602,6 +1615,7 @@ A change to any prompt, schema, validator or detector requires the fixture suite
   - unknown alias;
   - quote not in the sent content, a quote altered by one character, a quote present twice, a quote present only in omitted lines;
   - a citation of an outline-only item (`CIT-006`), and a quote taken from an outline label or a `BLOCKS` line;
+  - a quote shorter than 12 characters, or only punctuation (`CIT-007`), and a finding with no citation left (`CIT-008`);
   - a gap on an unlisted path (`GAP-001`), and a gap under an excluded directory (expect `GAP-002`);
   - an absence claim matching an `ignored` file (`ABS-001`), and one that can match only inside `node_modules/` (`ABS-002`);
   - a gap and an absence claim through a symbolic link and under an unreadable directory;
@@ -1632,5 +1646,10 @@ A change to any prompt, schema, validator or detector requires the fixture suite
 - How to detect absence asserted in free text, without an `absenceClaim` (§1.11). No deterministic check is defined yet.
 - How to detect a claim about the omitted parts of an excerpted file when it cites only sent lines (§1.11). The citation rules catch citations of omitted lines, not claims about them.
 - Minimum quote length: 12 characters may allow unhelpfully generic quotes in code.
+- Duplicate citations: two citations of one finding that resolve to the same range both create Evidence. Whether to merge them is undecided.
+- Invisible characters in quotes: `CIT-007` counts format characters and combining marks (Unicode `Cf`, `M`) as content, so a symbols-only quote containing a zero-width space passes it, and fails later as `CIT-004` if the file doesn't hold it.
+- Runs of four or more equal angle brackets. §1.6 escapes `<<<<` as `<<\<<`, and reversal is one pass that removes a backslash after two equal brackets of its own output; the wording could state this more exactly. A quote the model escaped twice is `CIT-004`.
+- Unicode version. `CIT-007`'s character classes follow the Unicode version of the pinned Node runtime, so a Node upgrade can change what it accepts; it should increase `validatorVersion` when it does.
+- Excerpt length. DM §6.2 says excerpts are bounded, but no bound is set; a citation of a long range keeps every line of it.
 - Output limits per call (finding, question and recommendation counts).
 - Whether a model-based support check is worth adding after the first slice. Adopt only if evaluation shows it reduces unsupported findings without excessive false rejections.

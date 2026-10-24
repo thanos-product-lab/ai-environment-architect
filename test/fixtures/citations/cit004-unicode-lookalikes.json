@@ -1,0 +1,19 @@
+{
+  "citations": [
+    { "item": "T2-001", "lines": "5-5", "quote": "The café menu is cached" },
+    { "item": "T5-001", "lines": "25-25", "quote": "throw new Error(“user lookup failed”)" },
+    { "item": "T2-001", "lines": "3-3", "quote": "Run the local server" },
+    { "item": "T2-001", "lines": "6-6", "quote": "Deploy 🚀 to staging" },
+    { "item": "T2-001", "lines": "5-5", "quote": "The café menu is cached" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "accepted", "rule": null }
+  ],
+  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 4 },
+  "section": "IMPL §3.2.2 quote rules",
+  "note": "The file has precomposed U+00E9; the first quote uses e + U+0301 (NFD), which must not be Unicode-normalised into a match. Curly quotes for straight ones, a no-break space for a space, and one rocket where the file has two are CIT-004. The precomposed form is the accepted near miss."
+}

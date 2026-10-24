@@ -1,0 +1,21 @@
+{
+  "citations": [
+    { "item": "T5-001", "lines": "20-29", "quote": "export function buildRetryPolicy" },
+    { "item": "T5-001", "lines": "20-29", "quote": "export function closeClient [omitted]" },
+    { "item": "T5-001", "lines": "1-3", "quote": "path=\"src/lib/client.ts\"" },
+    { "item": "T5-001", "lines": "1-3", "quote": "src/lib/client.ts" },
+    { "item": "T5-001", "lines": "20-29", "quote": "included=\"1-3,20-30\" totalLines=40" },
+    { "item": "T5-001", "lines": "21-21", "quote": "  21 |   const config = readConfig();" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" }
+  ],
+  "finding": { "outcome": "rejected", "rule": "CIT-008", "droppedCitations": 6 },
+  "section": "IMPL §3.2.2 sent lines, §1.6, §3.8",
+  "note": "Text the model saw only in T5-001's rendering, never in a sent line: the outline labels for the omitted declarations at 4 and 31 (with and without the [omitted] marker), the header's path and included/totalLines attributes, and a content line copied with its line-number prefix. A validator that searches the rendered item rather than the sent lines would accept some of these."
+}

@@ -1,0 +1,13 @@
+{
+  "citations": [
+    { "item": "T5-004", "lines": "1-1", "quote": "OPEN = \"<<\\\\<\";" },
+    { "item": "T5-004", "lines": "3-3", "quote": "banner = \"<<\\<\\< start" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" }
+  ],
+  "finding": { "outcome": "rejected", "rule": "CIT-008", "droppedCitations": 2 },
+  "section": "IMPL §1.6 delimiter escape, §3.2.2",
+  "note": "UNDECIDED. First quote: the model escaped twice, writing '<<\\\\<'. One left-to-right reversal pass removes one backslash, giving '<<\\<', not in the file: CIT-004 (best guess). Reversing until nothing changes would give '<<<' and accept it. Second quote: line 3's '<<<<' rendered by escaping every overlapping pair of the input would be '<<\\<\\<' (the escape rule doesn't fix how runs of 4+ are rendered; the rest of this set assumes '<<\\<<'). Reversal judged on the quote as written: the second backslash follows '\\<', so it stays, giving '<<<\\<': CIT-004 (best guess). Judged on the output built so far: it follows '<<', is removed, giving '<<<<', which matches: accepted. The renderer and the reversal must be specified as exact inverses."
+}

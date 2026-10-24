@@ -1,0 +1,15 @@
+{
+  "citations": [
+    { "item": "T5-004", "lines": "1-1", "quote": "PEN = \"<<\\<\"" },
+    { "item": "T5-004", "lines": "1-1", "quote": "OPEN = \"<<\\<\"" },
+    { "item": "T5-004", "lines": "2-2", "quote": "SE = \">>\\>\";" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-007" },
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "rejected", "rule": "CIT-007" }
+  ],
+  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 2 },
+  "section": "IMPL §3.2.2, §1.6",
+  "note": "Length is counted after the delimiter escape is reversed. 'PEN = \"<<\\<\"' is 12 code points as written but 11 after removing the escape backslash: CIT-007. 'OPEN = \"<<\\<\"' is 13 as written and exactly 12 after: accepted. 'SE = \">>\\>\";' is 12 as written, 11 after: CIT-007."
+}

@@ -1,0 +1,19 @@
+{
+  "citations": [
+    { "item": "T5-001", "lines": "21-21", "quote": "const config = readConfig();" },
+    { "item": "T5-001", "lines": "20-29", "quote": "return { attempts: max, backoffMs: 250 };" },
+    { "item": "E-1", "lines": "12-13", "quote": "process.env.API_BASE_URL" },
+    { "item": "T5-003", "lines": "3-3", "quote": "return store.get(key);" },
+    { "item": "T2-001", "lines": "3-3", "quote": "Run the local server with `pnpm dev:local`" }
+  ],
+  "expect": [
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "corrected", "rule": "CIT-R01", "correctedLines": "11-11" },
+    { "outcome": "rejected", "rule": "CIT-002" },
+    { "outcome": "accepted", "rule": null }
+  ],
+  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 2 },
+  "section": "IMPL §3.2.2, §3.5, DM §6.3",
+  "note": "Two rejected citations drop only themselves. The finding is accepted with three evidence records (the corrected one counts as kept, not dropped) and droppedCitations 2. No CIT-008."
+}

@@ -1,0 +1,19 @@
+{
+  "citations": [
+    { "item": "T5-001", "lines": "25-25", "quote": "throw new Error(\"user lookup faild\")" },
+    { "item": "T5-001", "lines": "23-23", "quote": "timeoutMs: config.timeoutMS" },
+    { "item": "T5-001", "lines": "28-28", "quote": "return body as User;;" },
+    { "item": "T5-001", "lines": "21-21", "quote": "const config = readConfig()" },
+    { "item": "T5-001", "lines": "21-21", "quote": "const config = readConfig(;" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "rejected", "rule": "CIT-004" }
+  ],
+  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 4 },
+  "section": "IMPL §3.2.2 steps 6-7",
+  "note": "One character deleted, one changed (MS for Ms), one added, one dropped from the middle: all CIT-004, with no fuzzy matching. 'const config = readConfig()' without the semicolon is a true substring of line 21 and is the accepted near miss."
+}

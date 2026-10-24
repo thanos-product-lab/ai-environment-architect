@@ -1,0 +1,17 @@
+{
+  "citations": [
+    { "item": "E-1", "lines": "10-13", "quote": "const config = readConfig();" },
+    { "item": "T5-001", "lines": "20-29", "quote": "return { baseUrl, timeoutMs: 5000 };" },
+    { "item": "T5-003", "lines": "1-1", "quote": "export async function fetchUser" },
+    { "item": "T5-005", "lines": "1-12", "quote": "Tests use the in-memory store" }
+  ],
+  "expect": [
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-004" },
+    { "outcome": "rejected", "rule": "CIT-002" },
+    { "outcome": "rejected", "rule": "CIT-004" }
+  ],
+  "finding": { "outcome": "rejected", "rule": "CIT-008", "droppedCitations": 4 },
+  "section": "IMPL §3.2.2 step 7",
+  "note": "Quotes sent in this call but under a different item: the search covers only the cited item's sent lines, never another item, so these must not be re-pointed to the right item. The T5-003 one is CIT-002 first, because that file changed."
+}

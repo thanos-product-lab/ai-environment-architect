@@ -1,0 +1,15 @@
+{
+  "citations": [
+    { "item": "T5-005", "lines": "11-11", "quote": "1000 * 60 * 60" },
+    { "item": "T5-004", "lines": "6-6", "quote": "w = \"=> {} (); ||" },
+    { "item": "T5-001", "lines": "22-22", "quote": "`${config.baseUrl}/users/${id}`" }
+  ],
+  "expect": [
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "accepted", "rule": null },
+    { "outcome": "accepted", "rule": null }
+  ],
+  "finding": { "outcome": "accepted", "rule": null, "droppedCitations": 0 },
+  "section": "IMPL §3.2.2",
+  "note": "CIT-007 rejects quotes made only of whitespace and Unicode P and S. Digits are category N, so '1000 * 60 * 60' (14 code points) passes. A mostly-symbol quote with one letter ('w') passes. A template literal heavy in symbols passes."
+}
