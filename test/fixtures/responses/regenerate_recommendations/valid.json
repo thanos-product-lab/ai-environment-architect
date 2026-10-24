@@ -1,0 +1,35 @@
+{
+  "actions": [
+    { "target": "R-1", "action": "keep", "reason": "The changed decision doesn't affect it." },
+    { "target": "R-2", "action": "drop", "reason": "Its only support was withdrawn." },
+    {
+      "target": "R-3",
+      "action": "revise",
+      "reason": "The corrected decision narrows the rule to scripts.",
+      "revision": {
+        "kind": "policy",
+        "operation": "revise",
+        "target": { "kind": "block", "block": "B-4" },
+        "content": "- Scripts may call fetch directly.",
+        "rationale": "The developer confirmed this exception.",
+        "support": ["D-2"],
+        "references": [],
+        "scope": { "kind": "paths", "paths": ["scripts/"] }
+      }
+    }
+  ],
+  "additions": [
+    {
+      "key": "r1",
+      "kind": "policy",
+      "operation": "add",
+      "target": { "kind": "after", "block": "B-4" },
+      "content": "- Application code uses the shared client.",
+      "rationale": "The developer resolved the conflict this way.",
+      "support": ["D-2"],
+      "references": [],
+      "scope": { "kind": "paths", "paths": ["src/"] }
+    }
+  ],
+  "heldBack": []
+}

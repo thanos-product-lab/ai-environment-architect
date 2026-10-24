@@ -1,0 +1,20 @@
+{
+  "questions": [
+    {
+      "key": "q1",
+      "prompt": "Should new code always use the shared client for HTTP requests?",
+      "reason": "The documentation requires it, but some modules call fetch directly.",
+      "resolves": ["C-1"],
+      "scope": { "kind": "paths", "paths": ["src/lib/"] },
+      "options": [{ "label": "Yes, always use the shared client" }, { "label": "Direct fetch is fine in scripts" }]
+    },
+    {
+      "key": "q2",
+      "prompt": "How should the end-to-end tests be run?",
+      "reason": "No command for them was found.",
+      "resolves": ["F-4"],
+      "scope": { "kind": "repository" },
+      "options": []
+    }
+  ]
+}

@@ -1,8 +1,8 @@
 # Domain Model
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 23 October 2026  
-**Version:** 0.10 — consolidated specification  
+**Date:** 24 October 2026  
+**Version:** 0.11 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,10 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.10
+
+1. **Schema hash (§13.1).** The Model Call records `schemaHash` with `schemaVersion`, as [`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.7 already required.
 
 ### Changes from v0.9
 
@@ -498,7 +502,7 @@ In the first slice, invalidating the whole proposal is acceptable wherever the n
 | `validationEvents` | Every rejection, correction and relabelling, with stable rule IDs; no source content |
 | `aliases` | The call's alias table: each alias and the record, item or block it stands for ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.1) |
 | `requestedModel`, `returnedModel?` | |
-| `promptVersion`, `schemaVersion` | |
+| `promptVersion`, `schemaVersion`, `schemaHash` | `schemaHash` is the SHA-256 of the JSON Schema sent ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.7) |
 | `inputManifest` | Snapshot ID and hashes of included files and excerpts; excluded files listed; no source content |
 | `retainedInputRef?` | Content-addressed reference to the exact request body, when `retainModelInputs` is on ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.12) |
 | `budget` | Limits applied to this call |

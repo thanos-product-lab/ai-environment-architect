@@ -33,7 +33,7 @@ Created by the scaffold commit:
 - `src/core/`: domain logic. No terminal I/O, no network.
 - `src/adapters/claude/`: the only code that calls the Claude API.
 - `src/cli/`: rendering and prompts only.
-- `schemas/<call>.ts` and `prompts/<call>/<version>.md` (IMPL §3.7).
+- `src/schemas/<call>.ts`, with the generated JSON Schema in `src/schemas/json/`, and `prompts/<call>/<version>.md` (IMPL §3.7).
 - `test/fixtures/repos/`: small synthetic repositories. `test/fixtures/destinations/`: `CLAUDE.md` files for block parsing. `test/fixtures/responses/<call>/`: recorded model responses.
 
 ## Commands
@@ -46,11 +46,12 @@ Setup: Node from `.node-version` (for example `nvm install 24.21.0`), and pnpm t
 - `corepack pnpm format`: apply Biome fixes and formatting
 - `corepack pnpm test`: the full Vitest suite
 - `corepack pnpm test:related <file>`: only the tests affected by a file
+- `corepack pnpm schemas:update`: regenerate the committed JSON Schemas in `src/schemas/json/` after a schema change
 - `corepack pnpm build`: compile `src/` to `dist/`
 - `corepack pnpm check`: typecheck, lint, test and build. CI also repeats the tests under another time zone and locale, and runs the `--version` smoke test. CI pins fast-check's seed with `FAST_CHECK_SEED`; set the same value locally to reproduce a failing property test
 - `node dist/cli/main.js --version`: the built CLI, after a build
 
-Hooks in `.claude/settings.json` typecheck and run the related tests after each edit to a `.ts` file in `src/`, `test/` or `schemas/` (the full suite after edits to `tsconfig*.json`, `vitest.config.ts` or `package.json`), and typecheck and run the full suite when Claude stops. They find the pinned Node if it is active or installed by nvm, fnm or mise.
+Hooks in `.claude/settings.json` typecheck and run the related tests after each edit to a `.ts` file in `src/` or `test/` (the full suite after edits to `tsconfig*.json`, `vitest.config.ts` or `package.json`), and typecheck and run the full suite when Claude stops. They find the pinned Node if it is active or installed by nvm, fnm or mise.
 
 ## Working style
 

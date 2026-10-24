@@ -80,7 +80,7 @@ The token check (IMPL §1.10) waits for M6, because it needs the provider's toke
 **Goal:** everything that decides whether model output is accepted, built and tested before any model is called.
 
 - [x] Aliases and the validation pipeline with events. `/implement-spec IMPL 3.5`, and IMPL §3.2.1
-- [ ] Zod schemas for all five calls, with JSON Schema generation (IMPL §3.3, §3.7).
+- [x] Zod schemas for all five calls, with JSON Schema generation (IMPL §3.3, §3.7).
 - [ ] Citations, provenance and the `CIT-R01` correction. `/implement-spec IMPL 3.2.2`
 - [ ] Support checks. `/implement-spec IMPL 3.2.3`
 - [ ] Evidence basis and known facts from manifests. `/implement-spec IMPL 3.2.4`, then `IMPL 3.2.5`
@@ -122,10 +122,10 @@ The token check (IMPL §1.10) waits for M6, because it needs the provider's toke
 
 **Goal:** real model calls, under the controls built in M2–M5.
 
-- [ ] Claude API adapter: structured outputs, usage, cost basis, requested and returned model.
+- [ ] Claude API adapter: structured outputs, usage, cost basis, requested and returned model. The adapter sends the generated JSON Schema (IMPL §3.7) unchanged as `output_config.format`, never through the SDK's schema helpers.
 - [ ] Token check and reduction order. `/implement-spec IMPL 1.10`
 - [ ] Retry and failure policy. `/implement-spec IMPL 3.6`
-- [ ] Prompts, version 1, for all five calls (IMPL §3.7).
+- [ ] Prompts, version 1, for all five calls (IMPL §3.7). The published package includes `prompts/`, and the CLI loads prompts relative to its install location, not the working directory.
 - [ ] Expansion protocol. `/implement-spec IMPL 1.8`
 - [ ] Generation budget enforcement.
 - [ ] Manual live runs on each development repository. Record acceptance, correction and rejection rates by rule, and revise prompts with new versions.
@@ -171,3 +171,4 @@ Maintenance checks for stale paths and commands; scoped rule files; a local web 
 - **14 October 2026:** M2 calibration ran before the "What we read" command existed, through a scratch script that calls the same capture and selection pipeline and sends nothing. It led to the selection changes in IMPL v0.12 and v0.13 and the new default caps. The command step stays open.
 - **20 October 2026:** the command is `<cli> inspect [path]` (IMPL §2.2), a preview of the screen `init` will show.
 - **21 October 2026:** M3 reordered: the pipeline and schemas come first, so each rule is built on parsed output, and evidence basis and known facts are one step. Before it started, IMPL §3 and §1.11 were reconciled with M1 and M2 (IMPL v0.14, DM v0.9).
+- **24 October 2026:** schemas moved to `src/schemas/` (IMPL v0.16). M6 notes that the adapter sends the generated schema unchanged, and that the package ships `prompts/` and loads it relative to its install location.

@@ -1,0 +1,43 @@
+{
+  "findings": [
+    {
+      "key": "f1",
+      "statement": "Tests live next to the code they cover, as `*.test.ts` files.",
+      "mode": "descriptive",
+      "scope": { "kind": "paths", "paths": ["src/"] },
+      "citations": [{ "item": "T5-003", "lines": "1-4", "quote": "import { describe, it } from \"vitest\";" }]
+    },
+    {
+      "key": "f2",
+      "statement": "The contributing guide requires running the linter before each commit.",
+      "mode": "prescriptive",
+      "scope": { "kind": "repository" },
+      "citations": [{ "item": "T2-001", "lines": "12-12", "quote": "Run the linter before every commit." }],
+      "uncertainty": "The guide doesn't say which linter configuration applies to scripts."
+    }
+  ],
+  "gaps": [
+    {
+      "key": "g1",
+      "statement": "No command for running the end-to-end tests could be found.",
+      "gapType": "no_command",
+      "relatedPaths": ["e2e/", "package.json"]
+    }
+  ],
+  "absenceClaims": [{ "key": "a1", "pathGlob": "**/*.stories.tsx", "reason": "The tree shows no story files." }],
+  "conflicts": [
+    { "key": "c1", "description": "The guide and the existing configuration disagree about the linter.", "findings": ["f1", "f2"] }
+  ],
+  "expansionRequests": [
+    {
+      "kind": "read",
+      "entries": [{ "path": "src/lib/client.ts", "lines": "20-39,97-140" }, { "path": "docs/testing.md" }],
+      "reason": "The client's omitted declarations may show the retry convention."
+    },
+    { "kind": "search", "literal": "fetch(", "glob": "src/**/*.ts", "reason": "Where direct requests bypass the client." },
+    { "kind": "search", "literal": "TODO(owner)", "reason": "Ownership notes in comments." }
+  ],
+  "contentNotices": [
+    { "item": "T2-002", "lines": "3-3", "description": "Text addresses an automated assistant directly." }
+  ]
+}

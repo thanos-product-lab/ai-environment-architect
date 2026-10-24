@@ -6,10 +6,10 @@ import { comparePaths } from "../paths.js";
 // Transport (§3.6) comes before this, and persistence (DM §15) after it.
 
 /** Increases with any change to what is accepted, thresholds and word lists included. */
-export const VALIDATOR_VERSION = "validate/0.1.0";
+export const VALIDATOR_VERSION = "validate/0.2.0";
 
 /** The rule IDs this version applies. A test pins this list to `VALIDATOR_VERSION`. */
-export const RULE_IDS = ["SCHEMA", "ALIAS-001", "ALIAS-002", "ALIAS-003"] as const;
+export const RULE_IDS = ["SCHEMA", "ALIAS-001", "ALIAS-002", "ALIAS-003", "LIMIT-001"] as const;
 
 export type ValidationStage = "schema" | "item" | "cross_item";
 export type ValidationOutcome = "rejected" | "corrected" | "relabelled";

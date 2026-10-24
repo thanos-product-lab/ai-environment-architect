@@ -1,0 +1,21 @@
+{
+  "findings": [
+    {
+      "key": "f1",
+      "statement": "Some modules in src/lib call fetch directly instead of the shared client.",
+      "mode": "descriptive",
+      "scope": { "kind": "paths", "paths": ["src/lib/"] },
+      "citations": [{ "item": "E-1", "lines": "14-16", "quote": "const res = await fetch(url);" }]
+    }
+  ],
+  "gaps": [],
+  "absenceClaims": [],
+  "conflicts": [
+    { "key": "c1", "description": "Documentation requires the client; some modules bypass it.", "findings": ["F-2", "f1"] }
+  ],
+  "revisions": [
+    { "target": "F-1", "action": "withdraw", "reason": "The expansion shows the pattern is not general." },
+    { "target": "F-3", "action": "replace", "replacement": "f1", "reason": "Narrower wording matches the evidence." }
+  ],
+  "contentNotices": []
+}

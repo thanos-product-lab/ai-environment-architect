@@ -1,0 +1,294 @@
+{
+  "type": "object",
+  "properties": {
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^f[1-9][0-9]{0,3}$"
+          },
+          "statement": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "descriptive",
+              "prescriptive"
+            ]
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "repository"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "paths"
+                  },
+                  "paths": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "kind",
+                  "paths"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "citations": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "item": {
+                  "type": "string"
+                },
+                "lines": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*-[1-9][0-9]*$"
+                },
+                "quote": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "item",
+                "lines",
+                "quote"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "uncertainty": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "statement",
+          "mode",
+          "scope",
+          "citations"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^g[1-9][0-9]{0,3}$"
+          },
+          "statement": {
+            "type": "string"
+          },
+          "gapType": {
+            "type": "string",
+            "enum": [
+              "no_command",
+              "no_documentation",
+              "undetermined_ownership",
+              "undetermined_convention",
+              "other"
+            ]
+          },
+          "relatedPaths": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "key",
+          "statement",
+          "gapType",
+          "relatedPaths"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "absenceClaims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^a[1-9][0-9]{0,3}$"
+          },
+          "pathGlob": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "pathGlob",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^c[1-9][0-9]{0,3}$"
+          },
+          "description": {
+            "type": "string"
+          },
+          "findings": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "key",
+          "description",
+          "findings"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "expansionRequests": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "read"
+              },
+              "entries": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "lines": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]*-[1-9][0-9]*(,[1-9][0-9]*-[1-9][0-9]*)*$"
+                    }
+                  },
+                  "required": [
+                    "path"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "entries",
+              "reason"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "search"
+              },
+              "literal": {
+                "type": "string"
+              },
+              "glob": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "literal",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "contentNotices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*-[1-9][0-9]*$"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "item",
+          "lines",
+          "description"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "findings",
+    "gaps",
+    "absenceClaims",
+    "conflicts",
+    "expansionRequests",
+    "contentNotices"
+  ],
+  "additionalProperties": false
+}

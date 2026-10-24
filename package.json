@@ -20,6 +20,7 @@
     "format": "biome check --write .",
     "test": "vitest run",
     "test:related": "vitest related --run --passWithNoTests",
+    "schemas:update": "vitest run src/schemas/schemas.test.ts --update",
     "build": "tsc -p tsconfig.build.json",
     "check": "tsc --noEmit && biome ci . && vitest run && tsc -p tsconfig.build.json"
   },

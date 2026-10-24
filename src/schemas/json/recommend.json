@@ -1,0 +1,231 @@
+{
+  "type": "object",
+  "properties": {
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^r[1-9][0-9]{0,3}$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "fact",
+              "policy"
+            ]
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "add",
+              "revise",
+              "remove"
+            ]
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "block"
+                  },
+                  "block": {
+                    "type": "string",
+                    "pattern": "^B-[1-9][0-9]*$"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "block"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "after"
+                  },
+                  "block": {
+                    "type": "string",
+                    "pattern": "^B-[1-9][0-9]*$"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "block"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "section"
+                  },
+                  "heading": {
+                    "type": "string",
+                    "pattern": "^B-[1-9][0-9]*$"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "heading"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "newSection"
+                  },
+                  "heading": {
+                    "type": "string"
+                  },
+                  "after": {
+                    "type": "string",
+                    "pattern": "^B-[1-9][0-9]*$"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "heading"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "content": {
+            "type": "string"
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "support": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "references": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "path",
+                    "command"
+                  ]
+                },
+                "value": {
+                  "type": "string"
+                },
+                "support": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "value",
+                "support"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "repository"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "paths"
+                  },
+                  "paths": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "kind",
+                  "paths"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "key",
+          "kind",
+          "operation",
+          "target",
+          "rationale",
+          "support",
+          "references",
+          "scope"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "heldBack": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "topic": {
+            "type": "string"
+          },
+          "blockedBy": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "topic",
+          "blockedBy"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "noChangeReason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "recommendations",
+    "heldBack"
+  ],
+  "additionalProperties": false
+}

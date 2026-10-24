@@ -1,0 +1,59 @@
+{
+  "recommendations": [
+    {
+      "key": "r1",
+      "kind": "fact",
+      "operation": "add",
+      "target": { "kind": "newSection", "heading": "Testing", "after": "B-3" },
+      "content": "- Tests are `*.test.ts` files next to the code they cover.",
+      "rationale": "Observed in the inspected source files.",
+      "support": ["F-1"],
+      "references": [],
+      "scope": { "kind": "repository" }
+    },
+    {
+      "key": "r2",
+      "kind": "policy",
+      "operation": "revise",
+      "target": { "kind": "block", "block": "B-5" },
+      "content": "- Run `pnpm lint` before every commit.",
+      "rationale": "The contributing guide requires it, and the developer confirmed it.",
+      "support": ["F-2", "D-1"],
+      "references": [{ "kind": "command", "value": "pnpm lint", "support": "F-2" }],
+      "scope": { "kind": "repository" }
+    },
+    {
+      "key": "r3",
+      "kind": "fact",
+      "operation": "add",
+      "target": { "kind": "after", "block": "B-2" },
+      "content": "Source lives under `src/`.",
+      "rationale": "Shown by the directory tree.",
+      "support": ["F-3"],
+      "references": [{ "kind": "path", "value": "src/", "support": "F-3" }],
+      "scope": { "kind": "paths", "paths": ["src/"] }
+    },
+    {
+      "key": "r4",
+      "kind": "fact",
+      "operation": "remove",
+      "target": { "kind": "block", "block": "B-7" },
+      "rationale": "The script this line describes no longer exists.",
+      "support": ["F-5"],
+      "references": [],
+      "scope": { "kind": "repository" }
+    },
+    {
+      "key": "r5",
+      "kind": "fact",
+      "operation": "add",
+      "target": { "kind": "section", "heading": "B-1" },
+      "content": "The workspace has two packages.",
+      "rationale": "Declared in the workspace manifest.",
+      "support": ["F-6"],
+      "references": [],
+      "scope": { "kind": "repository" }
+    }
+  ],
+  "heldBack": [{ "topic": "Which HTTP client new code should use", "blockedBy": ["Q-1", "C-1"] }]
+}
