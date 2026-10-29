@@ -85,7 +85,7 @@ The token check (IMPL §1.10) waits for M6, because it needs the provider's toke
 - [ ] Support checks. `/implement-spec IMPL 3.2.3`
 - [ ] Evidence basis and known facts from manifests. `/implement-spec IMPL 3.2.4`, then `IMPL 3.2.5`
 - [ ] Coverage-aware gap and absence checks. `/implement-spec IMPL 1.11`
-- [ ] Item validation for `analyse`, `analyse_expansion` and `generate_questions`, including question ranking and the corrected-citation rate (IMPL §3.3.2–§3.3.4, §3.2.2). Decide whether the rate counts kept corrected citations or `CIT-R01` events: a corrected citation later merged as a duplicate (`CIT-009`) still marks its finding as corrected.
+- [ ] Item validation for `analyse`, `analyse_expansion` and `generate_questions`, including question ranking and the corrected-citation rate (IMPL §3.3.2–§3.3.4, §3.2.2).
 - [ ] Adversarial fixtures for every rule, from the `fixture-adversary` agent.
 
 **Done when:** every rule has a rejecting fixture and an accepted near miss, and the property tests in IMPL §3.8 pass.
@@ -129,6 +129,7 @@ The token check (IMPL §1.10) waits for M6, because it needs the provider's toke
 - [ ] Expansion protocol. `/implement-spec IMPL 1.8`
 - [ ] Generation budget enforcement.
 - [ ] Manual live runs on each development repository. Record acceptance, correction and rejection rates by rule, and revise prompts with new versions.
+- [ ] Calibrate everything marked provisional in IMPL §3.9 against real responses from the development repositories.
 
 **Done when:** a full session runs end to end on each development repository through the core API, and the live runs' rejection rates are recorded.
 

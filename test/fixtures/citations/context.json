@@ -188,6 +188,71 @@
         "1": "// Configuration is read once at startup.",
         "14": ""
       }
+    },
+    {
+      "id": "T5-006",
+      "path": "src/handlers/table.ts",
+      "snapshotHash": "sha256:6b0d2f84a1c97e35d0b8f61a4c2e93d57a0f18c6e4b29d73a5c08e1f96b4d2a7",
+      "currentHash": "sha256:6b0d2f84a1c97e35d0b8f61a4c2e93d57a0f18c6e4b29d73a5c08e1f96b4d2a7",
+      "totalLines": 50,
+      "sent": [
+        {
+          "first": 1,
+          "lines": [
+            "// generated route table, do not edit",
+            "",
+            "",
+            "",
+            "export const first = 'block start';",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "export const last40 = 'end at 44';",
+            "export const last41 = 'end at 45';",
+            "",
+            "",
+            "",
+            "",
+            "// end of route table"
+          ]
+        }
+      ],
+      "unsent": {}
     }
   ]
 }

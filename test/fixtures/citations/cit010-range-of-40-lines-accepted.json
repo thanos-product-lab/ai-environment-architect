@@ -1,0 +1,32 @@
+{
+  "citations": [
+    {
+      "item": "T5-006",
+      "lines": "1-40",
+      "quote": "// generated route table"
+    },
+    {
+      "item": "T5-006",
+      "lines": "1-1",
+      "quote": "'block start';\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nexport const last40 "
+    }
+  ],
+  "expect": [
+    {
+      "outcome": "accepted",
+      "rule": null
+    },
+    {
+      "outcome": "corrected",
+      "rule": "CIT-R01",
+      "correctedLines": "5-44"
+    }
+  ],
+  "finding": {
+    "outcome": "accepted",
+    "rule": null,
+    "droppedCitations": 0
+  },
+  "section": "IMPL §3.2.2 step 8",
+  "note": "Near misses for CIT-010 (provisional limit of 40 lines). A cited range of exactly 40 lines containing the quote is accepted. A quote spanning lines 5 to 44, cited at 1-1, is corrected onto exactly 40 lines and accepted. The excerpt is the whole range, never truncated."
+}

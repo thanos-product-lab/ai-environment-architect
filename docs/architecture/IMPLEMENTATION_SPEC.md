@@ -1,9 +1,14 @@
 # Implementation Specification
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 24 October 2026  
-**Version:** 0.18  
+**Date:** 29 October 2026  
+**Version:** 0.19  
 **Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
+
+### Changes from v0.18
+
+- **Corrected-citation rate (§3.2.2).** Defined as `CIT-R01` events divided by citations proposed, per call, regardless of later merges or of the finding being rejected. Merged duplicates are the `CIT-009` entry of the rejections by rule. The rate is unknown, with a reason, when the response failed the schema or proposed no citations.
+- **Provisional values (§3.9).** §3.9 is the single list of everything marked provisional, to calibrate against real responses in M6.
 
 ### Changes from v0.17
 
@@ -1218,7 +1223,7 @@ type Citation = {
 
 A rejected citation drops only itself (§3.5). A finding whose citations are all rejected is rejected with `CIT-008`, after the events of its citations.
 
-The rate of corrected citations is recorded per call, with the `analyse` and `analyse_expansion` item validation (§3.3.2–§3.3.3). A rising rate is a signal to investigate the prompt or the rendering format.
+The corrected-citation rate is recorded per call, with the `analyse` and `analyse_expansion` item validation (§3.3.2–§3.3.3): the number of `CIT-R01` events divided by the number of citations proposed in the call, across all its findings. A corrected citation counts even if it is later merged as a duplicate or its finding is rejected; a citation whose correction would exceed 40 lines is a `CIT-010` rejection, not a correction. Merged duplicates are counted separately, as the `CIT-009` entry of the call's rejections by rule (§3.5). The rate is not the §3.5 `corrected` count, which counts accepted findings, not citations. Unknown is never zero: if the response failed the schema the rate is unknown with the reason `schema_failed`, and if no citations were proposed it is unknown with the reason `no_citations`. A rising rate is a signal to investigate the prompt or the rendering format.
 
 #### 3.2.3 Support checks
 
@@ -1657,10 +1662,16 @@ A change to any prompt, schema, validator or detector requires the fixture suite
 
 ### 3.9 Open points for this section
 
+**Provisional values.** This is the single list of values marked provisional anywhere in this specification or the domain model. Each is calibrated against real responses from the development repositories (M6).
+
+- Leaving `Cf`, `Mn` and `Me` characters out of `CIT-007`'s length and punctuation tests (§3.2.2).
+- `CIT-010`'s limit of 40 lines for a cited range (§3.2.2, DM §6.2).
+
+**Other open points.**
+
 - Calibrating the directive-language and imperative-verb lists on development repositories, and measuring how often `REC-007` misses.
 - How to detect absence asserted in free text, without an `absenceClaim` (§1.11). No deterministic check is defined yet.
 - How to detect a claim about the omitted parts of an excerpted file when it cites only sent lines (§1.11). The citation rules catch citations of omitted lines, not claims about them.
 - Minimum quote length: 12 characters may allow unhelpfully generic quotes in code.
-- Provisional citation rules (§3.2.2), to calibrate on development repositories: leaving `Cf`, `Mn` and `Me` characters out of `CIT-007`, and `CIT-010`'s limit of 40 lines.
 - Output limits per call (finding, question and recommendation counts).
 - Whether a model-based support check is worth adding after the first slice. Adopt only if evaluation shows it reduces unsupported findings without excessive false rejections.
