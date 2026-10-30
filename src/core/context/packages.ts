@@ -1,3 +1,4 @@
+import { matchSegments } from "../glob.js";
 import { comparePaths } from "../paths.js";
 
 // Workspace members and package membership (IMPL §1.5, tier 5).
@@ -123,8 +124,8 @@ export function matchWorkspaceMembers(
     .filter((directory) => {
       const path = directory === "" ? [] : directory.split("/");
       return (
-        include.some((pattern) => matches(pattern, path)) &&
-        !exclude.some((pattern) => matches(pattern, path))
+        include.some((pattern) => matchSegments(pattern, path)) &&
+        !exclude.some((pattern) => matchSegments(pattern, path))
       );
     })
     .sort(comparePaths);
@@ -135,34 +136,6 @@ function segmentsOf(pattern: string): string[] {
     .replace(/^\.\//, "")
     .split("/")
     .filter((segment) => segment !== "" && segment !== ".");
-}
-
-function matches(pattern: readonly string[], path: readonly string[]): boolean {
-  const [head, ...rest] = pattern;
-  if (head === undefined) return path.length === 0;
-  if (head === "**") {
-    for (let skip = 0; skip <= path.length; skip++) {
-      if (matches(rest, path.slice(skip))) return true;
-    }
-    return false;
-  }
-  const [segment, ...remaining] = path;
-  return segment !== undefined && segmentMatches(head, segment) && matches(rest, remaining);
-}
-
-function segmentMatches(pattern: string, segment: string): boolean {
-  const parts = pattern.split("*");
-  if (parts.length === 1) return pattern === segment;
-  const first = parts[0] ?? "";
-  const last = parts[parts.length - 1] ?? "";
-  if (!segment.startsWith(first) || segment.length < first.length + last.length) return false;
-  let position = first.length;
-  for (const part of parts.slice(1, -1)) {
-    const found = segment.indexOf(part, position);
-    if (found === -1 || found + part.length > segment.length - last.length) return false;
-    position = found + part.length;
-  }
-  return segment.endsWith(last);
 }
 
 /** The deepest package containing `path`, or the root package "". */
