@@ -67,6 +67,7 @@ function outcome(fixtureCase: Case): Expect {
       ? { outcome: "accepted", rule: null }
       : { outcome: "rejected", rule: "SUP-005" };
   const evidence: Evidence[] = fixtureCase.finding.evidence.map((e) => ({
+    kind: "lines",
     ...e,
     fileHash: "sha256:1111",
     lineStart: 1,

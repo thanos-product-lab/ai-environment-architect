@@ -1,0 +1,29 @@
+{
+  "facts": [
+    {
+      "statement": "`Makefile` defines the target `build`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "Makefile", "lineStart": 1, "lineEnd": 1 }]
+    },
+    {
+      "statement": "`package.json` defines the script `build`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "package.json", "lineStart": 3, "lineEnd": 3 }]
+    },
+    {
+      "statement": "`package.json` defines the script `pay`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "package.json", "lineStart": 6, "lineEnd": 6 }]
+    }
+  ],
+  "gaps": [
+    {
+      "statement": "A known fact from `Makefile` was withheld because it matched the secret scan.",
+      "relatedPaths": ["Makefile"]
+    },
+    {
+      "statement": "A known fact from `package.json` was withheld because it matched the secret scan.",
+      "relatedPaths": ["package.json"]
+    }
+  ]
+}

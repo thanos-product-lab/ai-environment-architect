@@ -1,0 +1,3 @@
+tasks:
+  lint:
+    cmds: [echo lint]

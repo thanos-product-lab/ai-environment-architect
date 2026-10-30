@@ -1,0 +1,2 @@
+ghost:
+	@echo ghost

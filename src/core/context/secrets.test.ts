@@ -384,6 +384,8 @@ describe("applySecretScan", () => {
     const selection = {
       state: "selected" as const,
       membership: { packages: [], imports: [], sourceExtensions: [] },
+      importers: [],
+      declaredMembers: [],
       items: [],
       skipped: [],
       tiers: [],
@@ -413,6 +415,8 @@ describe("applySecretScan", () => {
     const selection = {
       state: "selected" as const,
       membership: { packages: [], imports: [], sourceExtensions: [] },
+      importers: [],
+      declaredMembers: [],
       items: [],
       skipped: [],
       tiers: [],

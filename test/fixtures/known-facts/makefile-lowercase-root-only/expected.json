@@ -1,0 +1,15 @@
+{
+  "facts": [
+    {
+      "statement": "`makefile` defines the target `help`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "makefile", "lineStart": 1, "lineEnd": 1 }]
+    },
+    {
+      "statement": "`makefile` defines the target `run`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "makefile", "lineStart": 3, "lineEnd": 3 }]
+    }
+  ],
+  "gaps": []
+}

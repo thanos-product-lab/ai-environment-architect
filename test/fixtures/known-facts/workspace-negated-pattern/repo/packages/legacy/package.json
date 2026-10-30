@@ -1,0 +1,6 @@
+{
+  "name": "legacy",
+  "scripts": {
+    "old": "echo old"
+  }
+}

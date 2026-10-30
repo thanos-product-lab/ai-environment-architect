@@ -1,0 +1,18 @@
+﻿{
+  "name": "dup",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "watch": "tsc -w",
+    "build": "tsc -b",
+    "watch": false,
+    "count": 3,
+    "nested": { "a": "b" },
+    "nil": null,
+    "list": ["a"],
+    "lint":
+      "biome check",
+    "empty": ""
+  },
+  "config": { "scripts": { "ghost": "x" } }
+}

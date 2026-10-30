@@ -2,8 +2,14 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 30 October 2026  
-**Version:** 0.22  
+**Version:** 0.23  
 **Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
+
+### Changes from v0.22
+
+- **Test fixtures (§3.8).** Verification items for evidence basis and known facts.
+- **Open points (§3.9).** U+2028 and U+2029 in command names, the justfile `private` word test, and justfile multi-line strings.
+- **Known facts (§3.2.5).** Defined in full: which manifests and entries give facts, how commands are read from each format, the code-generated wording, scope, order, import resolution order and evidence. Existence facts carry `entry` evidence ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.2). Package-level manifests are read only in declared workspace members. A manifest that can't be read or parsed, and a fact that matches the secret scan, each give a deterministic gap.
 
 ### Changes from v0.21
 
@@ -1291,13 +1297,37 @@ Consequence: a code comment such as "always use X" is a `code_observation`. It c
 
 #### 3.2.5 Known facts
 
-Before call 1, code extracts facts it can determine without a model, and records them as findings with `producedBy: deterministic` and code-generated wording:
+Before call 1, code extracts facts it can determine without a model, and records them as `claim` findings with `mode: descriptive`, `producedBy: deterministic`, code-generated wording, and evidence that code creates from content verified against the snapshot hash ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.2). Each evidence's basis follows §3.2.4. If a file's content no longer matches its hash, the snapshot is unstable, as in selection (§1.3).
 
-- commands from manifests: `package.json` scripts, Makefile targets, justfile recipes, Taskfile tasks, `pyproject.toml` script entries;
-- existing agent configuration files and their paths, including files imported with `@path` (§1.5);
-- workspace packages.
+| Fact | From | Statement | Scope | Evidence |
+|---|---|---|---|---|
+| Agent configuration | Each `read` or `listed_only` entry that tier 1's patterns match (§1.5), the destination included | `` `X` is existing agent configuration. `` | repository | `entry` for `X` |
+| Imported agent configuration | Each entry that belongs to tier 1 only through an import (§3.2.4) | `` `X` is imported by `Y`. ``, where `Y` is the first file found importing it in resolution order (§1.5) | repository | `entry` for `X` |
+| Workspace package | Each declared workspace member (§1.5, packages, step 1); inferred packages are not facts | `` `P` is a workspace package declared in `S`. ``, where `S` is the first of the root `package.json`, `lerna.json` and `pnpm-workspace.yaml` whose own patterns, without `!`, match `P` | `P` | `entry` for `S` and for `P/package.json` |
+| Command | The manifests below | `` `F` defines the script `N`. ``, or *target*, *recipe* or *task* | The declared member that contains `F`, or repository | `lines`: the lines that define `N` |
 
-They are sent to the model under a **known facts** heading, with aliases. The model must not restate them as new findings; restatements are dropped as duplicates (`DUP-002`). Commands from these facts always have the status `found_not_run`.
+**Commands** are read from `read` entries:
+
+- **`package.json`**, at the root and directly inside each declared member: each member of the top-level `scripts` object whose value is a string (*script*). A key that appears twice counts once, at its last occurrence, which is the one `JSON.parse` keeps. A leading byte order mark is ignored. The evidence runs from the key's line to the line where its value ends.
+- **`pyproject.toml`**, at the root and directly inside each declared member: each key in the tables `[project.scripts]` and `[tool.poetry.scripts]` (*script*), written `key = …` on a line of its own, bare (ASCII letters, digits, `_` and `-`) or quoted without escapes, with optional indentation and spaces around `=`. A table header may have spaces just inside its brackets and a trailing comment, and the table ends at the next line starting with `[`, a subtable such as `[project.scripts.more]` included. Inline tables and dotted keys are not read.
+- **Makefile**: a root file named `makefile`, ASCII letters compared case-insensitively (*target*). A target line starts with a character other than a tab, a space or `#`, is outside `define` … `endef` (a `define` line may be indented and prefixed with `override`, `export` or `private`), doesn't start with a directive (`include`, `-include`, `sinclude`, `vpath`, `export`, `unexport`, `override`, `private`, `define`, `undefine`, `ifeq`, `ifneq`, `ifdef`, `ifndef`, `else`, `endif`) followed by whitespace or the end of the line, and has a `:` with no `=` before it and no `=`, `:=` or `::=` straight after it, which would make it an assignment. Each whitespace-separated word before the `:` is a target, except special targets starting with `.`, pattern rules holding `%`, names holding `$`, and the grouped-target marker `&`. A line continued with `\` is read from its first line only.
+- **`justfile`**: a root file named `justfile`, compared the same way (*recipe*). Lines starting with `mod` or `import`, with an optional `?`, followed by a space or tab, are not recipes. A recipe line starts with an optional `@` and a name of ASCII letters, digits, `_` and `-` that starts with a letter or `_`, then optional parameters after whitespace, then the first `:` after the name, which must not be followed by `=`. A recipe whose name starts with `_` is left out, and so is one directly after a run of attribute lines (lines starting with `[`) one of which holds `private` with no ASCII letter, digit, `_` or `-` next to it. Any other line, blank or comment included, ends the run.
+- **Taskfile**: a root file named `taskfile.yml` or `taskfile.yaml`, compared the same way (*task*). After a line `tasks:` at the start of a line, with optional trailing spaces and comment, the tasks are the keys at the indentation of the first following line that isn't blank or a comment, written `name:` and followed by the end of the line, a space or a tab: plain, holding no `:` or `#` and not ending with whitespace, or quoted without escapes. The merge key `<<` is not a task, and deeper lines are not keys. The mapping ends at the next such line with no indentation.
+
+A name or path that is empty, starts or ends with whitespace, or holds a backtick or a control character (Unicode `Cc`) can't be written as one inline code span, so it gives no fact: no command with that name, and no fact naming that entry or importer. Each name gives one fact per file, at its first defining line except in `package.json`. Outside `package.json`, the evidence is that one line: no recipe body, and only the first line of a continued line. Commands always have the status `found_not_run`.
+
+**Gaps.** Deterministic `gap` findings, `gapType: other`:
+
+- a manifest above that is `listed_only`, isn't valid UTF-8, or, for `package.json`, isn't valid JSON: `` `F` could not be read or parsed, so its commands are not known facts. ``;
+- each fact's statement and excerpt pass the secret scan (§1.7). A fact that matches isn't created, and one gap per file says `` A known fact from `F` was withheld because it matched the secret scan. ``
+
+An entry whose path the secret scan withholds gives no fact and no gap.
+
+**Order.** Facts with repository scope come first, then the others by scope path. Within a scope: agent configuration, imported or not, by path depth then path order; then workspace packages; then commands, by file path, then by first evidence line, then in order along the line, as in `build test:`. Gaps follow the file path order.
+
+*Resolution order*, for "the first file found importing it": imports are followed breadth-first, from the destination and then the other tier 1 files in path order, each file's imports in the order they appear (§1.5).
+
+They are sent to the model under a **known facts** heading, with aliases. The model must not restate them as new findings; restatements are dropped as duplicates (`DUP-002`).
 
 #### 3.2.6 Rendering validated records
 
@@ -1686,6 +1716,17 @@ A change to any prompt, schema, validator or detector requires the fixture suite
   - a regeneration response that omits an affected recommendation;
   - instructions embedded in repository content.
 
+**Evidence basis and known facts** (§3.2.4–§3.2.5), with no model involved:
+
+- each tier gives its basis, for files that are and aren't candidates, including `listed_only` files and imports that only count for basis;
+- the tier used for basis agrees with selection for every file selection tried, under two enumeration orders;
+- each fact type has its wording, scope, evidence kind and place in the order, and commands have the status `found_not_run`;
+- each manifest format's reader, with an adversarial fixture per rule and accepted near misses;
+- a manifest that can't be read or parsed gives its gap, and a fact matching the secret scan gives the withheld gap;
+- the first importer follows resolution order;
+- a manifest or workspace definition changed after capture makes the snapshot unstable;
+- facts and gaps don't depend on enumeration order.
+
 **Property tests:**
 
 - No citation is ever accepted whose quote is absent from the content sent in that call.
@@ -1714,5 +1755,8 @@ A change to any prompt, schema, validator or detector requires the fixture suite
 - `SUP-002` misses counts outside its lists, such as *once*, *twice*, *a couple* and ordinals.
 - `SUP-001` matches a token in an excerpt as a substring, so `./format.ts` is anchored by an excerpt holding `../format.ts`, which names another file. A path-aware excerpt match would be stricter.
 - In recommendation content, `` `./scripts/build.sh` `` is both path-like and command-like (§3.4). Which class wins is settled when the detector is built.
+- A command name holding a line or paragraph separator (U+2028, U+2029) gives a statement that spans lines, because only `Cc` is refused (§3.2.5). Calibrate with the rendering of known facts.
+- The justfile reader is line-based, so a column-0 `name:` inside a multi-line string (`'''`, `"""`) reads as a recipe (§3.2.5).
+- The justfile `private` test matches the word anywhere in an attribute line, so `[doc('private builds')]` hides a public recipe (§3.2.5).
 - Documentation outside the tier 2 locations, such as `documentation/` or `wiki/`, is `code_observation` (§3.2.4). This is conservative: it can't support a `prescriptive` finding. Watch how often it happens in the M6 live runs.
 - Whether a model-based support check is worth adding after the first slice. Adopt only if evaluation shows it reduces unsupported findings without excessive false rejections.

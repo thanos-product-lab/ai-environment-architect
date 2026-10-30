@@ -1,0 +1,29 @@
+default: build
+
+_helper:
+    echo helper
+
+@_quiet:
+    echo quiet
+
+[private]
+hidden:
+    echo hidden
+
+[no-cd, private]
+internal:
+    echo internal
+
+[group('ci')]
+[private]
+ci-only:
+    echo ci
+
+[confirm]
+[linux]
+deploy:
+    ./deploy
+
+[group('build')]
+build:
+    cargo build

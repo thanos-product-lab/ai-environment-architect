@@ -59,12 +59,21 @@ export interface CitationContext {
 
 /** Evidence as code creates it (DM §6.2). ID and snapshot ID are assigned when it is persisted. */
 export interface Evidence {
+  readonly kind: "lines";
   readonly path: string;
   readonly fileHash: Hash;
   readonly lineStart: number;
   readonly lineEnd: number;
   /** The file's text for the final range, lines joined with `\n`. */
   readonly excerpt: string;
+  readonly basis: Basis;
+}
+
+/** Evidence that a file exists in the snapshot, with no lines (DM §6.2). Only code creates it. */
+export interface EntryEvidence {
+  readonly kind: "entry";
+  readonly path: string;
+  readonly fileHash: Hash;
   readonly basis: Basis;
 }
 
@@ -190,6 +199,7 @@ function lineText(run: SentRun, start: number, end: number): string {
 
 function evidence(item: CitableItem, run: SentRun, start: number, end: number): Evidence {
   return {
+    kind: "lines",
     path: item.path,
     fileHash: item.snapshotHash,
     lineStart: start,

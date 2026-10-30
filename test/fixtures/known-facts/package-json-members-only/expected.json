@@ -1,0 +1,36 @@
+{
+  "facts": [
+    {
+      "statement": "`package.json` defines the script `dev`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "package.json", "lineStart": 5, "lineEnd": 5 }]
+    },
+    {
+      "statement": "`apps/api` is a workspace package declared in `package.json`.",
+      "scope": "apps/api",
+      "evidence": [
+        { "kind": "entry", "path": "package.json" },
+        { "kind": "entry", "path": "apps/api/package.json" }
+      ]
+    },
+    {
+      "statement": "`apps/web` is a workspace package declared in `package.json`.",
+      "scope": "apps/web",
+      "evidence": [
+        { "kind": "entry", "path": "package.json" },
+        { "kind": "entry", "path": "apps/web/package.json" }
+      ]
+    },
+    {
+      "statement": "`apps/web/package.json` defines the script `start`.",
+      "scope": "apps/web",
+      "evidence": [{ "kind": "lines", "path": "apps/web/package.json", "lineStart": 4, "lineEnd": 4 }]
+    }
+  ],
+  "gaps": [
+    {
+      "statement": "`apps/api/package.json` could not be read or parsed, so its commands are not known facts.",
+      "relatedPaths": ["apps/api/package.json"]
+    }
+  ]
+}

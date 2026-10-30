@@ -1,0 +1,6 @@
+{
+  "name": "web-sub",
+  "scripts": {
+    "inner": "echo inner"
+  }
+}

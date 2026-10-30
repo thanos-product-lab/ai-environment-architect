@@ -1,0 +1,26 @@
+version: '3'
+
+vars:
+  GREETING: hello
+
+tasks:   # all tasks
+  # build the app
+
+  build:
+    cmds:
+      - go build ./...
+  "lint":
+    desc: "lint: run linters"
+  'test':
+    deps: [build]
+  run: # run it
+    cmds:
+      - go run .
+  fmt: {cmds: [gofmt -w .]}
+   odd:
+  build-docs:x
+  build:
+    cmds: [echo again]
+
+includes:
+  docs: ./docs/Taskfile.yml

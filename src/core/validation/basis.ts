@@ -1,5 +1,5 @@
 import { type TierMembership, tierOf } from "../context/tiers.js";
-import type { Basis, Evidence } from "./citations.js";
+import type { Basis, EntryEvidence, Evidence } from "./citations.js";
 import { accept, type ItemCheck } from "./pipeline.js";
 
 // Evidence basis (IMPL §3.2.4). Code derives it from the tier the cited file belongs to, whether
@@ -26,7 +26,7 @@ export function basisOf(path: string, membership: TierMembership): Basis {
 }
 
 /** A finding's basis: the set of its citations' bases, once each, in a fixed order. */
-export function findingBasis(evidence: readonly Evidence[]): Basis[] {
+export function findingBasis(evidence: readonly (Evidence | EntryEvidence)[]): Basis[] {
   const found = new Set(evidence.map((e) => e.basis));
   return BASES.filter((basis) => found.has(basis));
 }

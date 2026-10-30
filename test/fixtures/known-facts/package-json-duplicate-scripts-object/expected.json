@@ -1,0 +1,10 @@
+{
+  "facts": [
+    {
+      "statement": "`package.json` defines the script `new`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "package.json", "lineStart": 7, "lineEnd": 7 }]
+    }
+  ],
+  "gaps": []
+}

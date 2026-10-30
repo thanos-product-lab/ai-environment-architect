@@ -115,6 +115,7 @@ describe("basisOf", () => {
 
 describe("findingBasis", () => {
   const evidence = (b: Basis): Evidence => ({
+    kind: "lines",
     path: "a",
     fileHash: sha256(new Uint8Array()),
     lineStart: 1,
@@ -233,6 +234,7 @@ describe("basis from a selection", () => {
       "docs/http.md": "# HTTP\n\nYou must use the shared client.\n",
     });
     const cite = (path: string, excerpt: string): Evidence => ({
+      kind: "lines",
       path,
       fileHash: sha256(new Uint8Array()),
       lineStart: 1,

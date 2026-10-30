@@ -1,0 +1,20 @@
+{
+  "facts": [
+    {
+      "statement": "`Makefile` defines the target `all`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "Makefile", "lineStart": 3, "lineEnd": 3 }]
+    },
+    {
+      "statement": "`Makefile` defines the target `docs`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "Makefile", "lineStart": 8, "lineEnd": 8 }]
+    },
+    {
+      "statement": "`Makefile` defines the target `clean`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "Makefile", "lineStart": 9, "lineEnd": 9 }]
+    }
+  ],
+  "gaps": []
+}

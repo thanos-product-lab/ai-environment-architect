@@ -1,0 +1,21 @@
+[project]
+name = "demo"
+urls.home = "https://example.invalid"
+
+[ project.scripts ]  # entry points
+demo = "demo.cli:main"
+"demo-admin" = "demo.admin:main"
+'raw_tool' = "demo.raw:main"
+"esc\"aped" = "demo.esc:main"
+inline.key = "demo.x:main"
+# commented = "demo.c:main"
+
+[project.scripts.more]
+hidden = "demo.h:main"
+
+[tool.poetry.scripts]
+serve = "demo.server:run"
+demo = "demo.other:main"
+
+[project.optional-dependencies]
+dev = ["pytest"]

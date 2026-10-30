@@ -1,0 +1,15 @@
+{
+  "facts": [
+    {
+      "statement": "`Makefile` defines the target `build`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "Makefile", "lineStart": 1, "lineEnd": 1 }]
+    }
+  ],
+  "gaps": [
+    {
+      "statement": "`package.json` could not be read or parsed, so its commands are not known facts.",
+      "relatedPaths": ["package.json"]
+    }
+  ]
+}

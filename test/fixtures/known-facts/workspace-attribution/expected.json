@@ -1,0 +1,42 @@
+{
+  "facts": [
+    {
+      "statement": "`libs/core` is a workspace package declared in `lerna.json`.",
+      "scope": "libs/core",
+      "evidence": [
+        { "kind": "entry", "path": "lerna.json" },
+        { "kind": "entry", "path": "libs/core/package.json" }
+      ]
+    },
+    {
+      "statement": "`packages/a` is a workspace package declared in `package.json`.",
+      "scope": "packages/a",
+      "evidence": [
+        { "kind": "entry", "path": "package.json" },
+        { "kind": "entry", "path": "packages/a/package.json" }
+      ]
+    },
+    {
+      "statement": "`packages/a/package.json` defines the script `build`.",
+      "scope": "packages/a",
+      "evidence": [{ "kind": "lines", "path": "packages/a/package.json", "lineStart": 4, "lineEnd": 4 }]
+    },
+    {
+      "statement": "`packages/b` is a workspace package declared in `package.json`.",
+      "scope": "packages/b",
+      "evidence": [
+        { "kind": "entry", "path": "package.json" },
+        { "kind": "entry", "path": "packages/b/package.json" }
+      ]
+    },
+    {
+      "statement": "`tools/gen` is a workspace package declared in `pnpm-workspace.yaml`.",
+      "scope": "tools/gen",
+      "evidence": [
+        { "kind": "entry", "path": "pnpm-workspace.yaml" },
+        { "kind": "entry", "path": "tools/gen/package.json" }
+      ]
+    }
+  ],
+  "gaps": []
+}

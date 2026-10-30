@@ -1,0 +1,25 @@
+{
+  "facts": [
+    {
+      "statement": "`package.json` defines the script `test`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "package.json", "lineStart": 5, "lineEnd": 5 }]
+    },
+    {
+      "statement": "`package.json` defines the script `build`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "package.json", "lineStart": 7, "lineEnd": 7 }]
+    },
+    {
+      "statement": "`package.json` defines the script `lint`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "package.json", "lineStart": 13, "lineEnd": 14 }]
+    },
+    {
+      "statement": "`package.json` defines the script `empty`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "package.json", "lineStart": 15, "lineEnd": 15 }]
+    }
+  ],
+  "gaps": []
+}

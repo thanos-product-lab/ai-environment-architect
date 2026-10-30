@@ -1,0 +1,21 @@
+set shell := ["bash", "-uc"]
+set dotenv-load
+alias b := build
+version := "1.0"
+export RUST_LOG := "info"
+
+# build: the old way
+build:
+    cargo build
+
+@test filter="":
+    cargo test {{filter}}
+
+serve host="localhost:8080": build
+    ./serve {{host}}
+
+release-2 +args: build test
+    ./release {{args}}
+
+2fast:
+    echo no

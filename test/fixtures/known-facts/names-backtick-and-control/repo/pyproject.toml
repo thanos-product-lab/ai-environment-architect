@@ -1,0 +1,3 @@
+[project.scripts]
+"back`tick" = "demo.b:main"
+fine = "demo.f:main"

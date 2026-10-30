@@ -1,0 +1,6 @@
+{
+  "name": "gen",
+  "scripts": {
+    "gen": "node gen.js"
+  }
+}

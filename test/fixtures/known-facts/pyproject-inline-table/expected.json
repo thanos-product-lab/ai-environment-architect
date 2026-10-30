@@ -1,0 +1,10 @@
+{
+  "facts": [
+    {
+      "statement": "`pyproject.toml` defines the script `serve`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "pyproject.toml", "lineStart": 9, "lineEnd": 9 }]
+    }
+  ],
+  "gaps": []
+}

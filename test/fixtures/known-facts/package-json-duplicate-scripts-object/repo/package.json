@@ -1,0 +1,9 @@
+{
+  "scripts": {
+    "old": "echo old"
+  },
+  "name": "twice",
+  "scripts": {
+    "new": "echo new"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "workspaces": ["pkgs/*"],
+  "scripts": {
+    "zeta": "echo z",
+    "alpha": "echo a"
+  }
+}

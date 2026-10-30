@@ -1,0 +1,25 @@
+{
+  "facts": [
+    {
+      "statement": "`pyproject.toml` defines the script `demo`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "pyproject.toml", "lineStart": 6, "lineEnd": 6 }]
+    },
+    {
+      "statement": "`pyproject.toml` defines the script `demo-admin`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "pyproject.toml", "lineStart": 7, "lineEnd": 7 }]
+    },
+    {
+      "statement": "`pyproject.toml` defines the script `raw_tool`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "pyproject.toml", "lineStart": 8, "lineEnd": 8 }]
+    },
+    {
+      "statement": "`pyproject.toml` defines the script `serve`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "pyproject.toml", "lineStart": 17, "lineEnd": 17 }]
+    }
+  ],
+  "gaps": []
+}

@@ -1,0 +1,50 @@
+{
+  "facts": [
+    {
+      "statement": "`.cursorrules` is existing agent configuration.",
+      "scope": "repository",
+      "evidence": [{ "kind": "entry", "path": ".cursorrules" }]
+    },
+    {
+      "statement": "`AGENTS.md` is existing agent configuration.",
+      "scope": "repository",
+      "evidence": [{ "kind": "entry", "path": "AGENTS.md" }]
+    },
+    {
+      "statement": "`CLAUDE.md` is existing agent configuration.",
+      "scope": "repository",
+      "evidence": [{ "kind": "entry", "path": "CLAUDE.md" }]
+    },
+    {
+      "statement": "`.claude/settings.json` is existing agent configuration.",
+      "scope": "repository",
+      "evidence": [{ "kind": "entry", "path": ".claude/settings.json" }]
+    },
+    {
+      "statement": "`.github/copilot-instructions.md` is existing agent configuration.",
+      "scope": "repository",
+      "evidence": [{ "kind": "entry", "path": ".github/copilot-instructions.md" }]
+    },
+    {
+      "statement": "`.claude/commands/review.md` is existing agent configuration.",
+      "scope": "repository",
+      "evidence": [{ "kind": "entry", "path": ".claude/commands/review.md" }]
+    },
+    {
+      "statement": "`.cursor/rules/style.mdc` is existing agent configuration.",
+      "scope": "repository",
+      "evidence": [{ "kind": "entry", "path": ".cursor/rules/style.mdc" }]
+    },
+    {
+      "statement": "`packages/x/AGENTS.md` is existing agent configuration.",
+      "scope": "repository",
+      "evidence": [{ "kind": "entry", "path": "packages/x/AGENTS.md" }]
+    },
+    {
+      "statement": "`packages/x/CLAUDE.md` is existing agent configuration.",
+      "scope": "repository",
+      "evidence": [{ "kind": "entry", "path": "packages/x/CLAUDE.md" }]
+    }
+  ],
+  "gaps": []
+}

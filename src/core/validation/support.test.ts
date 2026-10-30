@@ -38,6 +38,7 @@ const context: SupportContext = {
 
 function ev(excerpt: string, basis: Basis = "code_observation", path = "src/a.ts"): Evidence {
   return {
+    kind: "lines",
     path,
     fileHash: "sha256:1111",
     lineStart: 1,

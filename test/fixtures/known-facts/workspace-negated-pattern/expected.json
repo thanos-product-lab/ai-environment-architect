@@ -1,0 +1,21 @@
+{
+  "facts": [
+    {
+      "statement": "`packages/a` is a workspace package declared in `pnpm-workspace.yaml`.",
+      "scope": "packages/a",
+      "evidence": [
+        { "kind": "entry", "path": "pnpm-workspace.yaml" },
+        { "kind": "entry", "path": "packages/a/package.json" }
+      ]
+    },
+    {
+      "statement": "`packages/b/nested` is a workspace package declared in `pnpm-workspace.yaml`.",
+      "scope": "packages/b/nested",
+      "evidence": [
+        { "kind": "entry", "path": "pnpm-workspace.yaml" },
+        { "kind": "entry", "path": "packages/b/nested/package.json" }
+      ]
+    }
+  ],
+  "gaps": []
+}

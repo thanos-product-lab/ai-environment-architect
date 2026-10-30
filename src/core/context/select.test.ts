@@ -22,7 +22,12 @@ import {
   selectContext,
   settingsHash,
 } from "./select.js";
-import { ALGORITHM_VERSION, type ContextSettings, DEFAULT_CONTEXT_SETTINGS } from "./tiers.js";
+import {
+  ALGORITHM_VERSION,
+  type ContextSettings,
+  DEFAULT_CONTEXT_SETTINGS,
+  selectTiers,
+} from "./tiers.js";
 
 // The selection pipeline (IMPL §1.3) and the input manifest (IMPL §1.13).
 
@@ -460,5 +465,43 @@ describe("tier membership (IMPL §3.2.4)", () => {
       imports: ["notes/team.md"],
       sourceExtensions: DEFAULT_CONTEXT_SETTINGS.sourceExtensions,
     });
+  });
+});
+
+describe("selection records for known facts (IMPL §3.2.5)", () => {
+  it("records each import's first importer in path order, and the declared members", async () => {
+    const fs = new MemoryFs({
+      "CLAUDE.md": "@z.txt @big.md\n",
+      ".claude/a.md": "@../a.txt\n",
+      "z.txt": "z\n",
+      "a.txt": "a\n",
+      "big.md": new Uint8Array([0x61, 0]),
+      "package.json": '{ "workspaces": ["packages/*"] }\n',
+      "packages/p/package.json": "{}\n",
+    });
+    const snapshot = await captureSnapshot(
+      { fs, clock: fixedClock, ids: fixedIds },
+      DEFAULT_SNAPSHOT_SETTINGS,
+    );
+    const result = await selectTiers(snapshot, DEFAULT_CONTEXT_SETTINGS, fs);
+    if (result.state !== "selected") throw new Error(result.state);
+    expect(result.importers).toEqual([
+      { path: "a.txt", importer: ".claude/a.md" },
+      { path: "big.md", importer: "CLAUDE.md" },
+      { path: "z.txt", importer: "CLAUDE.md" },
+    ]);
+    expect(result.declaredMembers).toEqual(["packages/p"]);
+  });
+
+  it("records no declared members when packages are inferred", async () => {
+    const fs = new MemoryFs({ "src/a.ts": "export const a = 1;\n" });
+    const snapshot = await captureSnapshot(
+      { fs, clock: fixedClock, ids: fixedIds },
+      DEFAULT_SNAPSHOT_SETTINGS,
+    );
+    const result = await selectTiers(snapshot, DEFAULT_CONTEXT_SETTINGS, fs);
+    if (result.state !== "selected") throw new Error(result.state);
+    expect(result.membership.packages).toEqual(["src"]);
+    expect(result.declaredMembers).toEqual([]);
   });
 });

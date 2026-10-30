@@ -1,0 +1,25 @@
+{
+  "facts": [
+    {
+      "statement": "`Makefile` defines the target `build`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "Makefile", "lineStart": 8, "lineEnd": 8 }]
+    },
+    {
+      "statement": "`Makefile` defines the target `test`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "Makefile", "lineStart": 10, "lineEnd": 10 }]
+    },
+    {
+      "statement": "`Makefile` defines the target `deploy`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "Makefile", "lineStart": 12, "lineEnd": 12 }]
+    },
+    {
+      "statement": "`Makefile` defines the target `check`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "Makefile", "lineStart": 13, "lineEnd": 13 }]
+    }
+  ],
+  "gaps": []
+}

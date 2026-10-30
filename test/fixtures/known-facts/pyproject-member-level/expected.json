@@ -1,0 +1,26 @@
+{
+  "facts": [
+    {
+      "statement": "`packages/js` is a workspace package declared in `package.json`.",
+      "scope": "packages/js",
+      "evidence": [
+        { "kind": "entry", "path": "package.json" },
+        { "kind": "entry", "path": "packages/js/package.json" }
+      ]
+    },
+    {
+      "statement": "`packages/py` is a workspace package declared in `package.json`.",
+      "scope": "packages/py",
+      "evidence": [
+        { "kind": "entry", "path": "package.json" },
+        { "kind": "entry", "path": "packages/py/package.json" }
+      ]
+    },
+    {
+      "statement": "`packages/py/pyproject.toml` defines the script `py-cli`.",
+      "scope": "packages/py",
+      "evidence": [{ "kind": "lines", "path": "packages/py/pyproject.toml", "lineStart": 2, "lineEnd": 2 }]
+    }
+  ],
+  "gaps": []
+}

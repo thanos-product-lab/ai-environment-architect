@@ -251,6 +251,7 @@ describe("quote in range", () => {
       ok: true,
       citation: { item: "T5-007", lines: "40-43", quote: "const client = createClient();" },
       evidence: {
+        kind: "lines",
         path: "src/client.ts",
         fileHash: SNAPSHOT,
         lineStart: 40,

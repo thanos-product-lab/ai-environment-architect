@@ -1,0 +1,3 @@
+tasks:
+  ci:
+    cmds: [echo ci]

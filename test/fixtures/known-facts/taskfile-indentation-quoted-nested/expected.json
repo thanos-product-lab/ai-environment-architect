@@ -1,0 +1,30 @@
+{
+  "facts": [
+    {
+      "statement": "`Taskfile.yml` defines the task `build`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "Taskfile.yml", "lineStart": 9, "lineEnd": 9 }]
+    },
+    {
+      "statement": "`Taskfile.yml` defines the task `lint`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "Taskfile.yml", "lineStart": 12, "lineEnd": 12 }]
+    },
+    {
+      "statement": "`Taskfile.yml` defines the task `test`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "Taskfile.yml", "lineStart": 14, "lineEnd": 14 }]
+    },
+    {
+      "statement": "`Taskfile.yml` defines the task `run`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "Taskfile.yml", "lineStart": 16, "lineEnd": 16 }]
+    },
+    {
+      "statement": "`Taskfile.yml` defines the task `fmt`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "Taskfile.yml", "lineStart": 19, "lineEnd": 19 }]
+    }
+  ],
+  "gaps": []
+}

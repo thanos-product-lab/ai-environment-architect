@@ -1,0 +1,8 @@
+{
+  "scripts": {
+    "build": "tsc",
+    "deploy": "aws-deploy --id __AWS_KEY_ID__",
+    "sync": "psql __CONN_STRING__",
+    "pay": "stripe listen --api pk_test_abcdefghij123456"
+  }
+}

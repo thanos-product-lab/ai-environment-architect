@@ -1,0 +1,9 @@
+[project]
+name = "inline"
+scripts = { start = "inline.cli:main" }
+
+[tool.poetry]
+name = "inline"
+
+[tool.poetry.scripts]
+serve = "inline.server:run"

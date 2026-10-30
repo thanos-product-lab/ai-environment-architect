@@ -2,7 +2,7 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 30 October 2026  
-**Version:** 0.13 — consolidated specification  
+**Version:** 0.14 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,10 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.13
+
+1. **Entry evidence (§6.2).** Evidence is `lines` or `entry`. Entry evidence records a file in the snapshot by path and hash, with no lines or excerpt; only code creates it, for known facts about files. Evidence the model cites must target lines sent in that call; evidence code creates must come from content verified against the snapshot hash ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.5).
 
 ### Changes from v0.12
 
@@ -189,10 +193,13 @@ A reference to specific captured content.
 | Field | Notes |
 |---|---|
 | `id`, `snapshotId` | |
-| `path`, `fileHash` | Must match a `read` or `listed_only` entry in the snapshot, and the cited lines must have been sent in that call |
-| `lineStart`, `lineEnd` | Validated at capture time |
-| `excerpt` | The cited lines: at most 40, provisionally, and never truncated, so a citation of a longer range is rejected ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.2, `CIT-010`) |
+| `kind` | `lines`, or `entry` for evidence that a file exists, which only code creates |
+| `path`, `fileHash` | Must match a `read` or `listed_only` entry in the snapshot |
+| `lineStart`, `lineEnd` | `lines` only. Validated at capture time |
+| `excerpt` | `lines` only. The cited lines: at most 40, provisionally, and never truncated, so a citation of a longer range is rejected ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.2, `CIT-010`) |
 | `basis` | `documentation`, `code_observation`, `existing_guidance` (§6.4) |
+
+Evidence cited by the model must target lines sent in that call. Evidence created by code without a citation, for known facts ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.5), must come from content verified against the snapshot hash; its excerpt passes the secret scan like any text sent to the model.
 
 Evidence is created by code, never by the model. The model cites a context item, a line range and a verbatim quote. Code verifies the quote against the content actually sent, may correct the line range under a narrow recorded rule, derives the basis from the tier the cited file belongs to, and extracts the excerpt itself ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.2–§3.2.4). A corrected range records both the original and corrected lines. Citations that fail are discarded, and the model call records the failure. A valid citation proves where the quote came from, not that it supports the claim; support is checked separately ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.3).
 

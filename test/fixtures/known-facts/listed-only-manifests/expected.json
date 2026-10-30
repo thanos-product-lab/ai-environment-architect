@@ -1,0 +1,38 @@
+{
+  "facts": [
+    {
+      "statement": "`CLAUDE.md` is existing agent configuration.",
+      "scope": "repository",
+      "evidence": [{ "kind": "entry", "path": "CLAUDE.md" }]
+    },
+    {
+      "statement": "`.claude/notes.md` is existing agent configuration.",
+      "scope": "repository",
+      "evidence": [{ "kind": "entry", "path": ".claude/notes.md" }]
+    },
+    {
+      "statement": "`docs/blob.txt` is imported by `CLAUDE.md`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "entry", "path": "docs/blob.txt" }]
+    },
+    {
+      "statement": "`Taskfile.yml` defines the task `lint`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "Taskfile.yml", "lineStart": 2, "lineEnd": 2 }]
+    }
+  ],
+  "gaps": [
+    {
+      "statement": "`Makefile` could not be read or parsed, so its commands are not known facts.",
+      "relatedPaths": ["Makefile"]
+    },
+    {
+      "statement": "`justfile` could not be read or parsed, so its commands are not known facts.",
+      "relatedPaths": ["justfile"]
+    },
+    {
+      "statement": "`package.json` could not be read or parsed, so its commands are not known facts.",
+      "relatedPaths": ["package.json"]
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+tasks:
+  "tick`er":
+    cmds: [echo tick]
+  plain:
+    cmds: [echo plain]

@@ -1,0 +1,35 @@
+{
+  "facts": [
+    {
+      "statement": "`CHANGELOG.md` is imported by `CLAUDE.md`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "entry", "path": "CHANGELOG.md" }]
+    },
+    {
+      "statement": "`CLAUDE.md` is existing agent configuration.",
+      "scope": "repository",
+      "evidence": [{ "kind": "entry", "path": "CLAUDE.md" }]
+    },
+    {
+      "statement": "`docs/agent-notes.txt` is imported by `CLAUDE.md`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "entry", "path": "docs/agent-notes.txt" }]
+    },
+    {
+      "statement": "`notes/chained.txt` is imported by `CHANGELOG.md`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "entry", "path": "notes/chained.txt" }]
+    },
+    {
+      "statement": "`.claude/rules/style.md` is existing agent configuration.",
+      "scope": "repository",
+      "evidence": [{ "kind": "entry", "path": ".claude/rules/style.md" }]
+    },
+    {
+      "statement": "`package.json` defines the script `dev`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "package.json", "lineStart": 3, "lineEnd": 3 }]
+    }
+  ],
+  "gaps": []
+}

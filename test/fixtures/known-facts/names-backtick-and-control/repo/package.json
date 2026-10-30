@@ -1,0 +1,10 @@
+{
+  "scripts": {
+    "we`ird": "echo tick",
+    "bell\u0007": "echo bell",
+    "nel\u0085": "echo nel",
+    "déploy": "echo deploy",
+    "ls sep": "echo sep",
+    "ok": "echo ok"
+  }
+}

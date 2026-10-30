@@ -1,0 +1,25 @@
+{
+  "facts": [
+    {
+      "statement": "`justfile` defines the recipe `build`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "justfile", "lineStart": 8, "lineEnd": 8 }]
+    },
+    {
+      "statement": "`justfile` defines the recipe `test`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "justfile", "lineStart": 11, "lineEnd": 11 }]
+    },
+    {
+      "statement": "`justfile` defines the recipe `serve`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "justfile", "lineStart": 14, "lineEnd": 14 }]
+    },
+    {
+      "statement": "`justfile` defines the recipe `release-2`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "justfile", "lineStart": 17, "lineEnd": 17 }]
+    }
+  ],
+  "gaps": []
+}

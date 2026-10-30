@@ -1,0 +1,2 @@
+[tool.poetry.scripts]
+m-cli = "m.cli:run"

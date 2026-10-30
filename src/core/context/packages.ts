@@ -93,6 +93,23 @@ function unquote(value: string): string {
 }
 
 /**
+ * Directories that can be workspace members: as in npm and pnpm, those with a `package.json`
+ * directly inside, `read` or `listed_only`. Sorted bytewise.
+ */
+export function memberDirectories(
+  files: readonly { readonly path: string; readonly status: string }[],
+): string[] {
+  return files
+    .filter(
+      (file) =>
+        file.path.endsWith("/package.json") &&
+        (file.status === "read" || file.status === "listed_only"),
+    )
+    .map((file) => file.path.slice(0, -"/package.json".length))
+    .sort(comparePaths);
+}
+
+/**
  * The directories matched by `patterns`, minus those matched by a `!` pattern, sorted bytewise.
  * `*` matches within one segment, `**` matches any number of segments.
  */

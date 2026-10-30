@@ -9,7 +9,12 @@ import {
 import { cutLabel, DECLARATION_FAMILIES } from "./declarations.js";
 import { findImports, resolveImport } from "./imports.js";
 import { blockRanges, type ExcerptStrategy, type RenderedItem, renderItem } from "./item.js";
-import { matchWorkspaceMembers, packageOf, workspacePatterns } from "./packages.js";
+import {
+  matchWorkspaceMembers,
+  memberDirectories,
+  packageOf,
+  workspacePatterns,
+} from "./packages.js";
 import { importWithheld, type SecretRuleId, scanItem, scanText } from "./secrets.js";
 
 // Tiers 1, 2, 3 and 5, including the test reserve (IMPL §1.5).
@@ -143,10 +148,20 @@ export interface TierMembership {
   readonly sourceExtensions: readonly string[];
 }
 
+export interface ImportRecord {
+  readonly path: string;
+  /** The first file found importing it, in resolution order (IMPL §1.5). */
+  readonly importer: string;
+}
+
 export type TierSelection =
   | {
       readonly state: "selected";
       readonly membership: TierMembership;
+      /** Each import in `membership.imports`, with the first file found importing it. */
+      readonly importers: readonly ImportRecord[];
+      /** Workspace members declared in manifests (§1.5, packages, step 1), sorted; else none. */
+      readonly declaredMembers: readonly string[];
       /** In tier order, then inclusion order. */
       readonly items: readonly SelectedItem[];
       /** Files tried and never included, in the order they were first tried. */
@@ -505,6 +520,7 @@ class Selector {
   private readonly skipped = new Map<string, SkippedFile>();
   private readonly blocked: BlockedFile[] = [];
   private readonly fills: Fill[] = [];
+  private declared: readonly string[] = [];
 
   private readonly snapshot: Snapshot;
   private readonly settings: ContextSettings;
@@ -555,7 +571,7 @@ class Selector {
     claim([...tier2.keys(), ...tier3.keys()]);
     if (destination !== undefined) claimed.add(DESTINATION_PATH);
 
-    const { imported, listedImports, gaps } = await this.resolveImports(
+    const { imported, listedImports, importers, gaps } = await this.resolveImports(
       destination === undefined ? tier1 : [DESTINATION_PATH, ...tier1],
     );
     const importedOnly = imported.filter(
@@ -628,6 +644,8 @@ class Selector {
         imports: [...imported, ...listedImports].sort(comparePaths),
         sourceExtensions: this.settings.sourceExtensions,
       },
+      importers,
+      declaredMembers: this.declared,
       items: this.items,
       skipped: [...this.skipped.values()],
       blocked: this.blocked,
@@ -780,17 +798,11 @@ class Selector {
       ...optional("pnpmWorkspace", await text("pnpm-workspace.yaml")),
     });
     if (patterns.length > 0) {
-      // As in npm and pnpm, a member directory has a package.json directly inside it.
-      const directories = this.snapshot.files
-        .filter(
-          (file) =>
-            baseName(file.path) === "package.json" &&
-            file.path.includes("/") &&
-            (file.status === "read" || file.status === "listed_only"),
-        )
-        .map((file) => directoryOf(file.path));
-      const members = matchWorkspaceMembers(patterns, directories);
-      if (members.length > 0) return members;
+      const members = matchWorkspaceMembers(patterns, memberDirectories(this.snapshot.files));
+      if (members.length > 0) {
+        this.declared = members;
+        return members;
+      }
     }
     const topLevel = new Set(
       sources.filter((p) => p.includes("/")).map((p) => p.split("/")[0] ?? ""),
@@ -803,15 +815,19 @@ class Selector {
    * `listed_only` entries are not candidates, so selection ignores them, but they still count
    * for basis (IMPL §3.2.4).
    */
-  private async resolveImports(
-    starts: readonly string[],
-  ): Promise<{ imported: string[]; listedImports: string[]; gaps: SelectionGap[] }> {
+  private async resolveImports(starts: readonly string[]): Promise<{
+    imported: string[];
+    listedImports: string[];
+    importers: ImportRecord[];
+    gaps: SelectionGap[];
+  }> {
     const listedOnly = new Set(
       this.snapshot.files.filter((f) => f.status === "listed_only").map((f) => f.path),
     );
     const visited = new Set(starts);
     const imported: string[] = [];
     const listedImports: string[] = [];
+    const importers: ImportRecord[] = [];
     const outside: { importer: string; written: string }[] = [];
     const queue = [...starts];
     for (let path = queue.shift(); path !== undefined; path = queue.shift()) {
@@ -825,10 +841,12 @@ class Selector {
         } else if (this.hashes.has(target.path) && !visited.has(target.path)) {
           visited.add(target.path);
           imported.push(target.path);
+          importers.push({ path: target.path, importer: path });
           queue.push(target.path);
         } else if (listedOnly.has(target.path) && !visited.has(target.path)) {
           visited.add(target.path);
           listedImports.push(target.path);
+          importers.push({ path: target.path, importer: path });
         }
       }
     }
@@ -837,6 +855,7 @@ class Selector {
     return {
       imported,
       listedImports,
+      importers: importers.sort((a, b) => comparePaths(a.path, b.path)),
       // The import is scanned before it is cut, so a cut can't leave part of a secret behind.
       gaps: outside.map(({ importer, written }) => ({
         gapType: "other",

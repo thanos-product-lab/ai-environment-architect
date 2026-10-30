@@ -1,0 +1,2 @@
+[project.scripts]
+py-cli = "py.cli:main"

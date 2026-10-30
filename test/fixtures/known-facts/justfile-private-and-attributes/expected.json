@@ -1,0 +1,20 @@
+{
+  "facts": [
+    {
+      "statement": "`justfile` defines the recipe `default`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "justfile", "lineStart": 1, "lineEnd": 1 }]
+    },
+    {
+      "statement": "`justfile` defines the recipe `deploy`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "justfile", "lineStart": 24, "lineEnd": 24 }]
+    },
+    {
+      "statement": "`justfile` defines the recipe `build`.",
+      "scope": "repository",
+      "evidence": [{ "kind": "lines", "path": "justfile", "lineStart": 28, "lineEnd": 28 }]
+    }
+  ],
+  "gaps": []
+}

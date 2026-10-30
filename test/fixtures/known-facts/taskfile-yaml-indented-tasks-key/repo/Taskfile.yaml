@@ -1,0 +1,15 @@
+version: '3'
+includes:
+  tasks:
+    taskfile: ./other.yml
+tasks:
+    setup:
+        cmds: [echo setup]
+    "ci":
+
+# trailing comment
+    after-comment:
+        cmds: [echo after]
+output: prefixed
+silent:
+    hidden-task: true
