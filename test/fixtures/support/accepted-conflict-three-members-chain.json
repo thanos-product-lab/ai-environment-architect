@@ -1,0 +1,37 @@
+{
+  "conflict": {
+    "members": [
+      {
+        "evidence": [
+          {
+            "path": "README.md"
+          }
+        ]
+      },
+      {
+        "evidence": [
+          {
+            "path": "README.md"
+          },
+          {
+            "path": "docs/testing.md"
+          }
+        ]
+      },
+      {
+        "evidence": [
+          {
+            "path": "docs/testing.md"
+          }
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "accepted",
+    "rule": null
+  },
+  "nearMissOf": "SUP-005",
+  "section": "IMPL §3.2.3",
+  "note": "No member's file is cited by every other member: README.md is missing from the third, docs/testing.md from the first. Every member therefore has a file that not every other member cites."
+}

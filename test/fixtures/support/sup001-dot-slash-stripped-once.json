@@ -1,0 +1,19 @@
+{
+  "finding": {
+    "statement": "The entry point is `././src/index.ts`.",
+    "mode": "descriptive",
+    "evidence": [
+      {
+        "path": "src/index.ts",
+        "basis": "code_observation",
+        "excerpt": "export * from \"./api/client\";"
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rule": "SUP-001"
+  },
+  "section": "IMPL §1.11, §3.2.3",
+  "note": "Only one leading ./ is removed, leaving ./src/index.ts, which is not listed."
+}

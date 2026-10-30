@@ -130,6 +130,27 @@ describe("SUP-001 anchoring", () => {
     expect(rule(finding("Handles TCP/IP settings in apps/web.", evidence))).toBe(null);
   });
 
+  it("SUP-001 removes one leading ./ before matching the file list", () => {
+    const evidence = [ev("const x = 1;")];
+    expect(rule(finding("The client is `./apps/web/src/api.ts`.", evidence))).toBe(null);
+    expect(rule(finding("See ./apps/web/src/api.ts.", evidence))).toBe(null);
+    expect(rule(finding("The web app is under `./apps/web/`.", evidence))).toBe(null);
+    expect(rule(finding("The client is `././apps/web/src/api.ts`.", evidence))).toBe("SUP-001");
+  });
+
+  it("SUP-001 never resolves ../", () => {
+    const evidence = [ev("const x = 1;")];
+    expect(rule(finding("See `apps/web/../web/src/api.ts`.", evidence))).toBe("SUP-001");
+    expect(rule(finding("See ../README.md.", evidence))).toBe("SUP-001");
+  });
+
+  it("SUP-001 matches excerpts with the token as written", () => {
+    expect(rule(finding("Formats in `./format.ts`.", [ev("import dateformat.ts")]))).toBe(
+      "SUP-001",
+    );
+    expect(rule(finding("Formats in `./format.ts`.", [ev("import './format.ts'")]))).toBe(null);
+  });
+
   it("SUP-001 never accepts a withheld path as listed", () => {
     expect(rule(finding(`A key file sits at \`${WITHHELD}\`.`, [ev("const x = 1;")]))).toBe(
       "SUP-001",
@@ -195,6 +216,14 @@ describe("SUP-002 no model counts", () => {
     expect(
       rule(finding("Version lives in `v2Config` and `most_recent`.", [ev("v2Config most_recent")])),
     ).toBe(null);
+  });
+
+  it("SUP-002 treats any Unicode decimal digit as a number, matched as written", () => {
+    expect(rule(finding("The router has ٥ handlers.", [ev("const x = 1;")]))).toBe("SUP-002");
+    expect(rule(finding("The router has ٥ handlers.", [ev("// ٥ handlers")]))).toBe(null);
+    expect(rule(finding("Timeout is ５ seconds.", [ev("timeout = 5")]))).toBe("SUP-002");
+    // A run ends at any decimal digit, so ٥ is not found inside ٥0.
+    expect(rule(finding("The router has ٥ handlers.", [ev("// ٥0 handlers")]))).toBe("SUP-002");
   });
 
   it("SUP-002 does not count 'one'", () => {
@@ -390,7 +419,20 @@ describe("SUP-005 conflicts need distinct sources", () => {
     expect(hasDistinctSources([["src/a.ts"], ["src/a.ts"]])).toBe(false);
     expect(hasDistinctSources([["src/a.ts", "src/a.ts"], []])).toBe(false);
     expect(hasDistinctSources([["src/a.ts"], ["docs/a.md"]])).toBe(true);
-    expect(hasDistinctSources([["src/a.ts", "docs/a.md"], ["src/a.ts"]])).toBe(true);
+  });
+
+  it("SUP-005 needs every member to cite a file that not every other member cites", () => {
+    expect(hasDistinctSources([["src/a.ts", "docs/a.md"], ["src/a.ts"]])).toBe(false);
+    expect(
+      hasDistinctSources([
+        ["src/a.ts", "docs/a.md"],
+        ["docs/a.md", "src/a.ts"],
+      ]),
+    ).toBe(false);
+    expect(hasDistinctSources([["src/a.ts", "docs/a.md"], ["src/b.ts"]])).toBe(true);
+    expect(hasDistinctSources([["a.md"], ["a.md", "b.md"], ["b.md"]])).toBe(true);
+    expect(hasDistinctSources([["a.md"], ["b.md"], []])).toBe(false);
+    expect(hasDistinctSources([["a.md", "b.md"]])).toBe(false);
   });
 
   it("SUP-005 rejects a conflict whose findings cite one file, as a cross-item check", () => {
@@ -450,7 +492,7 @@ describe("SUP-005 conflicts need distinct sources", () => {
         collection: "conflicts",
         index: 0,
         rule: "SUP-005",
-        detail: "the conflict's findings cite fewer than two files",
+        detail: "a member finding cites no file that not every other member cites",
       },
     ]);
   });
@@ -466,7 +508,7 @@ describe("word lists (IMPL §3.2.3)", () => {
       numbers: NUMBER_WORDS,
       quantities: QUANTITY_WORDS,
     }).toEqual({
-      version: "validate/0.5.0",
+      version: "validate/0.6.0",
       directive: ["must", "should", "always", "never", "do not", "don't", "required", "prefer"],
       universal: ["all", "every", "always", "never", "none", "only"],
       numbers: [

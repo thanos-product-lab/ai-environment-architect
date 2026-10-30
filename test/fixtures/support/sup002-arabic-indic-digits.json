@@ -1,0 +1,19 @@
+{
+  "finding": {
+    "statement": "The router registers ٥ handlers.",
+    "mode": "descriptive",
+    "evidence": [
+      {
+        "path": "src/api/routes.ts",
+        "basis": "code_observation",
+        "excerpt": "router.get(\"/users\", listUsers);"
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rule": "SUP-002"
+  },
+  "section": "IMPL §3.2.3",
+  "note": "U+0665 ARABIC-INDIC DIGIT FIVE is a Unicode decimal digit (Nd), so it is a model count like 5."
+}

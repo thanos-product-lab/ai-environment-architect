@@ -1,0 +1,19 @@
+{
+  "finding": {
+    "statement": "Requests time out after ５ seconds.",
+    "mode": "descriptive",
+    "evidence": [
+      {
+        "path": "src/api/client.ts",
+        "basis": "code_observation",
+        "excerpt": "const timeoutSeconds = 5;"
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rule": "SUP-002"
+  },
+  "section": "IMPL §3.2.3",
+  "note": "U+FF15 FULLWIDTH DIGIT FIVE is not the ASCII 5 in the excerpt: digits match as written, never converted."
+}

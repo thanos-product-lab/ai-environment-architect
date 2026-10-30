@@ -1,0 +1,20 @@
+{
+  "finding": {
+    "statement": "The entry point is `./src/index.ts`, re-exported from ./src/api/client.ts.",
+    "mode": "descriptive",
+    "evidence": [
+      {
+        "path": "src/index.ts",
+        "basis": "code_observation",
+        "excerpt": "export * from \"./api/client\";"
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "accepted",
+    "rule": null
+  },
+  "nearMissOf": "SUP-001",
+  "section": "IMPL §1.11, §3.2.3",
+  "note": "One leading ./ is removed before a path token is matched against the file list, in inline code and bare text alike."
+}

@@ -1,0 +1,20 @@
+{
+  "finding": {
+    "statement": "The client imports `../util/format.ts` for dates.",
+    "mode": "descriptive",
+    "evidence": [
+      {
+        "path": "src/api/client.ts",
+        "basis": "code_observation",
+        "excerpt": "import { formatDate } from \"../util/format.ts\";"
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "accepted",
+    "rule": null
+  },
+  "nearMissOf": "SUP-001",
+  "section": "IMPL §1.11, §3.2.3",
+  "note": "../ is never resolved against the file list, but the token as written occurs in the cited excerpt, so it is anchored."
+}

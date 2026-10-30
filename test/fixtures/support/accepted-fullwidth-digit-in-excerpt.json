@@ -1,0 +1,20 @@
+{
+  "finding": {
+    "statement": "The banner says ５ seconds.",
+    "mode": "descriptive",
+    "evidence": [
+      {
+        "path": "src/util/format.ts",
+        "basis": "code_observation",
+        "excerpt": "const banner = \"wait ５ seconds\";"
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "accepted",
+    "rule": null
+  },
+  "nearMissOf": "SUP-002",
+  "section": "IMPL §3.2.3",
+  "note": "A fullwidth digit is allowed where the excerpt holds the same fullwidth digit: digits match as written."
+}

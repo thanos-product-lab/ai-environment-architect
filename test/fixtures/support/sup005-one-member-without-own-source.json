@@ -1,0 +1,29 @@
+{
+  "conflict": {
+    "members": [
+      {
+        "evidence": [
+          {
+            "path": "README.md"
+          },
+          {
+            "path": "docs/testing.md"
+          }
+        ]
+      },
+      {
+        "evidence": [
+          {
+            "path": "README.md"
+          }
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rule": "SUP-005"
+  },
+  "section": "IMPL §3.2.3",
+  "note": "Two distinct files in all, but the second member cites only README.md, which the first member also cites: it has no source of its own."
+}

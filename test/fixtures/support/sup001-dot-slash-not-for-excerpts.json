@@ -1,0 +1,19 @@
+{
+  "finding": {
+    "statement": "Formatting lives in `./format.ts`.",
+    "mode": "descriptive",
+    "evidence": [
+      {
+        "path": "src/util/format.ts",
+        "basis": "code_observation",
+        "excerpt": "import { dateformat.ts } from \"x\";"
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rule": "SUP-001"
+  },
+  "section": "IMPL §1.11, §3.2.3",
+  "note": "Removing ./ applies to the file-list match only. The excerpt match is exact on the token as written, so format.ts inside dateformat.ts does not anchor ./format.ts."
+}

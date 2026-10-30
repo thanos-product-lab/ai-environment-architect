@@ -1,0 +1,32 @@
+{
+  "conflict": {
+    "members": [
+      {
+        "evidence": [
+          {
+            "path": "README.md"
+          },
+          {
+            "path": "docs/testing.md"
+          }
+        ]
+      },
+      {
+        "evidence": [
+          {
+            "path": "docs/testing.md"
+          },
+          {
+            "path": "README.md"
+          }
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rule": "SUP-005"
+  },
+  "section": "IMPL §3.2.3",
+  "note": "Both members cite exactly the same two files, in a different order: neither has a file the other lacks."
+}

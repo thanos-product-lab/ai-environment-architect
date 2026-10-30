@@ -1,0 +1,20 @@
+{
+  "finding": {
+    "statement": "API code lives under `./src/api/`.",
+    "mode": "descriptive",
+    "evidence": [
+      {
+        "path": "src/index.ts",
+        "basis": "code_observation",
+        "excerpt": "export * from \"./api/client\";"
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "accepted",
+    "rule": null
+  },
+  "nearMissOf": "SUP-001",
+  "section": "IMPL §1.11, §3.2.3",
+  "note": "One leading ./ and one trailing / are removed, leaving the listed directory src/api."
+}

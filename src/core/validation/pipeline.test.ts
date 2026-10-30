@@ -166,15 +166,15 @@ const n = (key: string, text = "ok", extra: Partial<Note> = {}): Note => ({
 });
 
 describe("validator version (IMPL §3.5)", () => {
-  // CIT-007's character classes follow the runtime's Unicode version, so a Node upgrade that
-  // changes it fails here until the validator version increases (IMPL §3.5).
-  it("pins the rule list and the Unicode version to validate/0.5.0", () => {
+  // CIT-007's and SUP-002's character classes follow the runtime's Unicode version, so a Node
+  // upgrade that changes it fails here until the validator version increases (IMPL §3.5).
+  it("pins the rule list and the Unicode version to validate/0.6.0", () => {
     expect({
       version: VALIDATOR_VERSION,
       unicode: process.versions["unicode"],
       rules: RULE_IDS,
     }).toEqual({
-      version: "validate/0.5.0",
+      version: "validate/0.6.0",
       unicode: "17.0",
       rules: [
         "SCHEMA",
@@ -203,8 +203,8 @@ describe("validator version (IMPL §3.5)", () => {
   });
 
   it("records the validator version on every result", () => {
-    expect(run({ notes: [], links: [], flags: [] }).validatorVersion).toBe("validate/0.5.0");
-    expect(validateResponse(call, "not json", context).validatorVersion).toBe("validate/0.5.0");
+    expect(run({ notes: [], links: [], flags: [] }).validatorVersion).toBe("validate/0.6.0");
+    expect(validateResponse(call, "not json", context).validatorVersion).toBe("validate/0.6.0");
   });
 });
 

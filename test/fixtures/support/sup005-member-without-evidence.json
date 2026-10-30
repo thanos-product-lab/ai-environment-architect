@@ -1,0 +1,29 @@
+{
+  "conflict": {
+    "members": [
+      {
+        "evidence": [
+          {
+            "path": "README.md"
+          }
+        ]
+      },
+      {
+        "evidence": [
+          {
+            "path": "docs/testing.md"
+          }
+        ]
+      },
+      {
+        "evidence": []
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rule": "SUP-005"
+  },
+  "section": "IMPL §3.2.3",
+  "note": "A member with no evidence paths cites no file at all, so it has none of its own."
+}

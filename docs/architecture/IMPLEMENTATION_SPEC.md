@@ -2,8 +2,16 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 30 October 2026  
-**Version:** 0.20  
+**Version:** 0.21  
 **Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
+
+### Changes from v0.20
+
+- **Path tokens (§1.11).** A path written in model text, in a statement or in recommendation content, is matched against the file list after removing one leading `./`; `../` is never resolved. Defined once in §1.11, used by `SUP-001` now and by the reference detector and `REF-002` when they are built (§3.4). Excerpt and quote matching stay exact.
+- **`SUP-005` (§3.2.3).** Every member finding must cite at least one file that not every other member cites, so no side rests only on shared sources. Removed from the open points (§3.9).
+- **`SUP-002` (§3.2.3).** Any Unicode decimal digit (`Nd`) is a number, matched as written, not only ASCII digits.
+- **Open points (§3.9).** The `SUP-002` line no longer mentions non-ASCII digits. Added: substring matching of path tokens in excerpts, and whether `./…` in recommendation content is a path or a command.
+- `validatorVersion` is `validate/0.6.0`, because all three change what is accepted.
 
 ### Changes from v0.19
 
@@ -614,6 +622,8 @@ A glob **could match inside** a directory `D` when some path under `D` could mat
 - **unlisted:** neither. Capture would have listed it, and didn't.
 
 A path withheld because its name matched the secret scan (§1.7) is listed for gaps and absence claims. The model never saw its name, so it does not anchor a statement (`SUP-001`) or satisfy a scope (`SCOPE-001`): those two rules accept only listed paths that are not withheld.
+
+**Path tokens in model text.** A path the model writes inside text, rather than in a path field, is a token: in a finding statement (`SUP-001`, §3.2.3) or in recommendation content (§3.4, `REF-002`). Before a token is matched against the file list, one leading `./` is removed, so `./src/index.ts` names `src/index.ts` and `././src/index.ts` names nothing. `../` is never resolved: a token holding a `..` segment is compared as written, so it names no listed path. Matching a token against an excerpt uses the token as written, and quotes are always matched exactly (§3.2.2).
 
 **Gap findings** must include:
 
@@ -1244,13 +1254,13 @@ They apply to each finding's `statement`, using the evidence of its accepted cit
 | `SUP-002` No model counts | A statement contains no quantity or frequency the model counted ("5 components", "most files"). Numbers are allowed only if they appear in a cited excerpt. Code computes and displays "seen in N cited files". | Reject |
 | `SUP-003` No universal claims from samples | A `descriptive` finding whose citations are all `code_observation` must not use universal quantifiers (*all*, *every*, *always*, *never*, *none*, *only*). Samples support "some" or "in the files inspected", not "all". | Reject |
 | `SUP-004` Prescriptive needs a prescriptive source | A `prescriptive` finding needs at least one citation with basis `documentation` or `existing_guidance` whose excerpt contains directive language (versioned word list: *must, should, always, never, do not, don't, required, prefer, use … instead*). | Reject |
-| `SUP-005` Conflicts need distinct sources | A conflict links findings whose citations come from at least two different files. A context item and an expansion item of the same file are one source. | Reject the conflict |
+| `SUP-005` Conflicts need distinct sources | Every member finding of a conflict cites at least one file that not every other member cites, so no side rests only on sources the others share. With at least two members (`CONF-001`), that means at least two files. A context item and an expansion item of the same file are one source. | Reject the conflict |
 
-**Tokens.** An inline-code token is the text between a pair of backticks, pairing from the left, so two adjacent backticks are an empty token; a last unpaired backtick is plain text. A path-like token is a whitespace-separated word, after removing any leading `(`, `"` or `'` and any trailing `.,;:!?)"'`, that contains `/` and whose last segment ends in a file extension: a dot and 1–10 ASCII letters or digits (§3.4). A URL ending in a file extension is path-like. A token appears in an excerpt when it is an exact, case-sensitive substring of any cited excerpt. It is a listed path when it equals a listed entry or a directory containing entries (§1.11), ignoring one trailing `/`, and is not itself withheld; a directory whose only entries are withheld is listed, because its own name is not.
+**Tokens.** An inline-code token is the text between a pair of backticks, pairing from the left, so two adjacent backticks are an empty token; a last unpaired backtick is plain text. A path-like token is a whitespace-separated word, after removing any leading `(`, `"` or `'` and any trailing `.,;:!?)"'`, that contains `/` and whose last segment ends in a file extension: a dot and 1–10 ASCII letters or digits (§3.4). A URL ending in a file extension is path-like. A token appears in an excerpt when it is an exact, case-sensitive substring of any cited excerpt. It is a listed path when, after the path-token rule of §1.11, it equals a listed entry or a directory containing entries, ignoring one trailing `/`, and is not itself withheld; a directory whose only entries are withheld is listed, because its own name is not.
 
 **Words and numbers.** `SUP-002` and `SUP-003` check the statement without its inline-code and path-like tokens, which `SUP-001` has already checked. Words match whole, case-insensitively: a letter, digit or underscore next to a match makes it part of another word, so *install* doesn't hold *all* and *fewer* isn't *few*. Inflections don't match.
 
-- `SUP-002`, numbers: each run of ASCII digits must occur in a cited excerpt as a whole run, not inside a longer one, so `500` isn't found in `5000`. Spelled numbers (*two* to *twelve*, *dozen*, *dozens*, *hundred*, *hundreds*, *thousand*, *thousands*) are allowed when a cited excerpt holds the same word. *One* is not on the list, because it is too often a pronoun.
+- `SUP-002`, numbers: each run of Unicode decimal digits (`Nd`) must occur in a cited excerpt as a whole run, not inside a longer one, so `500` isn't found in `5000`. Digits match as written: `５` (fullwidth) is not `5`. Spelled numbers (*two* to *twelve*, *dozen*, *dozens*, *hundred*, *hundreds*, *thousand*, *thousands*) are allowed when a cited excerpt holds the same word. *One* is not on the list, because it is too often a pronoun.
 - `SUP-002`, quantities, always rejected: *most, many, several, few, numerous, majority, minority, half, mostly, usually, often, typically, frequently, rarely, seldom, multiple*.
 - `SUP-004`: *do not* matches with spaces or tabs between the words, and *don't* with `'` or `’`. *Use … instead* matches when the word *use* is followed by the word *instead* on the same excerpt line.
 
@@ -1575,6 +1585,8 @@ A small deterministic component, versioned (`detectorVersion`), with its own fix
 
 The detector is deliberately conservative. Content it can't classify is left alone, not guessed at.
 
+Paths it finds are matched against the snapshot (`REF-002`) under the path-token rule of §1.11: one leading `./` removed, `../` never resolved.
+
 ### 3.5 Validation pipeline and recording
 
 For every call:
@@ -1603,7 +1615,7 @@ A schema failure rejects the whole response with one event per issue, in the ord
 
 No event repeats text from the response. An `itemKey` is a local key or alias only when it is well formed (a local key is one or two lowercase letters and a number, an alias as in §3.2.1); otherwise the item is named by its position, `<collection>/<index>`, and a malformed local key defines nothing. A detail names only code-made values, such as an alias from the table, never an unknown value the model wrote. A rejected item keeps the events of its sub-items, such as each failed citation. Events are ordered by stage. In the item stage they follow the response's item order, collections in schema order, and within an item the rule order, except that a sub-item's events are in sub-item order, each sub-item's in rule order; `ALIAS-002` is checked first, for each item in turn. In the cross-item stage they follow rule order, then item order.
 
-Each call also records counts: proposed, accepted, corrected and relabelled items, and rejections by rule. An item counts as corrected or relabelled if it was accepted with such an event. Rule IDs are stable across versions. The validator has its own version (`validatorVersion`, `validate/0.5.0` since `SUP-001` to `SUP-005`), recorded with every call, because changing a rule changes what is accepted even when the model output is identical. Any change to what is accepted increases it, changed thresholds and word lists included. A test pins the list of rule IDs to the version, together with the runtime's Unicode version (`process.versions.unicode`), because `CIT-007`'s character classes follow it.
+Each call also records counts: proposed, accepted, corrected and relabelled items, and rejections by rule. An item counts as corrected or relabelled if it was accepted with such an event. Rule IDs are stable across versions. The validator has its own version (`validatorVersion`, `validate/0.6.0` since the `SUP-001` path-token, `SUP-002` and `SUP-005` changes of v0.21), recorded with every call, because changing a rule changes what is accepted even when the model output is identical. Any change to what is accepted increases it, changed thresholds and word lists included. A test pins the list of rule IDs to the version, together with the runtime's Unicode version (`process.versions.unicode`), because `CIT-007`'s and `SUP-002`'s character classes follow it.
 
 ### 3.6 Retry and failure policy
 
@@ -1694,6 +1706,7 @@ A change to any prompt, schema, validator or detector requires the fixture suite
 - How to detect a claim about the omitted parts of an excerpted file when it cites only sent lines (§1.11). The citation rules catch citations of omitted lines, not claims about them.
 - Minimum quote length: 12 characters may allow unhelpfully generic quotes in code.
 - Output limits per call (finding, question and recommendation counts).
-- `SUP-005` counts files across all members, so a conflict whose members cite the same two files passes. Requiring each side to have a source the others lack would be stricter.
-- `SUP-002` misses counts outside its lists, such as *once*, *twice*, *a couple* and ordinals, and digits other than ASCII.
+- `SUP-002` misses counts outside its lists, such as *once*, *twice*, *a couple* and ordinals.
+- `SUP-001` matches a token in an excerpt as a substring, so `./format.ts` is anchored by an excerpt holding `../format.ts`, which names another file. A path-aware excerpt match would be stricter.
+- In recommendation content, `` `./scripts/build.sh` `` is both path-like and command-like (§3.4). Which class wins is settled when the detector is built.
 - Whether a model-based support check is worth adding after the first slice. Adopt only if evaluation shows it reduces unsupported findings without excessive false rejections.

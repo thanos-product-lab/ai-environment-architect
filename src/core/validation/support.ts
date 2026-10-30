@@ -114,7 +114,8 @@ const INLINE_CODE = /`([^`]*)`/g;
 const LEADING = /^[("']+/;
 const TRAILING = /[.,;:!?)"']+$/;
 const EXTENSION = /\.[A-Za-z0-9]{1,10}$/;
-const DIGITS = /[0-9]+/g;
+/** Any Unicode decimal digit (Nd), matched as written: `５` is not `5`. */
+const DIGITS = /\p{Nd}+/gu;
 // "use … instead" counts only on one line, in that order.
 const USE_INSTEAD = new RegExp(
   `(?<!${WORD})use(?!${WORD})[^\\n]*?(?<!${WORD})instead(?!${WORD})`,
@@ -172,9 +173,7 @@ export function checkSupport(finding: SupportedFinding, context: SupportContext)
 
   // SUP-001: every inline-code and path-like token is in a cited excerpt or is a listed path.
   const anchored = (token: string): boolean =>
-    excerpts.some((excerpt) => excerpt.includes(token)) ||
-    context.anchorable.has(token) ||
-    (token.endsWith("/") && context.anchorable.has(token.slice(0, -1)));
+    excerpts.some((excerpt) => excerpt.includes(token)) || isListed(token, context);
   if (!code.every(anchored))
     return failure("SUP-001", "inline code not in a cited excerpt or the file list");
   if (!paths.every(anchored))
@@ -182,7 +181,7 @@ export function checkSupport(finding: SupportedFinding, context: SupportContext)
 
   // SUP-002: no counts. A number is allowed only where a cited excerpt holds it whole.
   for (const [digits] of rest.matchAll(DIGITS)) {
-    const whole = new RegExp(`(?<![0-9])${digits}(?![0-9])`);
+    const whole = new RegExp(`(?<!\\p{Nd})${digits}(?!\\p{Nd})`, "u");
     if (!excerpts.some((excerpt) => whole.test(excerpt)))
       return failure("SUP-002", "a number not in a cited excerpt");
   }
@@ -231,9 +230,28 @@ export function supportCheck<V extends SupportedFinding, C extends SupportContex
   };
 }
 
-/** SUP-005: the members' citations come from at least two different files. */
+/**
+ * Whether a path token names a listed path (§1.11): one leading `./` and one trailing `/` are
+ * removed first, and `../` is never resolved, so a token holding it lists nothing. Excerpts are
+ * matched with the token as written.
+ */
+export function isListed(token: string, context: SupportContext): boolean {
+  const path = token.startsWith("./") ? token.slice(2) : token;
+  return (
+    context.anchorable.has(path) ||
+    (path.endsWith("/") && context.anchorable.has(path.slice(0, -1)))
+  );
+}
+
+/**
+ * SUP-005: every member cites at least one file that not every other member cites, so no side of
+ * the conflict rests only on sources the others share.
+ */
 export function hasDistinctSources(memberPaths: readonly (readonly string[])[]): boolean {
-  return new Set(memberPaths.flat()).size >= 2;
+  const members = memberPaths.map((paths) => new Set(paths));
+  return members.every((own, i) =>
+    [...own].some((path) => members.some((other, j) => j !== i && !other.has(path))),
+  );
 }
 
 export interface DistinctSourcesSpec<A, C, K extends keyof A & string> {
@@ -259,7 +277,7 @@ export function distinctSourcesCheck<A, C, K extends keyof A & string>(
               collection: spec.collection,
               index: conflict.index,
               rule: "SUP-005",
-              detail: "the conflict's findings cite fewer than two files",
+              detail: "a member finding cites no file that not every other member cites",
             },
           ],
     );

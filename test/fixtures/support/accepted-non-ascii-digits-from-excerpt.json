@@ -1,0 +1,20 @@
+{
+  "finding": {
+    "statement": "The greeting lists ١٢ languages.",
+    "mode": "descriptive",
+    "evidence": [
+      {
+        "path": "src/util/format.ts",
+        "basis": "code_observation",
+        "excerpt": "// ١٢ languages supported"
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "accepted",
+    "rule": null
+  },
+  "nearMissOf": "SUP-002",
+  "section": "IMPL §3.2.3",
+  "note": "An Arabic-Indic digit run that the excerpt holds whole is allowed, like an ASCII one."
+}

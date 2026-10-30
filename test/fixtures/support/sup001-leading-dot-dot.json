@@ -1,0 +1,19 @@
+{
+  "finding": {
+    "statement": "Setup is described in ../README.md.",
+    "mode": "descriptive",
+    "evidence": [
+      {
+        "path": "src/index.ts",
+        "basis": "code_observation",
+        "excerpt": "export * from \"./api/client\";"
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rule": "SUP-001"
+  },
+  "section": "IMPL §1.11, §3.2.3",
+  "note": "README.md is listed, but ../README.md would be outside the repository root; it is never resolved."
+}
