@@ -1,0 +1,6 @@
+{
+  "gap": { "relatedPaths": ["src/app.ts"] },
+  "expect": { "outcome": "rejected", "rule": "GAP-001", "coverage": null },
+  "section": "IMPL §1.11",
+  "note": "Matching is case-sensitive. The snapshot has src/App.ts and src/a.ts, not src/app.ts."
+}

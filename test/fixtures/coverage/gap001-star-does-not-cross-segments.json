@@ -1,0 +1,6 @@
+{
+  "gap": { "relatedPaths": ["*.ts"] },
+  "expect": { "outcome": "rejected", "rule": "GAP-001", "coverage": null },
+  "section": "IMPL §1.11",
+  "note": "* matches within one segment, so *.ts names only root-level .ts files, and there are none. A one-segment glob can't match inside any directory (no segment left over), so it is unlisted, not uncovered. A model that meant every TypeScript file should have written **/*.ts."
+}

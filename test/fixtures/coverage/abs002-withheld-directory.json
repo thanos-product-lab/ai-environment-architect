@@ -1,0 +1,11 @@
+{
+  "absenceClaim": { "pathGlob": "cache/{{aws-access-key-id}}/*.bin" },
+  "expect": {
+    "outcome": "rejected",
+    "rule": "ABS-002",
+    "statement": null,
+    "detailExcludes": ["{{aws-access-key-id}}"]
+  },
+  "section": "IMPL §1.11, §1.7",
+  "note": "Substitute the placeholder first. The model can only know this name if it was planted or guessed: the tree showed <withheld>. The glob lies wholly inside the withheld ignored directory, so ABS-002 rejects it. The rejection detail must not echo the glob or the directory, since both contain the substituted key ID."
+}

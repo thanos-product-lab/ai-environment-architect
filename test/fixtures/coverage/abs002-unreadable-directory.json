@@ -1,0 +1,6 @@
+{
+  "absenceClaim": { "pathGlob": "broken/*.yml" },
+  "expect": { "outcome": "rejected", "rule": "ABS-002", "statement": null },
+  "section": "IMPL §1.11, §3.8",
+  "note": "§3.8: an absence claim under an unreadable directory. Capture couldn't list broken, so nothing can be said about its contents."
+}

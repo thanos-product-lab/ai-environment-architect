@@ -1,0 +1,14 @@
+{
+  "gap": { "relatedPaths": ["packages/core/src/util.ts"] },
+  "expect": {
+    "outcome": "relabelled",
+    "rule": "GAP-002",
+    "coverage": {
+      "state": "not_inspected",
+      "entries": [{ "path": "packages/core/src/util.ts" }],
+      "directories": []
+    }
+  },
+  "section": "IMPL §1.11, §1.6",
+  "note": "T5-009 is outline-only (ranges []): the model saw declaration names, not content. Being an item of the call doesn't make the file sent in full."
+}

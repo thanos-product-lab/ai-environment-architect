@@ -1,0 +1,7 @@
+{
+  "gap": { "relatedPaths": ["src/a.ts"] },
+  "expect": { "outcome": "accepted", "rule": null, "coverage": { "state": "inspected" } },
+  "nearMissOf": "GAP-002",
+  "section": "IMPL §1.11",
+  "note": "src/a.ts (10 lines) was sent in full as T5-002, so the gap keeps the label missing."
+}

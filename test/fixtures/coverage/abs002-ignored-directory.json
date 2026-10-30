@@ -1,0 +1,6 @@
+{
+  "absenceClaim": { "pathGlob": "tmp/*.log" },
+  "expect": { "outcome": "rejected", "rule": "ABS-002", "statement": null },
+  "section": "IMPL §1.11, §1.4",
+  "note": "tmp is a wholly ignored directory that capture didn't enter."
+}

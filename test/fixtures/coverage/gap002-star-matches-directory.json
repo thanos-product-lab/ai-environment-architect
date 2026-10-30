@@ -1,0 +1,14 @@
+{
+  "gap": { "relatedPaths": ["docs/*"] },
+  "expect": {
+    "outcome": "relabelled",
+    "rule": "GAP-002",
+    "coverage": {
+      "state": "not_inspected",
+      "entries": [{ "path": "docs/guide/setup.md" }],
+      "directories": []
+    }
+  },
+  "section": "IMPL §1.11",
+  "note": "docs/* matches docs/index.md (sent in full) and the directory docs/guide. A directory matched by a glob covers everything under it (v0.25), so docs/guide/testing.md (full) and docs/guide/setup.md (excerpt) are matched too. Only setup.md wasn't sent in full. Compare accepted-gap-star-one-segment."
+}

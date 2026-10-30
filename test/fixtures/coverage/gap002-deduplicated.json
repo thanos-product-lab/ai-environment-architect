@@ -1,0 +1,14 @@
+{
+  "gap": { "relatedPaths": ["src/c.ts", "src/*.ts"] },
+  "expect": {
+    "outcome": "relabelled",
+    "rule": "GAP-002",
+    "coverage": {
+      "state": "not_inspected",
+      "entries": [{ "path": "src/c.ts" }, { "path": "src/d.ts" }],
+      "directories": []
+    }
+  },
+  "section": "IMPL §1.11",
+  "note": "src/*.ts matches src/App.ts, src/a.ts, src/b.ts (all sent in full), src/c.ts and src/d.ts; it does not reach src/lib. src/c.ts is matched by both related paths and must appear once."
+}

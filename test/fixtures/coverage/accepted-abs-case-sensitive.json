@@ -1,0 +1,11 @@
+{
+  "absenceClaim": { "pathGlob": "src/app.ts" },
+  "expect": {
+    "outcome": "accepted",
+    "rule": null,
+    "statement": "No files matched `src/app.ts` within the inspected scope."
+  },
+  "nearMissOf": "ABS-001",
+  "section": "IMPL §1.11",
+  "note": "Case-sensitive: src/App.ts does not match src/app.ts. No directory capture didn't enter is reachable from src, so the wording has no Not inspected part."
+}

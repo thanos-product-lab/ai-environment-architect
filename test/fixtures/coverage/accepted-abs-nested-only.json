@@ -1,0 +1,11 @@
+{
+  "absenceClaim": { "pathGlob": "packages/**/node_modules/x.js" },
+  "expect": {
+    "outcome": "accepted",
+    "rule": null,
+    "statement": "No files matched `packages/**/node_modules/x.js` within the inspected scope. Not inspected: `packages/core/src/node_modules/` (excluded)."
+  },
+  "nearMissOf": "ABS-002",
+  "section": "IMPL §1.11",
+  "note": "The glob could match inside packages/core/src/node_modules (** absorbs core/src), but its leading wildcard-free segments are only packages, so it is not ABS-002: packages/web/node_modules/x.js would be listed if it existed. The top-level node_modules is not reachable, since its first segment isn't packages."
+}

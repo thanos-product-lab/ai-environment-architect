@@ -84,7 +84,7 @@ The token check (IMPL §1.10) waits for M6, because it needs the provider's toke
 - [x] Citations, provenance and the `CIT-R01` correction. `/implement-spec IMPL 3.2.2`
 - [x] Support checks. `/implement-spec IMPL 3.2.3`
 - [x] Evidence basis and known facts from manifests. `/implement-spec IMPL 3.2.4`, then `IMPL 3.2.5`
-- [ ] Coverage-aware gap and absence checks. `/implement-spec IMPL 1.11`
+- [x] Coverage-aware gap and absence checks. `/implement-spec IMPL 1.11`
 - [ ] Item validation for `analyse`, `analyse_expansion` and `generate_questions`, including question ranking and the corrected-citation rate (IMPL §3.3.2–§3.3.4, §3.2.2).
 - [ ] Adversarial fixtures for every rule, from the `fixture-adversary` agent.
 
@@ -107,7 +107,7 @@ The token check (IMPL §1.10) waits for M6, because it needs the provider's toke
 
 **Goal:** the whole write path, driven by recorded recommendations instead of a model.
 
-- [ ] Reference detector. `/implement-spec IMPL 3.4`
+- [ ] Reference detector. `/implement-spec IMPL 3.4`. It matches paths through `normalisePath` (`src/core/paths.ts`), the one path normalisation of IMPL §1.11.
 - [ ] `recommend` item validation: evidence rules, `fact` and `policy`, directive-language guard, references, held back. `/implement-spec IMPL 3.3.5`
 - [ ] Selections and mutual exclusion (DM §9.1–§9.2).
 - [ ] Deterministic assembly with attribution. `/implement-spec DM 9.3`

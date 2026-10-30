@@ -1,0 +1,6 @@
+{
+  "scope": { "paths": ["keys/*"] },
+  "expect": { "outcome": "rejected", "rule": "SCOPE-001" },
+  "section": "IMPL §1.11",
+  "note": "Substitute the placeholder in context.json first. keys/* matches only keys/{{aws-access-key-id}}.txt, which is withheld, so the glob matches no listed path that is not withheld (v0.25). Compare accepted-scope-directory-of-withheld."
+}

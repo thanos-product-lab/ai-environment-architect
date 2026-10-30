@@ -1,0 +1,6 @@
+{
+  "scope": { "paths": ["src/a.ts", "Src/b.ts"] },
+  "expect": { "outcome": "rejected", "rule": "SCOPE-001" },
+  "section": "IMPL §1.11, §3.3.2",
+  "note": "Every scope path must be listed. Src/b.ts differs only in case from src/b.ts, and matching is case-sensitive, so one bad path rejects the scope."
+}

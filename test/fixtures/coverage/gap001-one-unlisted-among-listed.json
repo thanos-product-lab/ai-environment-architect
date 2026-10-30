@@ -1,0 +1,6 @@
+{
+  "gap": { "relatedPaths": ["src/c.ts", "src/missing.ts"] },
+  "expect": { "outcome": "rejected", "rule": "GAP-001", "coverage": null },
+  "section": "IMPL §1.11, §3.3.2",
+  "note": "Every related path must be listed or uncovered. src/c.ts is listed, but src/missing.ts is not, so the whole gap is rejected. GAP-001 runs before the coverage check, so src/c.ts being an excerpt never yields GAP-002."
+}

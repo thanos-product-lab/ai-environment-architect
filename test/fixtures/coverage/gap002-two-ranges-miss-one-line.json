@@ -1,0 +1,14 @@
+{
+  "gap": { "relatedPaths": ["src/d.ts"] },
+  "expect": {
+    "outcome": "relabelled",
+    "rule": "GAP-002",
+    "coverage": {
+      "state": "not_inspected",
+      "entries": [{ "path": "src/d.ts" }],
+      "directories": []
+    }
+  },
+  "section": "IMPL §1.11",
+  "note": "src/d.ts has 30 lines: T5-005 sent 1-14 and E-3 sent 16-30. Line 15 was never sent. 29 of 30 lines, and first and last lines both sent, is still not in full; a check of range endpoints or of 'last line sent' would wrongly accept it. Compare accepted-gap-two-ranges-complete-file."
+}

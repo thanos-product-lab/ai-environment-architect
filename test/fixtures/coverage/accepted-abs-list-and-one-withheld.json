@@ -1,0 +1,11 @@
+{
+  "absenceClaim": { "pathGlob": "*/*-link/*.bin" },
+  "expect": {
+    "outcome": "accepted",
+    "rule": null,
+    "statement": "No files matched `*/*-link/*.bin` within the inspected scope. Not inspected: `broken/` (unreadable), `keys-link -> <withheld>` (symbolic link), `lib-link -> ../shared` (symbolic link), `node_modules/` (excluded), `tmp/` (ignored), `vendor` (excluded) and 1 withheld directory."
+  },
+  "nearMissOf": "ABS-002",
+  "section": "IMPL §1.11",
+  "note": "Singular count. Every one-segment unentered directory is reachable (the first * absorbs it, leaving two segments). Of the two-segment ones, only cache/{{aws-access-key-id}}-link matches *-link; cache/{{aws-access-key-id}} doesn't. packages/core/src/node_modules is not reachable, because core doesn't match *-link."
+}

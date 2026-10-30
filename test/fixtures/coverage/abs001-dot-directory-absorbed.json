@@ -1,0 +1,6 @@
+{
+  "absenceClaim": { "pathGlob": "**/*.yml" },
+  "expect": { "outcome": "rejected", "rule": "ABS-001", "statement": null },
+  "section": "IMPL §1.11",
+  "note": "** absorbs .github/workflows to match .github/workflows/ci.yml. The grammar gives dot segments no special treatment, unlike many shell and npm glob libraries that skip dotfiles by default; an implementation built on such a library would wrongly accept this claim."
+}

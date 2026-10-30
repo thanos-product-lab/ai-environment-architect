@@ -1,0 +1,7 @@
+{
+  "scope": { "paths": ["./src/a.ts"] },
+  "nearMissOf": "SCOPE-001",
+  "expect": { "outcome": "accepted", "rule": null },
+  "section": "IMPL §1.11",
+  "note": "Scope paths use the same normalisation as SUP-001 path tokens: one leading ./ removed."
+}

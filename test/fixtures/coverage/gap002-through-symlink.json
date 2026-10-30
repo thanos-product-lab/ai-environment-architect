@@ -1,0 +1,14 @@
+{
+  "gap": { "relatedPaths": ["lib-link/index.js"] },
+  "expect": {
+    "outcome": "relabelled",
+    "rule": "GAP-002",
+    "coverage": {
+      "state": "not_inspected",
+      "entries": [],
+      "directories": [{ "path": "lib-link" }]
+    }
+  },
+  "section": "IMPL §1.11, §3.8",
+  "note": "§3.8: a gap through a symbolic link. lib-link -> ../shared is never followed, so a path through it is uncovered, not unlisted. The coverage records the link by its own path, not its target."
+}

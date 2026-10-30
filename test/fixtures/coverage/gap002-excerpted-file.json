@@ -1,0 +1,14 @@
+{
+  "gap": { "relatedPaths": ["src/c.ts"] },
+  "expect": {
+    "outcome": "relabelled",
+    "rule": "GAP-002",
+    "coverage": {
+      "state": "not_inspected",
+      "entries": [{ "path": "src/c.ts" }],
+      "directories": []
+    }
+  },
+  "section": "IMPL §1.11",
+  "note": "src/c.ts was sent as an excerpt (lines 1-3 and 10-30 of 50). The model may claim something is missing that sits in the omitted lines, so the gap can't be labelled missing."
+}

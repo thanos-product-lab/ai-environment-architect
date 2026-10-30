@@ -1,0 +1,7 @@
+{
+  "gap": { "relatedPaths": ["README.md"] },
+  "expect": { "outcome": "accepted", "rule": null, "coverage": { "state": "inspected" } },
+  "nearMissOf": "GAP-002",
+  "section": "IMPL §1.11",
+  "note": "README.md has 30 lines: T2-001 sent 1-18 and the expansion E-1 sent 19-30. Together the call's items cover every line, so it counts as sent in full although no single item holds it all."
+}

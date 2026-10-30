@@ -1,0 +1,7 @@
+{
+  "gap": { "relatedPaths": ["docs/*.md"] },
+  "expect": { "outcome": "accepted", "rule": null, "coverage": { "state": "inspected" } },
+  "nearMissOf": "GAP-002",
+  "section": "IMPL §1.11",
+  "note": "docs/*.md matches only docs/index.md, sent in full. * doesn't cross /, so docs/guide/setup.md (an excerpt) is not matched, and the directory docs/guide doesn't match *.md. Compare gap002-star-matches-directory."
+}

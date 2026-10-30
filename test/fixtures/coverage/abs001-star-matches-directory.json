@@ -1,0 +1,6 @@
+{
+  "absenceClaim": { "pathGlob": "src/l*" },
+  "expect": { "outcome": "rejected", "rule": "ABS-001", "statement": null },
+  "section": "IMPL §1.11",
+  "note": "No file in src starts with l, but src/l* matches the directory src/lib, and a directory matched by a glob covers everything under it (v0.25), so src/lib/helpers.ts and src/lib/deep/deep.ts match."
+}

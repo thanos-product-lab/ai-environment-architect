@@ -1,0 +1,22 @@
+{
+  "gap": {
+    "relatedPaths": [
+      "cache/*/index.bin"
+    ]
+  },
+  "expect": {
+    "outcome": "relabelled",
+    "rule": "GAP-002",
+    "coverage": {
+      "state": "not_inspected",
+      "entries": [],
+      "directories": [
+        {
+          "pathHash": "withheld:cache/{{aws-access-key-id}}-link"
+        }
+      ]
+    }
+  },
+  "section": "IMPL §1.11, §1.7",
+  "note": "No entry matches (cache/.gitignore has two segments). The glob could reach the ignored directory cache/{{aws-access-key-id}} and the symbolic link cache/{{aws-access-key-id}}-link, both withheld, without naming either. Only the symbolic link counts, recorded by hash; an ignored directory a glob could only reach does not."
+}

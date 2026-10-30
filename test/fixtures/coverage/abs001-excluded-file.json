@@ -1,0 +1,6 @@
+{
+  "absenceClaim": { "pathGlob": ".env" },
+  "expect": { "outcome": "rejected", "rule": "ABS-001", "statement": null },
+  "section": "IMPL §1.11",
+  "note": "A model that saw no .env content may claim there is none. .env is an excluded entry, so the claim is false."
+}

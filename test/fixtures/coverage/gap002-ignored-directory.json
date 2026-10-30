@@ -1,0 +1,14 @@
+{
+  "gap": { "relatedPaths": ["tmp/build/out.ts"] },
+  "expect": {
+    "outcome": "relabelled",
+    "rule": "GAP-002",
+    "coverage": {
+      "state": "not_inspected",
+      "entries": [],
+      "directories": [{ "path": "tmp" }]
+    }
+  },
+  "section": "IMPL §1.11, §1.4",
+  "note": "tmp is a wholly ignored directory: one entry, never entered. A path two levels under it is uncovered, not unlisted."
+}

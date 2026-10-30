@@ -1,0 +1,14 @@
+{
+  "gap": { "relatedPaths": ["node_modules/left-pad/index.js"] },
+  "expect": {
+    "outcome": "relabelled",
+    "rule": "GAP-002",
+    "coverage": {
+      "state": "not_inspected",
+      "entries": [],
+      "directories": [{ "path": "node_modules" }]
+    }
+  },
+  "section": "IMPL §1.11, §3.8",
+  "note": "§3.8: a gap under an excluded directory. The path matches no entry (node_modules is one entry with no children) but lies under an excluded directory, so it is uncovered: GAP-001 does not apply, and the gap is relabelled not_inspected with node_modules recorded."
+}

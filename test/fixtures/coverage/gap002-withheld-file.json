@@ -1,0 +1,14 @@
+{
+  "gap": { "relatedPaths": ["keys"] },
+  "expect": {
+    "outcome": "relabelled",
+    "rule": "GAP-002",
+    "coverage": {
+      "state": "not_inspected",
+      "entries": [{ "pathHash": "withheld:keys/{{aws-access-key-id}}.txt" }],
+      "directories": []
+    }
+  },
+  "section": "IMPL §1.11, §1.7",
+  "note": "Substitute the placeholder, then hash. The directory keys is listed (it contains an entry), and covers keys/{{aws-access-key-id}}.txt, which is withheld and never sent. Coverage must hold its SHA-256 as pathHash, never the path: the recorded finding must not contain the substituted key ID anywhere."
+}

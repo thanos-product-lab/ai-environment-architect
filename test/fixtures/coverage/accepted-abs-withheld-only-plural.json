@@ -1,0 +1,11 @@
+{
+  "absenceClaim": { "pathGlob": "cache/*/*.bin" },
+  "expect": {
+    "outcome": "accepted",
+    "rule": null,
+    "statement": "No files matched `cache/*/*.bin` within the inspected scope. Not inspected: 2 withheld directories."
+  },
+  "nearMissOf": "ABS-002",
+  "section": "IMPL §1.11, §1.7",
+  "note": "The glob can reach only the two withheld unentered entries under cache, but its wildcard-free prefix is just cache, so it is not ABS-002. With no named directory, the count stands alone, without 'and'."
+}

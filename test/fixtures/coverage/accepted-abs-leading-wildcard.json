@@ -1,0 +1,11 @@
+{
+  "absenceClaim": { "pathGlob": "node_modules*/x.js" },
+  "expect": {
+    "outcome": "accepted",
+    "rule": null,
+    "statement": "No files matched `node_modules*/x.js` within the inspected scope. Not inspected: `node_modules/` (excluded)."
+  },
+  "nearMissOf": "ABS-002",
+  "section": "IMPL §1.11",
+  "note": "ABS-002 holds only when the glob's leading wildcard-free segments begin with an unentered directory (v0.25). Here the first segment has a wildcard, so there are no wildcard-free leading segments: the glob could match outside node_modules (node_modules_old/x.js would be listed if it existed). It could match inside node_modules, so that is named."
+}

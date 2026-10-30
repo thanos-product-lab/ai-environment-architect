@@ -1,0 +1,7 @@
+{
+  "gap": { "relatedPaths": ["src/lib/"] },
+  "expect": { "outcome": "accepted", "rule": null, "coverage": { "state": "inspected" } },
+  "nearMissOf": "GAP-001",
+  "section": "IMPL §1.11",
+  "note": "One trailing / is dropped (v0.25), leaving the listed directory src/lib. A wildcard-free directory path covers everything under it: src/lib/deep/deep.ts and src/lib/helpers.ts, both sent in full. No directory capture didn't enter lies under src/lib."
+}

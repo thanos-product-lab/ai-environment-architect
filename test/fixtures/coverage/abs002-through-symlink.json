@@ -1,0 +1,6 @@
+{
+  "absenceClaim": { "pathGlob": "lib-link/**/*.js" },
+  "expect": { "outcome": "rejected", "rule": "ABS-002", "statement": null },
+  "section": "IMPL §1.11, §3.8",
+  "note": "§3.8: an absence claim through a symbolic link. lib-link is never followed. lib-link/**/*.js can't match the link entry itself (it needs a final *.js segment), so ABS-001 doesn't apply first."
+}

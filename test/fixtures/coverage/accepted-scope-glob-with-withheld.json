@@ -1,0 +1,7 @@
+{
+  "scope": { "paths": ["**/*.txt"] },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SCOPE-001",
+  "section": "IMPL §1.11",
+  "note": "The glob matches the withheld keys/{{aws-access-key-id}}.txt and also data/big.txt, which is listed_only but not withheld. One non-withheld match is enough (v0.25)."
+}

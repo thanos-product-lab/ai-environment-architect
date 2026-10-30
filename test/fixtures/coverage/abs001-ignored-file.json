@@ -1,0 +1,6 @@
+{
+  "absenceClaim": { "pathGlob": "logs/*.log" },
+  "expect": { "outcome": "rejected", "rule": "ABS-001", "statement": null },
+  "section": "IMPL §1.11, §3.8",
+  "note": "§3.8: an absence claim matching an ignored file. logs/app.log is ignored and was never shown as content, but it is a snapshot entry, and an entry of any status rejects the claim."
+}

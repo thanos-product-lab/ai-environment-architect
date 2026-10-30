@@ -2,7 +2,7 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 30 October 2026  
-**Version:** 0.14 — consolidated specification  
+**Version:** 0.15 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,10 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.14
+
+1. **Gap coverage (§6.3).** A `not_inspected` gap records the directories capture didn't enter that count under [`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.11: those a related path names explicitly, and those it could reach that may hide project content. A default exclusion or ignored directory a glob could only reach is not recorded.
 
 ### Changes from v0.13
 
@@ -217,7 +221,7 @@ One claim about the repository, or one explicit unknown.
 | `scope` | `repository` or an explicit list of paths |
 | `evidenceIds` | Required for `claim`; may be empty for `gap` |
 | `droppedCitations` | Model-produced findings only: how many proposed citations failed validation or were merged into an earlier duplicate ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.5). Shown in the findings view |
-| `coverage` | Gaps only, set by code: `inspected`, or `not_inspected` with what wasn't read: the entries the gap's related paths match that weren't sent in full (withheld ones by hash), and the directories capture didn't enter that those paths reach ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.11, §3.3.2). The review shows a `not_inspected` gap as "not inspected", not "missing" |
+| `coverage` | Gaps only, set by code: `inspected`, or `not_inspected` with what wasn't read: the entries the gap's related paths match that weren't sent in full (withheld ones by hash), and the directories capture didn't enter that count: those the paths name explicitly, and those they could reach that may hide project content (unreadable, symbolic links, user exclusions), withheld ones by hash ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.11, §3.3.2). The review shows a `not_inspected` gap as "not inspected", not "missing" |
 | `uncertainty` | Short explanation; no numeric confidence score |
 | `producedBy` | Model call ID, or `deterministic` |
 

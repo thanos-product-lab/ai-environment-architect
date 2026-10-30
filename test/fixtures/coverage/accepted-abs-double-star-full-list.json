@@ -1,0 +1,11 @@
+{
+  "absenceClaim": { "pathGlob": "**/*.snap" },
+  "expect": {
+    "outcome": "accepted",
+    "rule": null,
+    "statement": "No files matched `**/*.snap` within the inspected scope. Not inspected: `broken/` (unreadable), `keys-link -> <withheld>` (symbolic link), `lib-link -> ../shared` (symbolic link), `node_modules/` (excluded), `packages/core/src/node_modules/` (excluded), `tmp/` (ignored), `vendor` (excluded) and 2 withheld directories."
+  },
+  "nearMissOf": "ABS-002",
+  "section": "IMPL §1.11",
+  "note": "Every wording form at once. A leading ** reaches all nine unentered directories. Directories get a trailing / and their status; symbolic links show their target, withheld as <withheld> because ../{{aws-access-key-id}} matches the scan; vendor is an excluded symlink, so it has no / and no target. The two withheld ones (cache/{{aws-access-key-id}} and its -link sibling) are counted, not named. The list is in bytewise path order."
+}

@@ -1,0 +1,7 @@
+{
+  "scope": { "paths": ["keys"] },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SCOPE-001",
+  "section": "IMPL §1.11",
+  "note": "keys is a directory containing an entry, so it is listed, and its own name is not withheld: the tree showed keys/ with a <withheld> child. Only the child is withheld. Compare scope001-glob-matches-only-withheld."
+}

@@ -1,0 +1,6 @@
+{
+  "scope": { "paths": ["src/lib//"] },
+  "expect": { "outcome": "rejected", "rule": "SCOPE-001" },
+  "section": "IMPL §1.11",
+  "note": "Only one trailing / is dropped (v0.25), leaving src/lib/ with an empty last segment, which matches nothing. Stripping all trailing slashes would wrongly accept it."
+}

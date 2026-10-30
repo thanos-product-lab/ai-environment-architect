@@ -1,0 +1,6 @@
+{
+  "absenceClaim": { "pathGlob": "src/../src/a.ts" },
+  "expect": { "outcome": "rejected", "rule": "ABS-003", "statement": null },
+  "section": "IMPL §1.11",
+  "note": ".. is never resolved, so the glob names nothing. Without ABS-003 it would be accepted as an absence of a file that exists."
+}

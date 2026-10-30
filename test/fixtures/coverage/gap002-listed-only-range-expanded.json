@@ -1,0 +1,14 @@
+{
+  "gap": { "relatedPaths": ["data/big.txt"] },
+  "expect": {
+    "outcome": "relabelled",
+    "rule": "GAP-002",
+    "coverage": {
+      "state": "not_inspected",
+      "entries": [{ "path": "data/big.txt" }],
+      "directories": []
+    }
+  },
+  "section": "IMPL §1.11",
+  "note": "data/big.txt is listed_only; the expansion E-4 sent lines 100-140 of 5000. Having some sent lines doesn't make it inspected."
+}

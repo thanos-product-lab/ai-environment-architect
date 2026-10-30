@@ -1,0 +1,6 @@
+{
+  "gap": { "relatedPaths": ["src/lib/../a.ts"] },
+  "expect": { "outcome": "rejected", "rule": "GAP-001", "coverage": null },
+  "section": "IMPL §1.11",
+  "note": "A path with a .. segment is never resolved and names nothing, so it is unlisted although src/a.ts exists."
+}

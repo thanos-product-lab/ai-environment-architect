@@ -1,0 +1,7 @@
+{
+  "scope": { "paths": ["src/lib/**/helpers.ts"] },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SCOPE-001",
+  "section": "IMPL §1.11",
+  "note": "** matches zero or more whole segments, so it matches src/lib/helpers.ts with zero. An implementation that requires ** to consume at least one segment would reject it."
+}

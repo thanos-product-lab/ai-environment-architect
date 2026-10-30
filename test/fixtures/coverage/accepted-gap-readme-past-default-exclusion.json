@@ -1,0 +1,9 @@
+{
+  "gap": { "relatedPaths": ["**/README.md"] },
+  "files": [{"path":"README.md","status":"read"},{"path":"node_modules","status":"excluded","rule":"node_modules/","kind":"directory"},{"path":"packages/web/README.md","status":"read"}],
+  "sent": [{"path":"README.md","totalLines":10,"ranges":[[1,10]]},{"path":"packages/web/README.md","totalLines":6,"ranges":[[1,6]]}],
+  "nearMissOf": "GAP-002",
+  "expect": { "outcome": "accepted", "rule": null, "coverage": { "state": "inspected" } },
+  "section": "IMPL §1.11",
+  "note": "Every README.md the glob matches was sent in full. It could reach inside node_modules/, but a default exclusion it only could reach doesn't make the gap not_inspected, so it stays missing."
+}

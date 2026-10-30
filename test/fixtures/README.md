@@ -34,6 +34,19 @@ Support-check cases (IMPL §3.2.3, `SUP-001` to `SUP-005`), run after provenance
 
 Every other file is one case: a `finding` with its accepted evidence (path, basis, code-extracted excerpt), or a `conflict` with its members' evidence paths, plus `expect` (outcome and the first failing rule, or `null`), the spec section and a note. Files are named after the rule that must reject them; `accepted-*` files are near misses that must pass every rule, and name the rule they nearly fail in `nearMissOf`.
 
+## `coverage/`
+
+Coverage-aware validation cases (IMPL §1.11: `SCOPE-001`, `GAP-001`, `GAP-002`, `ABS-001`, `ABS-002`, `ABS-003`). `context.json` is one shared snapshot:
+
+- `files`: path, status, and kind, target or exclusion `rule` where the status has one;
+- `userExclusions`: patterns that are user exclusions (none in the shared snapshot), so the runner can tell them from defaults;
+- `ignoreRules`: whether ignore rules were applied;
+- `sent`: the line ranges each item of the call sent, initial and expansion alike, with the item's ID for reference. A path missing from `sent` was not sent.
+
+The withheld placeholder works as in `support/`.
+
+Every other file is one `scope`, `gap` or `absenceClaim` with `expect`: the outcome (`accepted`, `relabelled` or `rejected`), the rule, and the gap's coverage or the absence claim's code-generated statement, `null` when the item is rejected. `detailExcludes` lists text the rejection detail must not contain. A withheld path in an expected coverage is written `{"pathHash":"withheld:<path>"}`; the test hashes it. A case may override `ignoreRules`, or replace `files`, `sent` and `userExclusions` when it needs a repository of its own. Naming follows `support/`.
+
 ## `responses/`
 
 Recorded model responses, one directory per call (IMPL §3.7).

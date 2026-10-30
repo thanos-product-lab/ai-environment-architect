@@ -1,0 +1,12 @@
+{
+  "gap": { "relatedPaths": ["**/README.md"] },
+  "files": [{"path":"README.md","status":"read"},{"path":"node_modules","status":"excluded","rule":"node_modules/","kind":"directory"},{"path":"packages/web/README.md","status":"read"},{"path":"packages/locked","status":"unreadable","kind":"directory"}],
+  "sent": [{"path":"README.md","totalLines":10,"ranges":[[1,10]]},{"path":"packages/web/README.md","totalLines":6,"ranges":[[1,6]]}],
+  "expect": {
+    "outcome": "relabelled",
+    "rule": "GAP-002",
+    "coverage": { "state": "not_inspected", "entries": [], "directories": [{ "path": "packages/locked" }] }
+  },
+  "section": "IMPL §1.11",
+  "note": "The same gap as accepted-gap-readme-past-default-exclusion, with an unreadable directory added. The glob could reach inside it, and an unreadable directory may hide project content, so the gap is not_inspected. node_modules/ is still not recorded."
+}

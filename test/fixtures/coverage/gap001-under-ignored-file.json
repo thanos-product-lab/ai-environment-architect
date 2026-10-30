@@ -1,0 +1,6 @@
+{
+  "gap": { "relatedPaths": ["logs/app.log/rotated"] },
+  "expect": { "outcome": "rejected", "rule": "GAP-001", "coverage": null },
+  "section": "IMPL §1.11",
+  "note": "logs/app.log is an ignored file, not a directory, so nothing lies under it and the path is not uncovered. Only directories capture didn't enter make a path uncovered."
+}

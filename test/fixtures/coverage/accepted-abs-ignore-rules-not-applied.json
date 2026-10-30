@@ -1,0 +1,12 @@
+{
+  "ignoreRules": { "state": "not_applied", "reason": "git_missing" },
+  "absenceClaim": { "pathGlob": "packages/**/*.snap" },
+  "expect": {
+    "outcome": "accepted",
+    "rule": null,
+    "statement": "No files matched `packages/**/*.snap` within the inspected scope. Not inspected: `packages/core/src/node_modules/` (excluded). Ignore rules were not applied, so ignored files could not be identified."
+  },
+  "nearMissOf": "ABS-001",
+  "section": "IMPL §1.11, §1.4",
+  "note": "The per-case ignoreRules override changes only the wording; this glob reaches no ignored entry, so the shared snapshot's ignored entries don't matter. The ignore-rules sentence comes after the Not inspected list."
+}

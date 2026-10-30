@@ -1,0 +1,6 @@
+{
+  "scope": { "paths": ["src/api"] },
+  "expect": { "outcome": "rejected", "rule": "SCOPE-001" },
+  "section": "IMPL §1.11, §3.3.2",
+  "note": "A plausible directory the model expected to find. It is neither an entry nor a directory containing entries."
+}

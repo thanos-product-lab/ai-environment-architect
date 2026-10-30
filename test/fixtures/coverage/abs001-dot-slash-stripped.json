@@ -1,0 +1,6 @@
+{
+  "absenceClaim": { "pathGlob": "./src/a.ts" },
+  "expect": { "outcome": "rejected", "rule": "ABS-001", "statement": null },
+  "section": "IMPL §1.11",
+  "note": "Path fields are normalised as path tokens are: one leading ./ is removed, so this names src/a.ts, which exists. Accepting it would produce the misleading statement \"No files matched `./src/a.ts`\"."
+}

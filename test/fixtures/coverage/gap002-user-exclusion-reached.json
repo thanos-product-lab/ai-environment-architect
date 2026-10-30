@@ -1,0 +1,13 @@
+{
+  "gap": { "relatedPaths": ["**/README.md"] },
+  "files": [{"path":"README.md","status":"read"},{"path":"node_modules","status":"excluded","rule":"node_modules/","kind":"directory"},{"path":"packages/web/README.md","status":"read"},{"path":"packages/generated","status":"excluded","rule":"packages/generated/","kind":"directory"}],
+  "userExclusions": ["packages/generated/"],
+  "sent": [{"path":"README.md","totalLines":10,"ranges":[[1,10]]},{"path":"packages/web/README.md","totalLines":6,"ranges":[[1,6]]}],
+  "expect": {
+    "outcome": "relabelled",
+    "rule": "GAP-002",
+    "coverage": { "state": "not_inspected", "entries": [], "directories": [{ "path": "packages/generated" }] }
+  },
+  "section": "IMPL §1.11",
+  "note": "A directory the developer excluded is project content the gap may concern, so a glob that could reach it relabels the gap. The default node_modules/ exclusion still doesn't."
+}

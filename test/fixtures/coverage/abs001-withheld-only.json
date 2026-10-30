@@ -1,0 +1,11 @@
+{
+  "absenceClaim": { "pathGlob": "keys/*.txt" },
+  "expect": {
+    "outcome": "rejected",
+    "rule": "ABS-001",
+    "statement": null,
+    "detailExcludes": ["{{aws-access-key-id}}"]
+  },
+  "section": "IMPL §1.11, §1.7",
+  "note": "Substitute the placeholder first. The only match is the withheld keys/{{aws-access-key-id}}.txt. Withheld paths are listed for absence claims, so the claim is rejected, and the rejection detail must not contain the substituted key ID."
+}

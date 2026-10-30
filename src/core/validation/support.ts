@@ -1,5 +1,5 @@
 import { isWithheldPath } from "../context/secrets.js";
-import { comparePaths } from "../paths.js";
+import { comparePaths, normalisePath } from "../paths.js";
 import type { Basis, Evidence } from "./citations.js";
 import {
   type AcceptedItems,
@@ -231,16 +231,13 @@ export function supportCheck<V extends SupportedFinding, C extends SupportContex
 }
 
 /**
- * Whether a path token names a listed path (§1.11): one leading `./` and one trailing `/` are
- * removed first, and `../` is never resolved, so a token holding it lists nothing. Excerpts are
- * matched with the token as written.
+ * Whether a path token names a listed path, after the path normalisation of §1.11: one leading
+ * `./` and one trailing `/` removed, and a `..` segment naming nothing. Excerpts are matched with
+ * the token as written.
  */
 export function isListed(token: string, context: SupportContext): boolean {
-  const path = token.startsWith("./") ? token.slice(2) : token;
-  return (
-    context.anchorable.has(path) ||
-    (path.endsWith("/") && context.anchorable.has(path.slice(0, -1)))
-  );
+  const path = normalisePath(token);
+  return path !== undefined && context.anchorable.has(path);
 }
 
 /**

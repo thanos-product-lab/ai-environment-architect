@@ -1,0 +1,6 @@
+{
+  "absenceClaim": { "pathGlob": "src/lib/" },
+  "expect": { "outcome": "rejected", "rule": "ABS-001", "statement": null },
+  "section": "IMPL §1.11",
+  "note": "One trailing / is dropped (v0.25), leaving src/lib, a wildcard-free path naming a directory that covers its files. An implementation that keeps the slash and compares strings against entry paths would find nothing and accept a false absence."
+}

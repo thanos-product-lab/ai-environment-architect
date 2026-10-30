@@ -1,0 +1,6 @@
+{
+  "absenceClaim": { "pathGlob": "node_modules/**/*.d.ts" },
+  "expect": { "outcome": "rejected", "rule": "ABS-002", "statement": null },
+  "section": "IMPL §1.11, §3.8",
+  "note": "§3.8: an absence claim that can match only inside node_modules/. No entry matches (the excluded node_modules has no listed children, and *.d.ts can't match node_modules itself). The leading wildcard-free segment is node_modules, an excluded directory, and the glob has more segments, so the claim is entirely about uninspected content."
+}

@@ -1,0 +1,7 @@
+{
+  "scope": { "paths": ["src/lib/"] },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SCOPE-001",
+  "section": "IMPL §1.11",
+  "note": "One trailing / is dropped, leaving the listed directory src/lib. Compare scope001-double-trailing-slash."
+}

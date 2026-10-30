@@ -1,0 +1,11 @@
+{
+  "absenceClaim": { "pathGlob": "docs/[draft]-notes_v2@é.md" },
+  "nearMissOf": "ABS-003",
+  "expect": {
+    "outcome": "accepted",
+    "rule": null,
+    "statement": "No files matched `docs/[draft]-notes_v2@é.md` within the inspected scope."
+  },
+  "section": "IMPL §1.11",
+  "note": "Brackets, hyphens, underscores, @ and non-ASCII letters are ordinary name characters: only a backtick, whitespace, or a control or format character is ABS-003."
+}

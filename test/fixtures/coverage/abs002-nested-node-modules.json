@@ -1,0 +1,6 @@
+{
+  "absenceClaim": { "pathGlob": "packages/core/src/node_modules/*/package.json" },
+  "expect": { "outcome": "rejected", "rule": "ABS-002", "statement": null },
+  "section": "IMPL §1.11",
+  "note": "The leading wildcard-free segments packages/core/src/node_modules are exactly the nested excluded directory, and the glob has two more segments. A check that compares only the first segment with unentered directories would miss this."
+}

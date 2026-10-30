@@ -1,0 +1,6 @@
+{
+  "scope": { "paths": ["lib-link/index.js"] },
+  "expect": { "outcome": "rejected", "rule": "SCOPE-001" },
+  "section": "IMPL §1.11",
+  "note": "A path through a symbolic link is uncovered: the link is never followed, so nothing under it is listed."
+}

@@ -1,0 +1,7 @@
+{
+  "gap": { "relatedPaths": ["src/b.ts"] },
+  "expect": { "outcome": "accepted", "rule": null, "coverage": { "state": "inspected" } },
+  "nearMissOf": "GAP-002",
+  "section": "IMPL §1.11",
+  "note": "src/b.ts has 40 lines: T5-003 sent 1-25 and E-2 sent 20-40. The union covers 1-40. The overlap on 20-25 must be handled as a union of lines, not by summing range lengths (46) against totalLines."
+}

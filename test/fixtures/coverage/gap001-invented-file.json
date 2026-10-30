@@ -1,0 +1,6 @@
+{
+  "gap": { "relatedPaths": ["src/api/client.ts"] },
+  "expect": { "outcome": "rejected", "rule": "GAP-001", "coverage": null },
+  "section": "IMPL §1.11, §3.3.2",
+  "note": "No entry or directory src/api exists, and no directory capture didn't enter starts with src, so the path is unlisted. A gap about something that doesn't exist must be an absence claim instead."
+}

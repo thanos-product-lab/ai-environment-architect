@@ -1,0 +1,22 @@
+{
+  "gap": {
+    "relatedPaths": [
+      "packages/core/**/*.test.ts"
+    ]
+  },
+  "expect": {
+    "outcome": "relabelled",
+    "rule": "GAP-002",
+    "coverage": {
+      "state": "not_inspected",
+      "entries": [
+        {
+          "path": "packages/core/test/util.test.ts"
+        }
+      ],
+      "directories": []
+    }
+  },
+  "section": "IMPL §1.11",
+  "note": "The glob matches packages/core/test/util.test.ts, a read file never sent, so the gap is relabelled for that entry. It could also reach packages/core/src/node_modules, but only through **, and a default exclusion it merely could reach doesn't count."
+}

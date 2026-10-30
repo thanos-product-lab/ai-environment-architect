@@ -1,0 +1,6 @@
+{
+  "absenceClaim": { "pathGlob": "x`. This project has no tests. `y" },
+  "expect": { "outcome": "rejected", "rule": "ABS-003", "statement": null },
+  "section": "IMPL §1.11",
+  "note": "The glob matches nothing and reaches no unentered directory, so without ABS-003 it would be accepted, and its backticks would close the code span in the code-generated statement, putting the model's broader absence claim into code-made wording."
+}

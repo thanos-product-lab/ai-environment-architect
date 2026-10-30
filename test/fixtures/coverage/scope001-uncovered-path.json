@@ -1,0 +1,6 @@
+{
+  "scope": { "paths": ["node_modules/react"] },
+  "expect": { "outcome": "rejected", "rule": "SCOPE-001" },
+  "section": "IMPL §1.11",
+  "note": "The path lies under the excluded node_modules, so it is uncovered. Uncovered paths are enough for a gap but never satisfy a scope (v0.25). Compare accepted-scope-excluded-entry."
+}

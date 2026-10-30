@@ -1,0 +1,44 @@
+{
+  "gap": {
+    "relatedPaths": [
+      "**/*.ts"
+    ]
+  },
+  "expect": {
+    "outcome": "relabelled",
+    "rule": "GAP-002",
+    "coverage": {
+      "state": "not_inspected",
+      "entries": [
+        {
+          "path": "packages/core/src/util.ts"
+        },
+        {
+          "path": "packages/core/test/util.test.ts"
+        },
+        {
+          "path": "src/c.ts"
+        },
+        {
+          "path": "src/d.ts"
+        }
+      ],
+      "directories": [
+        {
+          "path": "broken"
+        },
+        {
+          "pathHash": "withheld:cache/{{aws-access-key-id}}-link"
+        },
+        {
+          "path": "keys-link"
+        },
+        {
+          "path": "lib-link"
+        }
+      ]
+    }
+  },
+  "section": "IMPL §1.11",
+  "note": "The vague gap a model writes when it can't find a convention. Matched .ts entries not sent in full: the outline-only util.ts, the unsent test, the excerpt src/c.ts and src/d.ts (line 15 missing). A leading ** could reach every directory capture didn't enter, but names none explicitly, so only those that hide project content count: the unreadable directory and the three symbolic links, withheld ones by hash, in bytewise order of the original paths. Default exclusions (node_modules, the excluded vendor link) and ignored directories don't."
+}

@@ -1,0 +1,14 @@
+{
+  "gap": { "relatedPaths": ["broken/config.yml"] },
+  "expect": {
+    "outcome": "relabelled",
+    "rule": "GAP-002",
+    "coverage": {
+      "state": "not_inspected",
+      "entries": [],
+      "directories": [{ "path": "broken" }]
+    }
+  },
+  "section": "IMPL §1.11, §3.8",
+  "note": "§3.8: a gap under an unreadable directory. Capture couldn't list broken, so whether broken/config.yml exists is unknown: uncovered, relabelled not_inspected."
+}

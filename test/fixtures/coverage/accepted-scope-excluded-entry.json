@@ -1,0 +1,7 @@
+{
+  "scope": { "paths": ["node_modules"] },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SCOPE-001",
+  "section": "IMPL §1.11",
+  "note": "An excluded directory is itself an entry, so node_modules is listed and not withheld, and it satisfies the scope even though nothing inside it is. Compare scope001-uncovered-path."
+}

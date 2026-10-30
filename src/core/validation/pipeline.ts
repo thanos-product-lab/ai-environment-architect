@@ -9,7 +9,7 @@ import { comparePaths } from "../paths.js";
  * Increases with any change to what is accepted, thresholds and word lists included, and with a
  * runtime whose Unicode version changes CIT-007's or SUP-002's character classes.
  */
-export const VALIDATOR_VERSION = "validate/0.6.0";
+export const VALIDATOR_VERSION = "validate/0.8.0";
 
 /** The rule IDs this version applies. A test pins this list to `VALIDATOR_VERSION`. */
 export const RULE_IDS = [
@@ -34,6 +34,12 @@ export const RULE_IDS = [
   "SUP-003",
   "SUP-004",
   "SUP-005",
+  "SCOPE-001",
+  "GAP-001",
+  "GAP-002",
+  "ABS-001",
+  "ABS-002",
+  "ABS-003",
 ] as const;
 
 export type ValidationStage = "schema" | "item" | "cross_item";

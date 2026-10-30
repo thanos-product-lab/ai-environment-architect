@@ -1,0 +1,6 @@
+{
+  "scope": { "paths": ["src/lib/../a.ts"] },
+  "expect": { "outcome": "rejected", "rule": "SCOPE-001" },
+  "section": "IMPL §1.11",
+  "note": "'..' is never resolved; the segment matches no directory, so the path names nothing even though src/a.ts exists. A path.normalize call would wrongly accept it."
+}

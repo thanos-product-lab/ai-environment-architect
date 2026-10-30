@@ -1,0 +1,7 @@
+{
+  "gap": { "relatedPaths": ["./src/a.ts"] },
+  "nearMissOf": "GAP-001",
+  "expect": { "outcome": "accepted", "rule": null, "coverage": { "state": "inspected" } },
+  "section": "IMPL §1.11",
+  "note": "One leading ./ is removed from path fields, as from path tokens, so this names src/a.ts, which was sent in full."
+}

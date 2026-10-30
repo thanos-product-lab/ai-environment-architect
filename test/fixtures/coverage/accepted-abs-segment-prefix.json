@@ -1,0 +1,11 @@
+{
+  "absenceClaim": { "pathGlob": "node_modules2/**/*.js" },
+  "expect": {
+    "outcome": "accepted",
+    "rule": null,
+    "statement": "No files matched `node_modules2/**/*.js` within the inspected scope."
+  },
+  "nearMissOf": "ABS-002",
+  "section": "IMPL §1.11",
+  "note": "node_modules2 is a different segment from node_modules. A string-prefix comparison (startsWith('node_modules')) would wrongly reject this with ABS-002 or name node_modules/ in the wording."
+}

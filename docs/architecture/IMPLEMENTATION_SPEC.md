@@ -2,8 +2,23 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 30 October 2026  
-**Version:** 0.24  
+**Version:** 0.25  
 **Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
+
+### Changes from v0.24
+
+- **Path normalisation (§1.11).** One rule for every path the model writes, in path fields (scope paths, gap `relatedPaths`, absence-claim `pathGlob`s) and as tokens in text (`SUP-001`, and the reference detector when it is built): one leading `./` and one trailing `/` are removed, and a path with a `..` segment names nothing. An absence claim on `./src/a.ts` is therefore rejected by `ABS-001` when `src/a.ts` exists.
+- **Dot names (§1.11).** `*` and `**` match names that start with a dot.
+- **Directories matched by a glob (§1.11).** A directory a glob matches covers everything under it, as a directory named without wildcards does, so `src/*` reaches `src/a/b.ts`.
+- **`SCOPE-001` (§1.11).** A scope path or glob is accepted when it matches at least one listed path that is not withheld. Uncovered paths don't satisfy it.
+- **Directories capture didn't enter (§1.11).** Defined exactly: symbolic links, and excluded, wholly ignored or unreadable entries that are directories or symbolic links.
+- **`ABS-002` (§1.11).** Stated exactly: the glob's leading wildcard-free segments start with such a directory's, and the glob has segments beyond it. Accepted wording is fixed, including withheld directories and ignore rules not applied.
+- **`ABS-003` (§1.11).** New rule: an absence-claim `pathGlob` holding a backtick, whitespace, a control or format character, or a `..` segment is rejected before the file list is consulted, because code copies the glob into the claim's statement.
+- **Gap coverage (§1.11).** A related path that names a directory capture didn't enter, or a path under it, makes the gap `not_inspected`. A glob that only could reach one does so only when the directory may hide project content: unreadable entries, symbolic links and user exclusions, not default exclusions or ignored directories. So a `**/README.md` gap stays "missing" past `node_modules/`. Such a directory is recorded once, among the directories. Accepted absence wording still names every directory the glob could reach.
+- **Sent in full (§1.11).** Every item of a file must agree on its line count. An empty file sent as an item is sent in full.
+- **Validator (§3.5).** `validatorVersion` is `validate/0.8.0`, for `SCOPE-001`, `GAP-001`, `GAP-002`, `ABS-001`, `ABS-002` and `ABS-003`, and the path normalisation of path fields. `validate/0.7.0` was a draft of this version and was never released.
+- **Analyse validation (§3.3.2).** Step 4 states `SCOPE-001` as §1.11 does, and step 6 includes `ABS-003`.
+- **Reference detector (§3.4).** Uses the path normalisation of §1.11.
 
 ### Changes from v0.23
 
@@ -634,19 +649,21 @@ Every reduction is recorded in the manifest, and the tree markers are updated. T
 
 These checks run after calls 1 and 2, in addition to the evidence validation in the domain model.
 
-**Globs.** Gap `relatedPaths`, absence-claim `pathGlob`s and scope paths use the workspace pattern grammar (§1.5): `*` matches within one path segment, `**` matches zero or more whole segments, and there is no `!`. Patterns are anchored at the repository root, compare case-sensitively, and match entry paths, directories included. A path without wildcards that names a directory also covers everything under it. Expansion paths and search globs keep their own rules (§1.8).
+**Globs.** Gap `relatedPaths`, absence-claim `pathGlob`s and scope paths use the workspace pattern grammar (§1.5): `*` matches within one path segment, `**` matches zero or more whole segments, and there is no `!`. Patterns are anchored at the repository root, compare case-sensitively, and match entry paths, directories included. `*` and `**` match names that start with a dot, so `**/*.yml` matches `.github/workflows/ci.yml`. A directory a path matches, whether named without wildcards or matched by a glob, also covers everything under it, so `src` and `src/*` both reach `src/a/b.ts`. Paths are normalised first (below). Expansion paths and search globs keep their own rules (§1.8).
+
+**Path normalisation.** Every path the model writes is normalised the same way before it is matched against the file list, whether it is in a path field (scope paths, gap `relatedPaths`, absence-claim `pathGlob`s) or a token in text (below): one leading `./` and one trailing `/` are removed, so `./src/a.ts` names `src/a.ts`, `src/` names `src`, and `././src/a.ts` and `src//` name nothing. `..` is never resolved: a path with a `..` segment names nothing, so it is unlisted, fails `SCOPE-001`, `GAP-001` and `SUP-001`, and rejects an absence claim (`ABS-003`).
 
 A glob **could match inside** a directory `D` when some path under `D` could match it: code matches `D`'s segments, in order, against the glob's leading segments, where `*` matches one segment and `**` may absorb any number of them, and the glob must have at least one segment left over, or end in `**`. So `**/*.test.ts` and `src/**/foo.ts` could match inside `src/a/node_modules/`, and `docs/*.md` could not.
 
 **Path resolution.** Each of these paths and globs resolves to one of three classes:
 
 - **listed:** it matches a snapshot entry of any status (`read`, `listed_only`, `ignored`, `excluded`, `symlink`, `unreadable`; capture never produces `truncated`), or a directory that contains entries. An excluded or wholly ignored directory is itself an entry, so `node_modules/` is listed.
-- **uncovered:** it doesn't match a listed entry, but lies under, or could match inside, a directory that capture didn't enter: an excluded directory, a wholly ignored directory, an unreadable directory, or a path through a symbolic link. Whether it exists is unknown.
+- **uncovered:** it doesn't match a listed entry, but lies under, or could match inside, a directory that capture didn't enter: an excluded directory, a wholly ignored directory, an unreadable directory, or a path through a symbolic link. Exactly: an entry with status `symlink`, or an `excluded`, `ignored` or `unreadable` entry whose kind is directory or symbolic link. Whether it exists is unknown.
 - **unlisted:** neither. Capture would have listed it, and didn't.
 
-A path withheld because its name matched the secret scan (§1.7) is listed for gaps and absence claims. The model never saw its name, so it does not anchor a statement (`SUP-001`) or satisfy a scope (`SCOPE-001`): those two rules accept only listed paths that are not withheld.
+A path withheld because its name matched the secret scan (§1.7) is listed for gaps and absence claims. The model never saw its name, so it does not anchor a statement (`SUP-001`) or satisfy a scope (`SCOPE-001`): those two rules accept only listed paths that are not withheld. A scope glob satisfies `SCOPE-001` when it matches at least one listed path that is not withheld; an uncovered scope path does not.
 
-**Path tokens in model text.** A path the model writes inside text, rather than in a path field, is a token: in a finding statement (`SUP-001`, §3.2.3) or in recommendation content (§3.4, `REF-002`). Before a token is matched against the file list, one leading `./` is removed, so `./src/index.ts` names `src/index.ts` and `././src/index.ts` names nothing. `../` is never resolved: a token holding a `..` segment is compared as written, so it names no listed path. Matching a token against an excerpt uses the token as written, and quotes are always matched exactly (§3.2.2).
+**Path tokens in model text.** A path the model writes inside text, rather than in a path field, is a token: in a finding statement (`SUP-001`, §3.2.3) or in recommendation content (§3.4, `REF-002`). It is matched against the file list after the path normalisation above. Matching a token against an excerpt uses the token as written, and quotes are always matched exactly (§3.2.2).
 
 **Gap findings** must include:
 
@@ -655,15 +672,20 @@ A path withheld because its name matched the secret scan (§1.7) is listed for g
 
 Each related path must be listed or uncovered. An unlisted one rejects the gap: a gap about something that doesn't exist must be an absence claim instead (`GAP-001`).
 
-A gap keeps the label "missing" only if every entry its related paths match is a file **sent in full** in that call: the sent lines of its items, initial and expansion, together cover every line of the file. Otherwise it is relabelled `not_inspected` (`GAP-002`, outcome `relabelled`), and code records on the finding ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.3) the matched entries that weren't sent in full, withheld ones by `pathHash`, and the directories capture didn't enter that a related path is under or could match inside. That covers files not selected (`[-]`), excerpted or outline-only, `listed_only` (`[L]`), `ignored` (`[I]`), excluded (`[X]`), secret-blocked (`[S]`), symbolic links (`[>]`), unreadable entries (`[U]`), excluded, ignored and unreadable directories, and every uncovered path. The review shows it as "not inspected", not "missing". A gap on a whole directory is therefore usually `not_inspected`; the prompt asks the model to name the specific files a gap concerns.
+A gap keeps the label "missing" only if every file its related paths match is **sent in full** in that call, and no related path counts a directory capture didn't enter. A file is sent in full when the sent lines of its items, initial and expansion, together cover every line; every item of a file must agree on its line count, and an empty file sent as an item is sent in full. A related path counts a directory capture didn't enter when:
+
+- it names the directory explicitly: its leading wildcard-free segments are the directory's, or a path under it, as `node_modules`, `node_modules/react/index.js` and `broken/*.ts` are; or
+- it could only reach the directory, by matching it, covering it, or being able to match inside it, as `**/README.md` and `src` can, and the directory may hide project content: an unreadable entry, a symbolic link, or an entry excluded by a user exclusion (the first rule with its pattern, in rule order, is a user rule). Default exclusions, including session storage, and wholly ignored directories don't count this way: they hold dependencies, build output and other content that isn't the project's own, so a `**/README.md` gap stays "missing" past `node_modules/`.
+
+Otherwise it is relabelled `not_inspected` (`GAP-002`, outcome `relabelled`), and code records on the finding ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.3) the matched files that weren't sent in full, withheld ones by `pathHash`, and the directories that count. Such a directory is recorded once, among the directories, never among the entries. That covers files not selected (`[-]`), excerpted or outline-only, `listed_only` (`[L]`), `ignored` (`[I]`), excluded (`[X]`), secret-blocked (`[S]`), symbolic links (`[>]`), unreadable entries (`[U]`), and the directories above when they count. The review shows it as "not inspected", not "missing". A gap on a whole directory is therefore usually `not_inspected`; the prompt asks the model to name the specific files a gap concerns.
 
 The deterministic gaps of §1.5 are `not_inspected` from the start: agent configuration skipped by the tier 1 budget records the skipped paths, and an import outside the repository records the importing file, because the imported file was never read.
 
-**Absence claims** must be expressed as `absenceClaim: { pathGlob, reason }`. Application code evaluates the glob against the **full snapshot file list**, in this order:
+**Absence claims** must be expressed as `absenceClaim: { pathGlob, reason }`. Code copies the glob into the claim's statement, so a glob holding a backtick, whitespace, or a control or format character (Unicode `Cc`, `Cf`) is rejected first (`ABS-003`), as is one with a `..` segment, which names nothing. The glob is then normalised (above), so `./src/a.ts` is rejected by `ABS-001` when `src/a.ts` exists. Application code then evaluates the glob against the **full snapshot file list**, in this order:
 
 1. If any entry matches, of any status, the claim is rejected (`ABS-001`). The rejection detail never names a withheld path.
-2. If the glob can match only inside uncovered directories, the claim is rejected (`ABS-002`): it is entirely about content that wasn't inspected.
-3. Otherwise the claim is accepted. Its statement is **generated by code, not the model**: "No files matched `<pathGlob>` within the inspected scope." If the glob could match inside uncovered directories, code adds them, for example "Not inspected: `node_modules/` (excluded), `logs/` (ignored), `vendor -> ../shared` (symbolic link)." Withheld names are never shown; code counts them instead ("and 1 withheld directory"). When ignore rules were not applied, code adds that ignored files could not be identified.
+2. If the glob can match only inside uncovered directories, the claim is rejected (`ABS-002`): it is entirely about content that wasn't inspected. With only `*` and `**`, that holds exactly when the glob's leading wildcard-free segments start with the segments of a directory capture didn't enter, and the glob has segments beyond it: `node_modules/**/*.js` can match only inside `node_modules/`, and `node_*/x.js` can match elsewhere.
+3. Otherwise the claim is accepted. Its statement is **generated by code, not the model**: "No files matched `<pathGlob>` within the inspected scope.", quoting the glob as the model wrote it. If the glob could match inside uncovered directories, code adds every one of them, whatever its kind, for example "Not inspected: `node_modules/` (excluded), `logs/` (ignored), `vendor -> ../shared` (symbolic link)." Directories are listed in bytewise order; an excluded, ignored or unreadable symbolic link is shown without a trailing `/`, and a symbolic link target that matches the secret scan is shown as `<withheld>`. Withheld names are never shown; code counts them instead ("and 1 withheld directory", or "Not inspected: 2 withheld directories." when no other is named). When ignore rules were not applied, code adds: "Ignore rules were not applied, so ignored files could not be identified." The `reason` the model wrote is kept, but never shown as the claim.
 
 An accepted absence claim records a narrow fact about one pattern. It can support a gap or a question ("No files matched `**/*.test.ts`. How are frontend changes tested?"). It **cannot** support a recommendation that states a broader absence, such as "this project has no tests". Absence asserted in free text, without an `absenceClaim`, is not yet detected (§3.9).
 
@@ -796,7 +818,7 @@ All defaults are starting points. They are calibrated on the product-development
 - Gap findings concerning unsent content become `not_inspected`, including gaps on paths under an excluded or wholly ignored directory or through a symbolic link; gaps on unlisted paths are rejected.
 - Absence claims contradicted by the file list are rejected, including by an `ignored`, excluded or `listed_only` entry; a claim that can match only inside uncovered directories is rejected; accepted ones use the code-generated narrow wording, name the uncovered directories the glob could reach, and cannot support broader recommendations.
 - Citations of omitted outline entries, outline labels, `BLOCKS` lines or outline-only items are rejected.
-- A gap stays "missing" when expansion completes a file, and becomes `not_inspected` for an excerpted or outline-only file, a symbolic link, an unreadable directory, or a related path that matches an excluded directory entry. The §1.5 deterministic gaps are `not_inspected`.
+- A gap stays "missing" when expansion completes a file, and becomes `not_inspected` for an excerpted or outline-only file, a symbolic link, an unreadable directory, or a related path that names an excluded directory explicitly; it stays "missing" when a glob could only reach a default-excluded or ignored directory. The §1.5 deterministic gaps are `not_inspected`.
 - A withheld path neither anchors `SUP-001` nor satisfies `SCOPE-001`, and never appears in an absence-claim rejection or wording; accepted wording counts withheld directories, and says when ignore rules were not applied.
 - Basis follows the file's tier: an imported tier 1 file and expanded `.claude/` configuration are `existing_guidance`, `@package.json` is `code_observation`, and a `listed_only` tier 2 document read by line range is `documentation`.
 - Calls 2–4 receive only validated material, and calls 3–4 no raw initial context.
@@ -1284,7 +1306,7 @@ They apply to each finding's `statement`, using the evidence of its accepted cit
 | `SUP-004` Prescriptive needs a prescriptive source | A `prescriptive` finding needs at least one citation with basis `documentation` or `existing_guidance` whose excerpt contains directive language (versioned word list: *must, should, always, never, do not, don't, required, prefer, use … instead*). | Reject |
 | `SUP-005` Conflicts need distinct sources | Every member finding of a conflict cites at least one file that not every other member cites, so no side rests only on sources the others share. With at least two members (`CONF-001`), that means at least two files. A context item and an expansion item of the same file are one source. | Reject the conflict |
 
-**Tokens.** An inline-code token is the text between a pair of backticks, pairing from the left, so two adjacent backticks are an empty token; a last unpaired backtick is plain text. A path-like token is a whitespace-separated word, after removing any leading `(`, `"` or `'` and any trailing `.,;:!?)"'`, that contains `/` and whose last segment ends in a file extension: a dot and 1–10 ASCII letters or digits (§3.4). A URL ending in a file extension is path-like. A token appears in an excerpt when it is an exact, case-sensitive substring of any cited excerpt. It is a listed path when, after the path-token rule of §1.11, it equals a listed entry or a directory containing entries, ignoring one trailing `/`, and is not itself withheld; a directory whose only entries are withheld is listed, because its own name is not.
+**Tokens.** An inline-code token is the text between a pair of backticks, pairing from the left, so two adjacent backticks are an empty token; a last unpaired backtick is plain text. A path-like token is a whitespace-separated word, after removing any leading `(`, `"` or `'` and any trailing `.,;:!?)"'`, that contains `/` and whose last segment ends in a file extension: a dot and 1–10 ASCII letters or digits (§3.4). A URL ending in a file extension is path-like. A token appears in an excerpt when it is an exact, case-sensitive substring of any cited excerpt. It is a listed path when, after the path normalisation of §1.11, it equals a listed entry or a directory containing entries, ignoring one trailing `/`, and is not itself withheld; a directory whose only entries are withheld is listed, because its own name is not.
 
 **Words and numbers.** `SUP-002` and `SUP-003` check the statement without its inline-code and path-like tokens, which `SUP-001` has already checked. Words match whole, case-insensitively: a letter, digit or underscore next to a match makes it part of another word, so *install* doesn't hold *all* and *fewer* isn't *few*. Inflections don't match.
 
@@ -1458,9 +1480,9 @@ A `Citation`'s `quote` is at most 200 characters in the schema; its other quote 
 1. Schema (§3.5), then per-item limits (`LIMIT-001`).
 2. Aliases (`ALIAS-001`, `ALIAS-002`, `ALIAS-003`), except citation items, which step 3 checks one citation at a time (§3.2.2).
 3. Citations: provenance (§3.2.2), then support (§3.2.3), then basis derivation (§3.2.4).
-4. Scope paths: each path or path prefix is listed (§1.11, `SCOPE-001`).
+4. Scope paths: each path or glob matches a listed path that is not withheld (§1.11, `SCOPE-001`).
 5. Gaps: each `relatedPath` is listed or uncovered; an unlisted one rejects the gap, which must be an absence claim instead (`GAP-001`). Then the coverage check: a related file not sent in full → relabel `not_inspected` (`GAP-002`, §1.11).
-6. Absence claims: evaluated against the full file list (`ABS-001`, `ABS-002`), with code-generated wording (§1.11).
+6. Absence claims: a glob holding a backtick, whitespace, a control or format character, or a `..` segment is rejected (`ABS-003`); then evaluated against the full file list (`ABS-001`, `ABS-002`), with code-generated wording (§1.11).
 7. Conflicts: at least two member findings survived validation; otherwise rejected (`CONF-001`). Then `SUP-005`.
 8. Duplicates: identical normalised statements with the same scope keep the first (`DUP-001`). Restatements of known facts are dropped (`DUP-002`).
 9. Expansion requests (§1.8).
@@ -1653,7 +1675,7 @@ A small deterministic component, versioned (`detectorVersion`), with its own fix
 
 The detector is deliberately conservative. Content it can't classify is left alone, not guessed at.
 
-Paths it finds are matched against the snapshot (`REF-002`) under the path-token rule of §1.11: one leading `./` removed, `../` never resolved.
+Paths it finds are matched against the snapshot (`REF-002`) after the path normalisation of §1.11: one leading `./` and one trailing `/` removed, and a path with a `..` segment naming nothing.
 
 ### 3.5 Validation pipeline and recording
 
@@ -1683,7 +1705,7 @@ A schema failure rejects the whole response with one event per issue, in the ord
 
 No event repeats text from the response. An `itemKey` is a local key or alias only when it is well formed (a local key is one or two lowercase letters and a number, an alias as in §3.2.1); otherwise the item is named by its position, `<collection>/<index>`, and a malformed local key defines nothing. A detail names only code-made values, such as an alias from the table, never an unknown value the model wrote. A rejected item keeps the events of its sub-items, such as each failed citation. Events are ordered by stage. In the item stage they follow the response's item order, collections in schema order, and within an item the rule order, except that a sub-item's events are in sub-item order, each sub-item's in rule order; `ALIAS-002` is checked first, for each item in turn. In the cross-item stage they follow rule order, then item order.
 
-Each call also records counts: proposed, accepted, corrected and relabelled items, and rejections by rule. An item counts as corrected or relabelled if it was accepted with such an event. Rule IDs are stable across versions. The validator has its own version (`validatorVersion`, `validate/0.6.0` since the `SUP-001` path-token, `SUP-002` and `SUP-005` changes of v0.21), recorded with every call, because changing a rule changes what is accepted even when the model output is identical. Any change to what is accepted increases it, changed thresholds and word lists included. A test pins the list of rule IDs to the version, together with the runtime's Unicode version (`process.versions.unicode`), because `CIT-007`'s and `SUP-002`'s character classes follow it.
+Each call also records counts: proposed, accepted, corrected and relabelled items, and rejections by rule. An item counts as corrected or relabelled if it was accepted with such an event. Rule IDs are stable across versions. The validator has its own version (`validatorVersion`, `validate/0.8.0` since the coverage rules of §1.11 in v0.25), recorded with every call, because changing a rule changes what is accepted even when the model output is identical. Any change to what is accepted increases it, changed thresholds and word lists included. A test pins the list of rule IDs to the version, together with the runtime's Unicode version (`process.versions.unicode`), because `CIT-007`'s and `SUP-002`'s character classes follow it.
 
 ### 3.6 Retry and failure policy
 

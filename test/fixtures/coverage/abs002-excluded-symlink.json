@@ -1,0 +1,6 @@
+{
+  "absenceClaim": { "pathGlob": "vendor/autoload.php" },
+  "expect": { "outcome": "rejected", "rule": "ABS-002", "statement": null },
+  "section": "IMPL §1.11, §1.4",
+  "note": "vendor is excluded with kind symlink (the default exclusion vendor/ matches symbolic links), so its status is excluded, not symlink. It still counts as a directory capture didn't enter (v0.25). An implementation that only treats excluded entries of kind directory as unentered would find the path unlisted and accept the claim."
+}

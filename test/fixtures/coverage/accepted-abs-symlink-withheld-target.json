@@ -1,0 +1,11 @@
+{
+  "absenceClaim": { "pathGlob": "keys-*/x.json" },
+  "expect": {
+    "outcome": "accepted",
+    "rule": null,
+    "statement": "No files matched `keys-*/x.json` within the inspected scope. Not inspected: `keys-link -> <withheld>` (symbolic link)."
+  },
+  "nearMissOf": "ABS-002",
+  "section": "IMPL §1.11, §1.7",
+  "note": "keys-* matches the symbolic link keys-link, which could hold x.json; keys/ is a different segment and not matched. The link's name is shown, but its target ../{{aws-access-key-id}} matches the scan and must appear as <withheld>. The statement must not contain the substituted key ID."
+}
