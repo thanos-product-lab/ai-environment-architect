@@ -89,10 +89,11 @@ const REPO: Record<string, MemoryNode> = {
 };
 
 describe("selectContext (IMPL §1.3)", () => {
-  it("renders items in tier order 1, 2, 3, then the tree, then tier 5", async () => {
+  it("renders the known facts, tiers 1, 2, 3, then the tree, then tier 5", async () => {
     const result = await ready(REPO);
     const text = result.context.text;
     const order = [
+      "<<<KNOWN FACTS>>>",
       "<<<ITEM id=T1-001",
       "<<<ITEM id=T2-001",
       "<<<ITEM id=T3-001",
@@ -102,8 +103,12 @@ describe("selectContext (IMPL §1.3)", () => {
     const positions = order.map((marker) => text.indexOf(marker));
     expect(positions.every((p) => p >= 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+    expect(text.indexOf("<<<KNOWN FACTS>>>")).toBe(0);
+    const facts = text.slice(0, text.indexOf("<<<ITEM id=T1-001"));
+    expect(facts.endsWith("<<<END KNOWN FACTS>>>\n")).toBe(true);
     expect(text).toBe(
       [
+        facts,
         ...result.items.slice(0, 3).map((i) => i.rendered.text),
         result.tree.text,
         ...result.items.slice(3).map((i) => i.rendered.text),
@@ -136,8 +141,8 @@ describe("selectContext (IMPL §1.3)", () => {
     expect(destination?.rendered.text).not.toContain("Rules/heading");
   });
 
-  it("is context-select/1.4.0, since BLOCKS lines show aliases", () => {
-    expect(ALGORITHM_VERSION).toBe("context-select/1.4.0");
+  it("is context-select/1.5.0, since the context starts with the known facts", () => {
+    expect(ALGORITHM_VERSION).toBe("context-select/1.5.0");
   });
 
   it("counts the block list against maxDestinationBytes", async () => {
@@ -263,7 +268,7 @@ describe("input manifest (IMPL §1.13)", () => {
     const result = await ready(REPO);
     const m = result.manifest;
     expect(m).toMatchObject({
-      manifestVersion: 1,
+      manifestVersion: 2,
       algorithmVersion: ALGORITHM_VERSION,
       secretRulesVersion: SECRET_RULES_VERSION,
       declarationPatternsVersion: DECLARATION_PATTERNS_VERSION,
@@ -272,7 +277,13 @@ describe("input manifest (IMPL §1.13)", () => {
       contextHash: result.context.hash,
       retainedInputRef: null,
       tokenCheck: null,
-      budget: { initialContextBytes: 300_000, usedBytes: result.context.bytes },
+      budget: { initialContextBytes: 310_000, usedBytes: result.context.bytes },
+      knownFacts: {
+        capBytes: 10_000,
+        usedBytes: expect.any(Number),
+        facts: result.knownFacts.length,
+        leftOut: 0,
+      },
       expansion: null,
     });
     expect(m.tiers.map((t) => t.tier)).toEqual([1, 2, 3, 4, 5]);
@@ -503,5 +514,91 @@ describe("selection records for known facts (IMPL §3.2.5)", () => {
     if (result.state !== "selected") throw new Error(result.state);
     expect(result.membership.packages).toEqual(["src"]);
     expect(result.declaredMembers).toEqual([]);
+  });
+});
+
+describe("the known-facts section (IMPL §3.2.5)", () => {
+  const repo: Record<string, MemoryNode> = {
+    "CLAUDE.md": "# Rules\n",
+    "package.json": '{ "scripts": { "build": "tsc", "test": "vitest run", "lint": "biome ci" } }\n',
+    Makefile: "x: y\n",
+  };
+
+  it("numbers the facts sent, and records every fact with its alias", async () => {
+    const result = await ready(repo);
+    expect(result.knownFacts.map(({ fact, alias }) => [alias, fact.statement])).toEqual([
+      ["F-1", "`CLAUDE.md` is existing agent configuration."],
+      ["F-2", "`Makefile` defines the target `x`."],
+      ["F-3", "`package.json` defines the script `build`."],
+      ["F-4", "`package.json` defines the script `test`."],
+      ["F-5", "`package.json` defines the script `lint`."],
+    ]);
+    expect(result.manifest.knownFacts).toEqual({
+      capBytes: 10_000,
+      usedBytes: Buffer.byteLength(
+        result.context.text.slice(0, result.context.text.indexOf("<<<ITEM")),
+        "utf8",
+      ),
+      facts: 5,
+      leftOut: 0,
+    });
+  });
+
+  it("leaves out facts beyond knownFactsBytes, says how many, and passes no bytes to the tiers", async () => {
+    const full = await ready(repo);
+    const cap = full.manifest.knownFacts.usedBytes - 1;
+    const result = await run(repo, { context: { knownFactsBytes: cap } });
+    if (result.state !== "ready") throw new Error(result.state);
+    expect(result.knownFacts.map(({ alias }) => alias)).toEqual(["F-1", "F-2", "F-3", "F-4", null]);
+    expect(result.manifest.knownFacts).toMatchObject({ capBytes: cap, facts: 4, leftOut: 1 });
+    expect(result.gaps).toContainEqual({
+      gapType: "other",
+      statement: "1 known fact was left out because of the known-facts budget.",
+      relatedPaths: [],
+    });
+    expect(result.manifest.tiers).toEqual(full.manifest.tiers);
+  });
+
+  it("passes on the gaps of manifests that can't be parsed", async () => {
+    const result = await ready({ ...repo, "package.json": "{ nope\n" });
+    expect(result.gaps).toContainEqual({
+      gapType: "other",
+      statement: "`package.json` could not be read or parsed, so its commands are not known facts.",
+      relatedPaths: ["package.json"],
+    });
+  });
+
+  it("lists selection gaps, then extraction gaps, then the budget gap", async () => {
+    const result = await run(
+      { ...repo, "CLAUDE.md": "@~/outside.md\n", "package.json": "{ nope\n" },
+      { context: { knownFactsBytes: 60 } },
+    );
+    if (result.state !== "ready") throw new Error(result.state);
+    expect(result.gaps.map((gap) => gap.statement)).toEqual([
+      "`CLAUDE.md` imports `~/outside.md`, which is outside the repository and was not read.",
+      "`package.json` could not be read or parsed, so its commands are not known facts.",
+      "2 known facts were left out because of the known-facts budget.",
+    ]);
+  });
+
+  it("passes the facts' unused bytes to no tier", async () => {
+    const base = await ready(repo);
+    const raised = await run(repo, {
+      context: { knownFactsBytes: 50_000, initialContextBytes: 350_000 },
+    });
+    if (raised.state !== "ready") throw new Error(raised.state);
+    expect(raised.manifest.tiers).toEqual(base.manifest.tiers);
+  });
+
+  it("rejects a knownFactsBytes smaller than the frame", async () => {
+    await expect(run(repo, { context: { knownFactsBytes: 39 } })).rejects.toThrow(
+      /less than the known-facts frame \(40 bytes\)/,
+    );
+  });
+
+  it("rejects settings whose tier caps and knownFactsBytes exceed initialContextBytes", async () => {
+    await expect(run(repo, { context: { knownFactsBytes: 10_001 } })).rejects.toThrow(
+      /knownFactsBytes add up to 310001 bytes/,
+    );
   });
 });

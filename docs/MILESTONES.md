@@ -83,7 +83,7 @@ The token check (IMPL §1.10) waits for M6, because it needs the provider's toke
 - [x] Zod schemas for all five calls, with JSON Schema generation (IMPL §3.3, §3.7).
 - [x] Citations, provenance and the `CIT-R01` correction. `/implement-spec IMPL 3.2.2`
 - [x] Support checks. `/implement-spec IMPL 3.2.3`
-- [ ] Evidence basis and known facts from manifests. `/implement-spec IMPL 3.2.4`, then `IMPL 3.2.5`
+- [x] Evidence basis and known facts from manifests. `/implement-spec IMPL 3.2.4`, then `IMPL 3.2.5`
 - [ ] Coverage-aware gap and absence checks. `/implement-spec IMPL 1.11`
 - [ ] Item validation for `analyse`, `analyse_expansion` and `generate_questions`, including question ranking and the corrected-citation rate (IMPL §3.3.2–§3.3.4, §3.2.2).
 - [ ] Adversarial fixtures for every rule, from the `fixture-adversary` agent.

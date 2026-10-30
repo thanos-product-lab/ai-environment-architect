@@ -51,11 +51,12 @@ describe("the summary (IMPL §2.4)", () => {
     expect(code).toBe(0);
     expect(output.split("\n")[0]).toBe("INSPECT · preview · no session · nothing is sent");
     expect(output).toContain("\nRepository  /work/app\n");
-    expect(output).toMatch(/\nWhat would be sent for analysis {2}\(\d+ KB of 300 KB\)\n/);
+    expect(output).toMatch(/\nWhat would be sent for analysis {2}\(\d+ KB of 310 KB\)\n/);
   });
 
   it("has one row per tier, with file counts, sizes and notes", async () => {
     const { output } = await preview(REPO);
+    expect(output).toMatch(/\n {2}Known facts {20}\d+ facts? +<?\d+ KB\n/);
     expect(output).toMatch(
       /\n {2}Existing agent configuration {3}1 file +<?\d+ KB {3}CLAUDE\.md \(2 blocks\)\n/,
     );
@@ -63,6 +64,19 @@ describe("the summary (IMPL §2.4)", () => {
     expect(output).toMatch(/\n {2}Manifests and tooling {10}1 file +<?\d+ KB\n/);
     expect(output).toMatch(/\n {2}Directory tree {17}\d+ files listed, depth 4\n/);
     expect(output).toMatch(/\n {2}Source samples {17}2 files +<?\d+ KB {3}1 test example\n/);
+  });
+
+  it("notes known facts left out by the section's budget, within 80 columns", async () => {
+    const scripts = Object.fromEntries(
+      Array.from({ length: 300 }, (_, i) => [`script-${i}`, `node scripts/run-${i}.js`]),
+    );
+    const { output } = await preview({
+      ...REPO,
+      "package.json": `${JSON.stringify({ scripts }, null, 2)}\n`,
+    });
+    const row = output.split("\n").find((line) => line.startsWith("  Known facts"));
+    expect(row).toMatch(/^ {2}Known facts {20}\d+ facts +10 KB {3}\d+ not sent \(budget\)$/);
+    expect([...(row ?? "")].length).toBeLessThanOrEqual(80);
   });
 
   it("aligns the size column", async () => {
@@ -262,10 +276,16 @@ describe("--json", () => {
     expect(code).toBe(0);
     const manifest = JSON.parse(output);
     expect(manifest).toMatchObject({
-      manifestVersion: 1,
-      budget: { initialContextBytes: 300_000 },
+      manifestVersion: 2,
+      budget: { initialContextBytes: 310_000 },
     });
     expect(manifest.contextHash).toMatch(/^sha256:/);
+    expect(manifest.knownFacts).toEqual({
+      capBytes: 10_000,
+      usedBytes: expect.any(Number),
+      facts: expect.any(Number),
+      leftOut: 0,
+    });
     expect(output).not.toContain("Run the tests.");
   });
 

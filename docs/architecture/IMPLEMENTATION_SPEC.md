@@ -2,8 +2,19 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 30 October 2026  
-**Version:** 0.23  
+**Version:** 0.24  
 **Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
+
+### Changes from v0.23
+
+- **Known-facts section (§3.2.5, §1.3).** Known facts are rendered as their own section, first in the context, within `knownFactsBytes` (provisionally 10,000, at least the 40-byte frame) inside `initialContextBytes`. The context's gaps are ordered: selection, extraction, budget. Facts are tried in order and one that doesn't fit is left out; a deterministic gap says how many. The section is covered by `contextHash`.
+- **Budget (§1.5, §1.14).** `initialContextBytes` is 310,000, so the tier caps are unchanged. The tier caps and `knownFactsBytes` together may not exceed it.
+- **Token check (§1.10).** The known-facts section is never removed.
+- **Input manifest (§1.13).** A `knownFacts` entry records the cap, bytes used, and facts sent and left out. `manifestVersion` is 2 and `algorithmVersion` `context-select/1.5.0`.
+- **Aliases (§3.2.1).** `F` aliases appear in calls 1–5; the known facts sent are numbered first. In call 1 no field accepts them (`ALIAS-003`).
+- **Test fixtures (§3.8).** Verification items for the known-facts section.
+- **Inspect (§2.4).** The summary has a known facts row.
+- **Provisional values (§3.9).** `knownFactsBytes`. **Open points:** which known facts calls 2–5 number first.
 
 ### Changes from v0.22
 
@@ -252,9 +263,10 @@ It runs in this order:
 1. Build the candidate set (§1.4).
 2. Select and excerpt content for tiers 1, 2, 3 and 5 (§1.5, §1.6), running the secret scan (§1.7) on each item as it is selected. A blocked file is not included and uses no bytes, item ID or source file slot, so the next candidate in that tier's order takes its place. Tier membership, packages and `@path` imports are planned from the snapshot before any item is scanned, so a blocked file can still shape them: a blocked `package.json` still defines its package, and the imports of a blocked tier 1 file are still followed. Every file they bring in is scanned on its own before it is included.
 3. Scan the selected items and gap statements again (§1.7). This repeats step 2's check, so the guarantee doesn't depend on it; anything it finds is removed without refilling budgets.
-4. Render the directory tree (tier 4) from the full file list, with markers reflecting the final selection.
-5. Render all items in tier order 1, 2, 3, 4, 5 (§1.6).
-6. Assemble the complete request and run the token check (§1.10). Apply deterministic reductions if needed; tree markers are updated for any removed items.
+4. Extract the known facts (§3.2.5), using the tier membership, imports and declared workspace members planned in step 2, and render the known-facts section within `knownFactsBytes`. Each fact's statement and excerpt is scanned as the fact is made; step 3 doesn't repeat that, and the scan of the complete request before it is sent covers the section like everything else (§1.7).
+5. Render the directory tree (tier 4) from the full file list, with markers reflecting the final selection.
+6. Join the known-facts section and all items in tier order 1, 2, 3, 4, 5 (§1.6).
+7. Assemble the complete request and run the token check (§1.10). Apply deterministic reductions if needed; tree markers are updated for any removed items.
 
 Determinism requirements:
 
@@ -337,7 +349,7 @@ Within a tier, every item is tried in the tier's order. An item that exceeds its
 
 **Reasons.** Items carry `tier1:destination`, `tier1:agent-config`, `tier1:import`, `tier2:group<N>:root-doc|decision-doc|docs|package-readme`, `tier3:group<N>:workspace|task-runner|package-manifest|tooling|ci`, `tier5:test-example` or `tier5:rank<N>:entry-point|boundary-name|other|supporting`. A file tried and never included is recorded with `tier<N>:cap-reached`.
 
-**Default budget:** `initialContextBytes` = 300,000. The five tier caps may not add up to more than it; settings that do are rejected.
+**Default budget:** `initialContextBytes` = 310,000. The five tier caps and `knownFactsBytes` (§3.2.5) may not add up to more than it; settings that do are rejected. Bytes the known-facts section doesn't use are not passed to any tier. `knownFactsBytes` may not be less than the section's frame, 40 bytes.
 
 | Tier | Contents | Default cap | Per-file cap | Excerpting |
 |---|---|---|---|---|
@@ -614,7 +626,7 @@ If the request does not fit, items are removed in this **deterministic reduction
 3. other tier 1 agent configuration, last selected first;
 4. for calls 3–4: cited excerpts for findings not referenced by any open question or candidate recommendation, then the directory tree depth.
 
-Tier 3 manifests and the destination are never removed. If the request still does not fit, the call is not sent, and the session stops with an explanation (for calls 1–2, this triggers the destination rule in §1.5 if the destination is the cause).
+The known-facts section (§3.2.5), tier 3 manifests and the destination are never removed. If the request still does not fit, the call is not sent, and the session stops with an explanation (for calls 1–2, this triggers the destination rule in §1.5 if the destination is the cause).
 
 Every reduction is recorded in the manifest, and the tree markers are updated. The token check is the only model-dependent part of construction. Because it can only remove items, the byte selection stays reproducible across models, and the final context is reproducible for a fixed model.
 
@@ -677,15 +689,16 @@ Every model call records an input manifest ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md)
 
 ```json
 {
-  "manifestVersion": 1,
-  "algorithmVersion": "context-select/1.4.0",
+  "manifestVersion": 2,
+  "algorithmVersion": "context-select/1.5.0",
   "secretRulesVersion": "secret-scan/1.1.0",
   "declarationPatternsVersion": "declarations/1.0.0",
   "settingsHash": "sha256:…",
   "snapshotId": "snap_…",
   "contextHash": "sha256:…",
   "retainedInputRef": "inputs/sha256-….txt",
-  "budget": { "initialContextBytes": 300000, "usedBytes": 228410 },
+  "budget": { "initialContextBytes": 310000, "usedBytes": 231020 },
+  "knownFacts": { "capBytes": 10000, "usedBytes": 2610, "facts": 14, "leftOut": 0 },
   "tokenCheck": {
     "model": "…",
     "method": "provider_count",
@@ -732,7 +745,8 @@ When expansion is used, `expansion` lists each request, its validation outcome, 
 Details:
 
 - Tiers are listed 1 to 5. Tiers 1, 2, 3 and 5 also record `budgetBytes`: the cap plus bytes passed down. Tier 4 records `capBytes`, `usedBytes` and `treeDepth`.
-- `budget.usedBytes` is the rendered context's size, tree included.
+- `budget.usedBytes` is the rendered context's size, known-facts section and tree included.
+- `knownFacts` records the section's cap, its rendered bytes, frame included, and how many facts were sent and left out (§3.2.5).
 - `ignoreRules` is the snapshot's record: `{ "state": "applied" }`, or `{ "state": "not_applied", "reason": … }` with the git reason (§1.4). `ignored` lists the snapshot's `ignored` entries in path order: files, and wholly ignored directories as one path each.
 - `excluded` lists the snapshot's excluded entries with their rule, in path order, then secret-blocked files with `secret-scan:<rule ID>`, in path order. Secret-blocked files include files whose path matches, whether or not a tier selected them.
 - A path that matches the secret scan is recorded as `pathHash` instead of `path` (§1.7).
@@ -742,7 +756,8 @@ Details:
 
 | Setting | Default |
 |---|---|
-| `initialContextBytes` | 300,000 |
+| `initialContextBytes` | 310,000 |
+| `knownFactsBytes` | 10,000, provisional; at least 40, the frame (§3.2.5) |
 | Tier caps (1, 2, 3, 4, 5) | 40,000 / 70,000 / 40,000 / 20,000 / 130,000 |
 | `maxDestinationBytes` | 40,000 |
 | Per-file caps (tiers 2, 3, 5) | 12,000 / 8,000 / 12,000 |
@@ -862,8 +877,9 @@ Deterministic steps print short progress lines: listing files, hashing, parsing 
 ```text
 INSPECT · step 1 of 5 · session ses_01J…
 
-What will be sent for analysis  (228 KB of 300 KB)
+What will be sent for analysis  (231 KB of 310 KB)
 
+  Known facts                    14 facts    3 KB
   Existing agent configuration   2 files     6 KB   CLAUDE.md (41 blocks)
   Documentation                  7 files    58 KB   2 excerpted
   Manifests and tooling         12 files    31 KB
@@ -881,6 +897,7 @@ What will be sent for analysis  (228 KB of 300 KB)
 - `a` and `x` change the settings, recompute the selection, and show the summary again with the new size. Adding an `ignored` path with `a` adds it to `includeIgnored` (§1.4, §1.14), so a new snapshot keeps that file as a candidate; it then belongs to a tier as usual.
 - The "Not sent" line names each excluded directory followed by `(not entered)`, because capture never enters it and has no count of its contents (§1.4). Excluded files are counted by kind, and secret-blocked files are counted.
 - The ignored line lists `ignored` entries (§1.4), first in path order, with the count; an ignored directory is shown as `logs/ (not entered)`. When ignore rules were not applied, it reads instead `Ignored files couldn't be identified (<reason>): only the default exclusions were used.`
+- The known facts row counts the facts sent (§3.2.5), with `N not sent (budget)` when the section's cap left some out.
 - Each row's notes count what was excerpted, sent as an outline alone (§1.6), and not read because the budget ran out (`N not read (budget)`). The agent configuration row names the destination with its block count, or says `no CLAUDE.md yet`.
 - If the destination rule (§1.5) stops the session, this screen explains why and what to do, and nothing is sent.
 
@@ -1193,14 +1210,14 @@ The model refers to records only by short aliases. Code maps each alias to a rea
 | Alias | Refers to | Appears in |
 |---|---|---|
 | `T<tier>-<n>`, `E-<n>` | Context items and expansion items (§1.6, §1.8) | Calls 1–2 |
-| `F-<n>` | Validated findings, including gaps and accepted absence claims | Calls 2–5 |
+| `F-<n>` | Validated findings, including gaps and accepted absence claims; in call 1, the known facts sent (§3.2.5) | Calls 1–5 |
 | `C-<n>` | Validated conflicts | Calls 2–5 |
 | `Q-<n>` | Questions | Calls 4–5 |
 | `D-<n>` | Current decisions | Calls 4–5 |
 | `R-<n>` | Existing recommendations | Call 5 |
 | `B-<n>` | Destination Guidance Blocks | Calls 1–5 |
 
-**Alias tables.** Code builds one table per call and records it on the model call ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §13.1). `T` aliases are the item IDs as rendered (`T5-007`, §1.6). The others are numbered from 1 without padding, in an order the caller fixes, so the same input always gives the same table: `B` in document order (§1.6), `E` in expansion order (§1.8), and records in the order of §3.2.6. A table holds only the kinds its call accepts.
+**Alias tables.** Code builds one table per call and records it on the model call ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §13.1). `T` aliases are the item IDs as rendered (`T5-007`, §1.6). The others are numbered from 1 without padding, in an order the caller fixes, so the same input always gives the same table: `B` in document order (§1.6), `E` in expansion order (§1.8), and records in the order of §3.2.6, except that `F` numbers the known facts sent first, in their order (§3.2.5). A table holds only the kinds its call accepts, except that call 1's holds the `F` aliases of the known facts sent, which no call-1 field accepts: using one fails `ALIAS-003`.
 
 New items in a response use response-local keys: `f1`, `g1`, `a1`, `c1`, `q1`, `r1`. A local key is valid only inside that response, and is never in the alias table.
 
@@ -1327,7 +1344,23 @@ An entry whose path the secret scan withholds gives no fact and no gap.
 
 *Resolution order*, for "the first file found importing it": imports are followed breadth-first, from the destination and then the other tier 1 files in path order, each file's imports in the order they appear (§1.5).
 
-They are sent to the model under a **known facts** heading, with aliases. The model must not restate them as new findings; restatements are dropped as duplicates (`DUP-002`).
+**Section.** The facts are sent first in the context, before tier 1, in a section of their own within `knownFactsBytes` (default 10,000, provisional), counted in rendered UTF-8 bytes, frame included. The frame is rendered even when there are no facts. Facts are tried in order; one whose rendering doesn't fit the remaining bytes is left out, and later facts that fit are still sent, as in the tiers (§1.5). The context's gaps are listed in this order: selection's (§1.5), then extraction's in file path order, then the budget gap. If any fact is left out, the budget gap, `gapType: other` with no related paths, says `` 3 known facts were left out because of the known-facts budget. `` (`1 known fact was` for one). The facts sent are numbered `F-1`, `F-2`, … in order (§3.2.1). Every fact is still recorded as a finding, sent or not.
+
+```text
+<<<KNOWN FACTS>>>
+F-1  [existing guidance · existing_guidance]  scope: repository
+     `CLAUDE.md` is existing agent configuration.
+     evidence: CLAUDE.md (file)
+F-2  [observed · code_observation]  scope: repository
+     `package.json` defines the script `test`.
+     evidence: package.json:5-5
+       | "test": "vitest run",
+<<<END KNOWN FACTS>>>
+```
+
+Each fact follows §3.2.6: its alias, its basis as label words and values, each joined with `, ` (§2.5), and its scope; its statement; then one `evidence:` line per evidence, `path (file)` for `entry` evidence, or `path:a-b` followed by the excerpt lines, each after `       | `. Every line ends with a line break, and the delimiter escape (§1.6) applies to every line between the frame lines. The section is part of the rendered context, so `contextHash` covers it.
+
+The model must not restate them as new findings; restatements are dropped as duplicates (`DUP-002`).
 
 #### 3.2.6 Rendering validated records
 
@@ -1722,6 +1755,9 @@ A change to any prompt, schema, validator or detector requires the fixture suite
 - the tier used for basis agrees with selection for every file selection tried, under two enumeration orders;
 - each fact type has its wording, scope, evidence kind and place in the order, and commands have the status `found_not_run`;
 - each manifest format's reader, with an adversarial fixture per rule and accepted near misses;
+- the section's format, delimiter escape and frame, rendered even with no facts; `F` aliases over the facts sent only; a fact that doesn't fit left out while later ones are still sent, with the budget gap's wording;
+- the facts' unused bytes pass to no tier, a `knownFactsBytes` below the frame or over the remaining budget is rejected, and the manifest's `knownFacts` entry matches the section;
+- the context's gaps in the order of §3.2.5, and the inspect row's "not sent (budget)" note;
 - a manifest that can't be read or parsed gives its gap, and a fact matching the secret scan gives the withheld gap;
 - the first importer follows resolution order;
 - a manifest or workspace definition changed after capture makes the snapshot unstable;
@@ -1744,6 +1780,7 @@ A change to any prompt, schema, validator or detector requires the fixture suite
 - Leaving `Cf`, `Mn` and `Me` characters out of `CIT-007`'s length and punctuation tests (§3.2.2).
 - `CIT-010`'s limit of 40 lines for a cited range (§3.2.2, DM §6.2).
 - `SUP-002`'s spelled-number and quantity word lists, and leaving out *one* (§3.2.3).
+- `knownFactsBytes` of 10,000 for the known-facts section (§3.2.5, §1.14).
 
 **Other open points.**
 
@@ -1755,6 +1792,7 @@ A change to any prompt, schema, validator or detector requires the fixture suite
 - `SUP-002` misses counts outside its lists, such as *once*, *twice*, *a couple* and ordinals.
 - `SUP-001` matches a token in an excerpt as a substring, so `./format.ts` is anchored by an excerpt holding `../format.ts`, which names another file. A path-aware excerpt match would be stricter.
 - In recommendation content, `` `./scripts/build.sh` `` is both path-like and command-like (§3.4). Which class wins is settled when the detector is built.
+- Which known facts calls 2–5 number first: those sent in call 1, or every known fact, including those left out (§3.2.1). Settle when the alias tables are built.
 - A command name holding a line or paragraph separator (U+2028, U+2029) gives a statement that spans lines, because only `Cc` is refused (§3.2.5). Calibrate with the rendering of known facts.
 - The justfile reader is line-based, so a column-0 `name:` inside a multi-line string (`'''`, `"""`) reads as a recipe (§3.2.5).
 - The justfile `private` test matches the word anywhere in an attribute line, so `[doc('private builds')]` hides a public recipe (§3.2.5).

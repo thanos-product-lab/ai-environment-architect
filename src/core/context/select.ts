@@ -1,3 +1,5 @@
+import { extractKnownFacts, type KnownFact } from "../facts/known-facts.js";
+import { KNOWN_FACTS_FRAME_BYTES, renderKnownFacts } from "../facts/render.js";
 import { type Hash, sha256 } from "../hash.js";
 import { comparePaths } from "../paths.js";
 import type { IgnoreRules } from "../snapshot/git.js";
@@ -31,7 +33,7 @@ import { type ContentMark, type RenderedTree, renderTree } from "./tree.js";
 // 1, 2, 3, 4, 5. The token check (IMPL §1.10) arrives with the model adapter; until then
 // `tokenCheck` is null and `contextHash` covers the byte selection.
 
-export const MANIFEST_VERSION = 1;
+export const MANIFEST_VERSION = 2;
 
 /** The effective settings. Their canonical JSON, with the versions, gives `settingsHash`. */
 export interface ContextSelectionSettings {
@@ -92,6 +94,13 @@ export interface InputManifest {
   /** Set per model call when inputs are retained (IMPL §1.12). */
   readonly retainedInputRef: null;
   readonly budget: { readonly initialContextBytes: number; readonly usedBytes: number };
+  /** The known-facts section (IMPL §3.2.5): facts sent and left out. */
+  readonly knownFacts: {
+    readonly capBytes: number;
+    readonly usedBytes: number;
+    readonly facts: number;
+    readonly leftOut: number;
+  };
   /** Set by the token check (IMPL §1.10), which arrives with the model adapter. */
   readonly tokenCheck: null;
   readonly tiers: readonly ManifestTier[];
@@ -123,6 +132,11 @@ export type ContextResult =
       readonly gaps: readonly SelectionGap[];
       /** For the tier, and so the evidence basis, of any cited file (IMPL §3.2.4). */
       readonly membership: TierMembership;
+      /**
+       * Every known fact, in order, recorded as a finding whether or not it was sent, with its
+       * `F` alias when it was (IMPL §3.2.5).
+       */
+      readonly knownFacts: readonly { readonly fact: KnownFact; readonly alias: string | null }[];
       readonly manifest: InputManifest;
     }
   /** The session stops before any model call (IMPL §1.5, destination rule). */
@@ -135,6 +149,11 @@ export async function selectContext(
   settings: ContextSelectionSettings,
   fs: RepositoryFs,
 ): Promise<ContextResult> {
+  if (settings.context.knownFactsBytes < KNOWN_FACTS_FRAME_BYTES) {
+    throw new Error(
+      `knownFactsBytes (${settings.context.knownFactsBytes}) is less than the known-facts frame (${KNOWN_FACTS_FRAME_BYTES} bytes).`,
+    );
+  }
   const selection = await selectTiers(snapshot, settings.context, fs);
   if (selection.state !== "selected") return selection;
   const scanned = applySecretScan(selection);
@@ -152,6 +171,10 @@ export async function selectContext(
     const ruleId = blockedPaths.has(file.path) ? undefined : scanText(file.path);
     if (ruleId !== undefined) blocked.push({ path: file.path, ruleId });
   }
+  const extracted = await extractKnownFacts(snapshot, scanned, fs);
+  if (extracted.state !== "extracted") return extracted;
+  const facts = renderKnownFacts(extracted.facts, settings.context.knownFactsBytes);
+
   const marks = new Map<string, ContentMark>();
   for (const item of scanned.items) marks.set(item.path, item.rendered.excerpt ? "E" : "R");
   for (const entry of blocked) marks.set(entry.path, "S");
@@ -159,7 +182,12 @@ export async function selectContext(
 
   const before = scanned.items.filter((item) => item.tier < 4);
   const after = scanned.items.filter((item) => item.tier > 4);
-  const text = [...before.map(renderedText), tree.text, ...after.map(renderedText)].join("");
+  const text = [
+    facts.text,
+    ...before.map(renderedText),
+    tree.text,
+    ...after.map(renderedText),
+  ].join("");
   const context: RenderedContext = {
     text,
     bytes: Buffer.byteLength(text, "utf8"),
@@ -201,6 +229,12 @@ export async function selectContext(
     contextHash: context.hash,
     retainedInputRef: null,
     budget: { initialContextBytes: settings.context.initialContextBytes, usedBytes: context.bytes },
+    knownFacts: {
+      capBytes: settings.context.knownFactsBytes,
+      usedBytes: facts.bytes,
+      facts: extracted.facts.length - facts.leftOut,
+      leftOut: facts.leftOut,
+    },
     tokenCheck: null,
     tiers,
     items: [...before, ...after].map((item) => ({
@@ -227,8 +261,12 @@ export async function selectContext(
     context,
     items: [...before, ...after],
     tree,
-    gaps: scanned.gaps,
+    gaps: [...scanned.gaps, ...extracted.gaps, ...(facts.gap === undefined ? [] : [facts.gap])],
     membership: scanned.membership,
+    knownFacts: extracted.facts.map((fact, index) => ({
+      fact,
+      alias: facts.aliases[index] ?? null,
+    })),
     manifest,
   };
 }

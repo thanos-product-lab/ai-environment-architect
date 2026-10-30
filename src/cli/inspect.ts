@@ -147,6 +147,15 @@ function summary(snapshot: Snapshot, result: Ready, settings: ContextSelectionSe
   const tierOf = (tier: number) => m.tiers.find((t) => t.tier === tier);
   const itemsOf = (tier: number) => m.items.filter((item) => item.id.startsWith(`T${tier}-`));
 
+  const facts = m.knownFacts;
+  lines.push(
+    ...cells(
+      "Known facts",
+      count(facts.facts, "fact"),
+      facts.usedBytes,
+      facts.leftOut > 0 ? [`${facts.leftOut} not sent (budget)`] : [],
+    ),
+  );
   const tier1Notes = [destinationNote(snapshot), ...skippedNote(tierOf(1))];
   lines.push(...row("Existing agent configuration", itemsOf(1), tierOf(1), tier1Notes));
   lines.push(...row("Documentation", itemsOf(2), tierOf(2), excerptNotes(itemsOf(2), tierOf(2))));
@@ -180,10 +189,13 @@ function row(
   tier: ManifestTierEntry | undefined,
   notes: readonly string[],
 ): string[] {
-  const used = tier?.usedBytes ?? 0;
+  return cells(label, count(items.length, "file"), tier?.usedBytes ?? 0, notes);
+}
+
+/** One summary row: label, count, size, then notes wrapped at whole notes. */
+function cells(label: string, counted: string, used: number, notes: readonly string[]): string[] {
   const left =
-    `  ${label.padEnd(LABEL_WIDTH)}${count(items.length, "file").padEnd(COUNT_WIDTH)}` +
-    kb(used).padStart(SIZE_WIDTH);
+    `  ${label.padEnd(LABEL_WIDTH)}${counted.padEnd(COUNT_WIDTH)}` + kb(used).padStart(SIZE_WIDTH);
   if (notes.length === 0) return [left];
   // Whole notes move to the next line, so "2 not read (budget)" is never split.
   const lines: string[] = [];

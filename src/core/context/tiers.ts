@@ -30,11 +30,13 @@ import { importWithheld, type SecretRuleId, scanItem, scanText } from "./secrets
  * The selection algorithm's version (IMPL §1.3). The name lists and ranking rules below are part
  * of it: increase it with any change to them, because that changes the context.
  */
-export const ALGORITHM_VERSION = "context-select/1.4.0";
+export const ALGORITHM_VERSION = "context-select/1.5.0";
 
 export interface ContextSettings {
-  /** The five tier caps together may not exceed it. */
+  /** The five tier caps and `knownFactsBytes` together may not exceed it. */
   readonly initialContextBytes: number;
+  /** The known-facts section (IMPL §3.2.5), frame included. Unused bytes pass to no tier. */
+  readonly knownFactsBytes: number;
   readonly tierCaps: {
     readonly tier1: number;
     readonly tier2: number;
@@ -58,7 +60,8 @@ export interface ContextSettings {
 }
 
 export const DEFAULT_CONTEXT_SETTINGS: ContextSettings = {
-  initialContextBytes: 300_000,
+  initialContextBytes: 310_000,
+  knownFactsBytes: 10_000,
   tierCaps: { tier1: 40_000, tier2: 70_000, tier3: 40_000, tier4: 20_000, tier5: 130_000 },
   maxDestinationBytes: 40_000,
   perFileCaps: { tier2: 12_000, tier3: 8_000, tier5: 12_000 },
@@ -191,10 +194,11 @@ export async function selectTiers(
   fs: RepositoryFs,
 ): Promise<TierSelection> {
   const caps = settings.tierCaps;
-  const capTotal = caps.tier1 + caps.tier2 + caps.tier3 + caps.tier4 + caps.tier5;
+  const capTotal =
+    caps.tier1 + caps.tier2 + caps.tier3 + caps.tier4 + caps.tier5 + settings.knownFactsBytes;
   if (capTotal > settings.initialContextBytes) {
     throw new Error(
-      `The tier caps add up to ${capTotal} bytes, more than initialContextBytes (${settings.initialContextBytes}).`,
+      `The tier caps and knownFactsBytes add up to ${capTotal} bytes, more than initialContextBytes (${settings.initialContextBytes}).`,
     );
   }
 

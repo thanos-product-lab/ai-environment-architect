@@ -155,6 +155,6 @@ describe("inspect (IMPL §2.2, §2.4)", () => {
   it("prints the manifest with --json", async () => {
     const result = await run(["inspect", join(FIXTURES, "nested-packages"), "--json"]);
     expect(result.code).toBe(0);
-    expect(JSON.parse(result.output)).toMatchObject({ manifestVersion: 1 });
+    expect(JSON.parse(result.output)).toMatchObject({ manifestVersion: 2 });
   });
 });

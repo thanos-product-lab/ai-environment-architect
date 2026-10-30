@@ -70,7 +70,8 @@ const SMALL_CAPS: Partial<ContextSettings> = {
 describe("settings (IMPL §1.14)", () => {
   it("has the default values in the spec", () => {
     expect(DEFAULT_CONTEXT_SETTINGS).toMatchObject({
-      initialContextBytes: 300_000,
+      initialContextBytes: 310_000,
+      knownFactsBytes: 10_000,
       tierCaps: { tier1: 40_000, tier2: 70_000, tier3: 40_000, tier4: 20_000, tier5: 130_000 },
       maxDestinationBytes: 40_000,
       perFileCaps: { tier2: 12_000, tier3: 8_000, tier5: 12_000 },
@@ -644,6 +645,7 @@ describe("tier 3: manifests and tooling configuration", () => {
       {
         tierCaps: { tier1: 1_000, tier2: 1_000, tier3: 2_000, tier4: 1_000, tier5: 1_000 },
         initialContextBytes: 6_000,
+        knownFactsBytes: 0,
       },
     );
     expect(pathsIn(result, 3).slice(0, 2)).toEqual([".prettierrc", "tsconfig.json"]);
