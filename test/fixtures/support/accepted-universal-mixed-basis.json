@@ -1,0 +1,14 @@
+{
+  "finding": {
+    "statement": "Every request goes through fetchJson.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "README.md", "basis": "documentation", "excerpt": "Every request goes through fetchJson in src/api/client.ts." },
+      { "path": "src/api/client.ts", "basis": "code_observation", "excerpt": "export async function fetchJson(url, { timeout }) {" }
+    ]
+  },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SUP-003",
+  "section": "IMPL §3.2.3",
+  "note": "Mixed bases: not all evidence is code_observation, so SUP-003 does not apply."
+}

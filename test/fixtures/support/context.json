@@ -1,0 +1,21 @@
+{
+  "entries": [
+    "CLAUDE.md",
+    "CONTRIBUTING.md",
+    "README.md",
+    "db/migrations/0042_init.sql",
+    "docs/testing.md",
+    "keys/{{aws-access-key-id}}.txt",
+    "package.json",
+    "scripts/release.sh",
+    "src/api/client.ts",
+    "src/api/routes.ts",
+    "src/index.ts",
+    "src/util/format.ts",
+    "test/client.test.ts"
+  ],
+  "placeholders": {
+    "{{aws-access-key-id}}": "Replaced at test time with AWS's documented example key ID (test/support-fixtures.test.ts), so no committed fixture matches a secret-scan rule. The resulting path matches aws-access-key-id and is withheld (IMPL §1.7, §1.11). Substitute it in context.json and in every case statement before validating."
+  },
+  "note": "Shared snapshot for the SUP-001 listed-path check. Listed directories are derived from entries: db/, db/migrations/, docs/, keys/, scripts/, src/, src/api/, src/util/, test/. Bases in the cases follow IMPL §3.2.4: CLAUDE.md is existing_guidance; README.md, CONTRIBUTING.md and docs/testing.md are documentation; everything else is code_observation."
+}

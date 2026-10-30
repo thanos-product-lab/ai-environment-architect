@@ -1,0 +1,13 @@
+{
+  "finding": {
+    "statement": "The formatter emits fewer decimal places for integers.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "src/util/format.ts", "basis": "code_observation", "excerpt": "return Number.isInteger(n) ? n.toFixed(0) : n.toFixed(2);" }
+    ]
+  },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SUP-002",
+  "section": "IMPL §3.2.3",
+  "note": "'fewer' contains 'few' but is not the whole word. The statement has no digits."
+}

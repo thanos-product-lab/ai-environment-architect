@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "Indent with tabs.",
+    "mode": "prescriptive",
+    "evidence": [
+      { "path": "CONTRIBUTING.md", "basis": "documentation", "excerpt": "Tabs are preferred for indentation." }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-004" },
+  "section": "IMPL §3.2.3",
+  "note": "'preferred' is an inflection of 'prefer' and does not count. Matching 'prefer' as a prefix would wrongly accept."
+}

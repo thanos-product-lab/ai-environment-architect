@@ -1,0 +1,13 @@
+{
+  "finding": {
+    "statement": "The README says builds are written to dist/bundle.js.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "README.md", "basis": "documentation", "excerpt": "Builds are written to dist/bundle.js." }
+    ]
+  },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SUP-001",
+  "section": "IMPL §3.2.3",
+  "note": "'dist/bundle.js' is not a snapshot entry, but it occurs in a cited excerpt, which anchors it. Anchoring by excerpt is checked before the listed-path test."
+}

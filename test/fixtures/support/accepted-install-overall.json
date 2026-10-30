@@ -1,0 +1,13 @@
+{
+  "finding": {
+    "statement": "The overall install flow runs a postinstall script declared in package.json.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "package.json", "basis": "code_observation", "excerpt": "\"postinstall\": \"node scripts/setup.js\"," }
+    ]
+  },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SUP-003",
+  "section": "IMPL §3.2.3",
+  "note": "'overall', 'install' and 'postinstall' contain 'all' but not as a whole word. 'package.json' has no '/', so it is not a path token."
+}

@@ -1,0 +1,13 @@
+{
+  "finding": {
+    "statement": "Always run `pnpm lint` before committing.",
+    "mode": "prescriptive",
+    "evidence": [
+      { "path": "CLAUDE.md", "basis": "existing_guidance", "excerpt": "Always run `pnpm lint` before committing." }
+    ]
+  },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SUP-003",
+  "section": "IMPL §3.2.3",
+  "note": "SUP-003 applies only to descriptive findings. The existing_guidance excerpt holds 'Always', so SUP-004 passes."
+}

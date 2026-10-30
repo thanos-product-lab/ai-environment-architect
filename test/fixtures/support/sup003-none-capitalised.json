@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "None of the route handlers throw errors.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "src/api/routes.ts", "basis": "code_observation", "excerpt": "export const getLink = (req, res) => res.json(link);" }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-003" },
+  "section": "IMPL §3.2.3",
+  "note": "'None' at the start of the sentence: the check is case-insensitive."
+}

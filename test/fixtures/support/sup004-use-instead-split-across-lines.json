@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "Use the shared logger instead of console.log.",
+    "mode": "prescriptive",
+    "evidence": [
+      { "path": "CONTRIBUTING.md", "basis": "documentation", "excerpt": "Use the shared logger from src/util/log.ts\ninstead of console.log." }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-004" },
+  "section": "IMPL §3.2.3",
+  "note": "'use' and 'instead' are on different lines of the excerpt, so the pair does not count, and the excerpt has no other directive word. Near miss: accepted-use-instead-same-line.json."
+}

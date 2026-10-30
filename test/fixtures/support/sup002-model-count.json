@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "The API layer defines 5 route handlers.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "src/api/routes.ts", "basis": "code_observation", "excerpt": "export const getLink = (req, res) => res.json(link);\nexport const listLinks = (req, res) => res.json(links);" }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-002" },
+  "section": "IMPL §3.2.3",
+  "note": "The model counted handlers. '5' appears in no excerpt. Code shows 'seen in N cited files' instead."
+}

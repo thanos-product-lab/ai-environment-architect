@@ -1,0 +1,13 @@
+{
+  "finding": {
+    "statement": "Network access is wrapped, and fetchJson is the only caller of fetch.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "src/api/client.ts", "basis": "code_observation", "excerpt": "const res = await fetch(url, { signal });" },
+      { "path": "src/index.ts", "basis": "code_observation", "excerpt": "const data = await fetchJson('/links');" }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-003" },
+  "section": "IMPL §3.2.3",
+  "note": "'only' buried mid-sentence, with two code citations. Several code_observation citations are still all code_observation."
+}

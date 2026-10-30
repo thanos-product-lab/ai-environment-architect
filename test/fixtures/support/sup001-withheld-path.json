@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "The release script reads deploy settings from `keys/{{aws-access-key-id}}.txt`.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "scripts/release.sh", "basis": "code_observation", "excerpt": "set -e\n./scripts/build.sh" }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-001" },
+  "section": "IMPL §3.2.3, §1.11",
+  "note": "Substitute the placeholder first (context.json). The path is a snapshot entry, but withheld by the secret scan, so it never counts as listed for SUP-001. The model never saw this name; it can only have invented or been fed it."
+}

@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "Most route handlers always return JSON.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "src/api/routes.ts", "basis": "code_observation", "excerpt": "export const getLink = (req, res) => res.json(link);" }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-002" },
+  "section": "IMPL §3.2.3",
+  "note": "Fails SUP-002 ('Most') and SUP-003 ('always', code only). SUP-002 is reported."
+}

@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "The HTTP wrapper is defined in `src/API/client.ts`.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "src/api/client.ts", "basis": "code_observation", "excerpt": "export async function fetchJson(url, { timeout }) {" }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-001" },
+  "section": "IMPL §3.2.3",
+  "note": "Listed-path comparison is case-sensitive: 'src/API/client.ts' is not 'src/api/client.ts', and it is not in the excerpt."
+}

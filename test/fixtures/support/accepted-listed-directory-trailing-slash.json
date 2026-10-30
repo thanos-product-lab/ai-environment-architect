@@ -1,0 +1,13 @@
+{
+  "finding": {
+    "statement": "Route handlers are grouped under `src/api/`.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "src/api/routes.ts", "basis": "code_observation", "excerpt": "export const getLink = (req, res) => res.json(link);" }
+    ]
+  },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SUP-001",
+  "section": "IMPL §3.2.3, §1.11",
+  "note": "'src/api/' is not in the excerpt, but with one trailing '/' ignored it is a directory containing entries, so it is listed."
+}

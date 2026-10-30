@@ -82,7 +82,7 @@ The token check (IMPL §1.10) waits for M6, because it needs the provider's toke
 - [x] Aliases and the validation pipeline with events. `/implement-spec IMPL 3.5`, and IMPL §3.2.1
 - [x] Zod schemas for all five calls, with JSON Schema generation (IMPL §3.3, §3.7).
 - [x] Citations, provenance and the `CIT-R01` correction. `/implement-spec IMPL 3.2.2`
-- [ ] Support checks. `/implement-spec IMPL 3.2.3`
+- [x] Support checks. `/implement-spec IMPL 3.2.3`
 - [ ] Evidence basis and known facts from manifests. `/implement-spec IMPL 3.2.4`, then `IMPL 3.2.5`
 - [ ] Coverage-aware gap and absence checks. `/implement-spec IMPL 1.11`
 - [ ] Item validation for `analyse`, `analyse_expansion` and `generate_questions`, including question ranking and the corrected-citation rate (IMPL §3.3.2–§3.3.4, §3.2.2).
@@ -140,7 +140,7 @@ Live runs use the development repositories only.
 **Goal:** the experience in IMPL §2, on top of the working core.
 
 - [ ] Commands, start checks and the first-run data notice (IMPL §2.2–§2.3).
-- [ ] Inspect, findings and clarify screens (IMPL §2.4–§2.6).
+- [ ] Inspect, findings and clarify screens (IMPL §2.4–§2.6), including "seen in N cited files" for each finding (IMPL §3.2.3).
 - [ ] Recommendation, final review and apply screens (IMPL §2.7–§2.10).
 - [ ] Resume, errors and effort measurement (IMPL §2.11–§2.13).
 - [ ] Decide the command name and replace `<cli>` in the spec.

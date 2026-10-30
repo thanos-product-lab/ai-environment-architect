@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "Errors are USUALLY logged before being rethrown.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "src/api/client.ts", "basis": "code_observation", "excerpt": "} catch (err) {\n  log.error(err);\n  throw err;\n}" }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-002" },
+  "section": "IMPL §3.2.3",
+  "note": "Frequency word in capitals: the word check is case-insensitive."
+}

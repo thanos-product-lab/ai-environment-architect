@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "The development server listens on port 8080.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "src/index.ts", "basis": "code_observation", "excerpt": "const port = 80;\napp.listen(port);" }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-002" },
+  "section": "IMPL §3.2.3",
+  "note": "The statement's whole run is '8080'. A validator that splits it or checks only '80' would wrongly accept."
+}

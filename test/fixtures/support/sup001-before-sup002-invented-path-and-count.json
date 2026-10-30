@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "The 4 helpers in `src/util/strings.ts` format dates.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "src/util/format.ts", "basis": "code_observation", "excerpt": "export function formatDate(d) {" }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-001" },
+  "section": "IMPL §3.2.3",
+  "note": "Fails SUP-001 (invented path) and SUP-002 ('4'). SUP-001 runs first and the first failure rejects, so only SUP-001 is reported."
+}

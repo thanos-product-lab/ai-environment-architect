@@ -28,6 +28,12 @@ Citation provenance cases (IMPL §3.2.2), tested without context selection. `con
 
 Every other file is one finding's citations, with `expect` parallel to `citations`, the finding's outcome, the spec section and a note. An entry in `expect` may name `duplicateOf`, the earlier citation it repeats; the finding merges it (`CIT-009`).
 
+## `support/`
+
+Support-check cases (IMPL §3.2.3, `SUP-001` to `SUP-005`), run after provenance. `context.json` lists the snapshot's entry paths for the listed-path test. One entry is a withheld path written with the placeholder `{{aws-access-key-id}}`: tests replace it, in `context.json` and in case statements, with AWS's documented example key ID, so no committed file matches a secret-scan rule.
+
+Every other file is one case: a `finding` with its accepted evidence (path, basis, code-extracted excerpt), or a `conflict` with its members' evidence paths, plus `expect` (outcome and the first failing rule, or `null`), the spec section and a note. Files are named after the rule that must reject them; `accepted-*` files are near misses that must pass every rule, and name the rule they nearly fail in `nearMissOf`.
+
 ## `responses/`
 
 Recorded model responses, one directory per call (IMPL §3.7).

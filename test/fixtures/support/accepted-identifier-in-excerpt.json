@@ -1,0 +1,13 @@
+{
+  "finding": {
+    "statement": "The client exposes `fetchJson` with a timeout option.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "src/api/client.ts", "basis": "code_observation", "excerpt": "export async function fetchJson(url, { timeout }) {" }
+    ]
+  },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SUP-001",
+  "section": "IMPL §3.2.3",
+  "note": "Near miss for sup001-identifier-off-by-one.json: the inline-code token occurs exactly in the excerpt."
+}

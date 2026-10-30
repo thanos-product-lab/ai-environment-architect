@@ -1,0 +1,13 @@
+{
+  "finding": {
+    "statement": "Two setup scripts are run in order, as the README describes.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "README.md", "basis": "documentation", "excerpt": "Run the two setup scripts in order:" }
+    ]
+  },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SUP-002",
+  "section": "IMPL §3.2.3",
+  "note": "'Two' matches 'two' in the excerpt as a whole word, case-insensitive."
+}

@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "The client makes three retry attempts.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "src/api/client.ts", "basis": "code_observation", "excerpt": "const MAX_RETRIES = 3;" }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-002" },
+  "section": "IMPL §3.2.3",
+  "note": "The excerpt has the digit '3' but not the word 'three'. Spelled numbers are matched as words, not converted to digits, so a paraphrase of a correct number is rejected. Writing '3' would pass."
+}

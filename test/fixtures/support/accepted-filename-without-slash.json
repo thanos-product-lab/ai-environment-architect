@@ -1,0 +1,13 @@
+{
+  "finding": {
+    "statement": "Settings are loaded from settings.yaml at startup.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "src/index.ts", "basis": "code_observation", "excerpt": "const settings = loadConfig();" }
+    ]
+  },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SUP-001",
+  "section": "IMPL §3.2.3",
+  "note": "Known limit, pinned so it is noticed if it changes: a bare token needs a '/', so 'settings.yaml' is not path-like and is not checked, although it is in neither the excerpt nor the snapshot. In backticks it would be rejected."
+}

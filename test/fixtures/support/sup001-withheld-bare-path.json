@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "Deploy credentials are stored in keys/{{aws-access-key-id}}.txt, next to the release script.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "scripts/release.sh", "basis": "code_observation", "excerpt": "set -e\n./scripts/build.sh" }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-001" },
+  "section": "IMPL §3.2.3, §1.11",
+  "note": "Same withheld path as sup001-withheld-path.json, as a bare token with a trailing ','. After substitution and stripping it equals a snapshot entry, but a withheld one."
+}

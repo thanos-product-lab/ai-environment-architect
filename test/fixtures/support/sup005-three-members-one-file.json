@@ -1,0 +1,12 @@
+{
+  "conflict": {
+    "members": [
+      { "evidence": [ { "path": "src/api/client.ts" } ] },
+      { "evidence": [ { "path": "src/api/client.ts" }, { "path": "src/api/client.ts" } ] },
+      { "evidence": [ { "path": "src/api/client.ts" } ] }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-005" },
+  "section": "IMPL §3.2.3, §3.3.2",
+  "note": "Three members and four evidence items, all from one file. Counting members or evidence items instead of distinct paths would wrongly accept."
+}

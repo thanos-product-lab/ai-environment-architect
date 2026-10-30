@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "Use fetchJson instead of calling fetch directly.",
+    "mode": "prescriptive",
+    "evidence": [
+      { "path": "src/api/client.ts", "basis": "code_observation", "excerpt": "// always use fetchJson instead of fetch" }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-004" },
+  "section": "IMPL §3.2.3, §3.2.4",
+  "note": "The excerpt is full of directive language, but it is a code comment, so its basis is code_observation. Only documentation or existing_guidance can support a prescriptive finding."
+}

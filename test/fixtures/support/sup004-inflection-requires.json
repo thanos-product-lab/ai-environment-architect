@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "Run the tests before each release.",
+    "mode": "prescriptive",
+    "evidence": [
+      { "path": "docs/testing.md", "basis": "documentation", "excerpt": "Every release requires a passing test run." }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-004" },
+  "section": "IMPL §3.2.3",
+  "note": "'requires' is not 'required'. 'Every' in the excerpt is not a directive word."
+}

@@ -1,0 +1,13 @@
+{
+  "finding": {
+    "statement": "Number formatting lives in the helper file (src/util/format.ts).",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "src/util/format.ts", "basis": "code_observation", "excerpt": "export function formatNumber(n) {" }
+    ]
+  },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SUP-001",
+  "section": "IMPL §3.2.3",
+  "note": "Leading '(' and trailing ').' are stripped, leaving the listed path 'src/util/format.ts'. A validator that strips only one trailing character would wrongly reject."
+}

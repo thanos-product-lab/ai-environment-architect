@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "The client exposes `fetchJSON` with a timeout option.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "src/api/client.ts", "basis": "code_observation", "excerpt": "export async function fetchJson(url, { timeout }) {" }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-001" },
+  "section": "IMPL §3.2.3",
+  "note": "Inline-code identifier differs from the excerpt by case (JSON for Json). Substring matching is exact and case-sensitive. Near miss: accepted-identifier-in-excerpt.json."
+}

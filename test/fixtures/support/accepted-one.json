@@ -1,0 +1,13 @@
+{
+  "finding": {
+    "statement": "The client creates one session per process.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "src/api/client.ts", "basis": "code_observation", "excerpt": "const session = createSession();" }
+    ]
+  },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SUP-002",
+  "section": "IMPL §3.2.3",
+  "note": "'one' is deliberately not in the SUP-002 word list."
+}

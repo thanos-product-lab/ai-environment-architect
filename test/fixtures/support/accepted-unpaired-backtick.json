@@ -1,0 +1,13 @@
+{
+  "finding": {
+    "statement": "Older lines in scripts/release.sh use the ` form for command substitution.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "scripts/release.sh", "basis": "code_observation", "excerpt": "VERSION=`git describe --tags`" }
+    ]
+  },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SUP-001",
+  "section": "IMPL §3.2.3",
+  "note": "A single unpaired backtick is plain text, so there is no inline-code token. The bare path is listed. A validator that treats the rest of the line as an open code span would wrongly reject."
+}

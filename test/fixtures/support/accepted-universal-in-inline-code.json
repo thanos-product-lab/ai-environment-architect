@@ -1,0 +1,13 @@
+{
+  "finding": {
+    "statement": "The test script runs `vitest run --all`.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "package.json", "basis": "code_observation", "excerpt": "\"test\": \"vitest run --all\"," }
+    ]
+  },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SUP-003",
+  "section": "IMPL §3.2.3",
+  "note": "'all' occurs only inside an inline-code token, which is anchored by the excerpt and removed before SUP-003."
+}

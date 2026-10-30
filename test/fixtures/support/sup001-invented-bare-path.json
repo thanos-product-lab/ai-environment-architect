@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "Retry logic lives in src/api/retry.ts.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "src/api/client.ts", "basis": "code_observation", "excerpt": "import { withRetry } from './retry';" }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-001" },
+  "section": "IMPL §3.2.3",
+  "note": "Bare path token without backticks. After stripping the trailing '.', 'src/api/retry.ts' is neither in the excerpt nor a listed path."
+}

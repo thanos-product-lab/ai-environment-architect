@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "Retry failed requests up to 3 times.",
+    "mode": "prescriptive",
+    "evidence": [
+      { "path": "src/api/client.ts", "basis": "code_observation", "excerpt": "// retry failed requests before giving up" }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-002" },
+  "section": "IMPL §3.2.3",
+  "note": "Fails SUP-002 ('3' is in no excerpt) and SUP-004 (prescriptive, code only). SUP-002 is reported. SUP-003 never applies to a prescriptive finding, so SUP-003 and SUP-004 cannot both fail."
+}

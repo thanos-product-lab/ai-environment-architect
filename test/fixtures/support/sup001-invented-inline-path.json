@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "Requests go through `src/api/http.ts`.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "src/api/client.ts", "basis": "code_observation", "excerpt": "import { request } from './http';" }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-001" },
+  "section": "IMPL §3.2.3",
+  "note": "The model guessed the file behind the './http' import. The excerpt holds 'http' but not the token 'src/api/http.ts', and that path is not in the snapshot."
+}

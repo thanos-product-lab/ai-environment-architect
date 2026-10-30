@@ -1,0 +1,13 @@
+{
+  "finding": {
+    "statement": "Run unit tests with `pnpm test:unit`.",
+    "mode": "prescriptive",
+    "evidence": [
+      { "path": "docs/testing.md", "basis": "documentation", "excerpt": "Install dependencies first.\nUse pnpm test:unit instead of the old npm script." }
+    ]
+  },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SUP-004",
+  "section": "IMPL §3.2.3",
+  "note": "'Use' is followed later on the same line by 'instead'. The inline-code token occurs in the excerpt."
+}

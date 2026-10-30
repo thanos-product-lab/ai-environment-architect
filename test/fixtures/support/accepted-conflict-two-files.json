@@ -1,0 +1,12 @@
+{
+  "conflict": {
+    "members": [
+      { "evidence": [ { "path": "README.md" } ] },
+      { "evidence": [ { "path": "CONTRIBUTING.md" }, { "path": "CONTRIBUTING.md" } ] }
+    ]
+  },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SUP-005",
+  "section": "IMPL §3.2.3, §3.3.2",
+  "note": "Two distinct files. The repeated CONTRIBUTING.md item does not matter."
+}

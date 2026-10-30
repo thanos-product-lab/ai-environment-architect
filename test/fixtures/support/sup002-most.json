@@ -1,0 +1,13 @@
+{
+  "finding": {
+    "statement": "Most modules export a default function.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "src/util/format.ts", "basis": "code_observation", "excerpt": "export default function format(value) {" },
+      { "path": "src/index.ts", "basis": "code_observation", "excerpt": "export default function main() {" }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-002" },
+  "section": "IMPL §3.2.3",
+  "note": "'most' is always rejected, even with two supporting citations: it is a frequency over files the model did not count."
+}

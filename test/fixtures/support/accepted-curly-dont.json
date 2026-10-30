@@ -1,0 +1,13 @@
+{
+  "finding": {
+    "statement": "Do not commit build output.",
+    "mode": "prescriptive",
+    "evidence": [
+      { "path": "CONTRIBUTING.md", "basis": "documentation", "excerpt": "Don’t commit files from dist/." }
+    ]
+  },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SUP-004",
+  "section": "IMPL §3.2.3",
+  "note": "The excerpt uses a curly apostrophe (U+2019) in 'Don’t', which counts like 'don't'. A validator that accepts only the ASCII apostrophe would wrongly reject."
+}

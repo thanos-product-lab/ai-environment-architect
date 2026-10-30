@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "The client retries on multiple status codes.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "src/api/client.ts", "basis": "code_observation", "excerpt": "const RETRY_ON = [502, 503];" }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-002" },
+  "section": "IMPL §3.2.3",
+  "note": "'multiple' is in the always-rejected list, even though the excerpt plainly shows more than one code and the statement has no digits."
+}

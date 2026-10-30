@@ -1,0 +1,11 @@
+{
+  "conflict": {
+    "members": [
+      { "evidence": [ { "path": "README.md" } ] },
+      { "evidence": [ { "path": "README.md" } ] }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-005" },
+  "section": "IMPL §3.2.3, §3.3.2",
+  "note": "Two findings citing different line ranges of README.md (say the install section says pnpm, the quick start says npm). Two items of one file are one source."
+}

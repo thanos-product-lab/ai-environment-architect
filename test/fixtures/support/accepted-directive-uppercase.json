@@ -1,0 +1,14 @@
+{
+  "finding": {
+    "statement": "Make sure tests pass before merging.",
+    "mode": "prescriptive",
+    "evidence": [
+      { "path": "src/api/client.ts", "basis": "code_observation", "excerpt": "export async function fetchJson(url, { timeout }) {" },
+      { "path": "CLAUDE.md", "basis": "existing_guidance", "excerpt": "Tests MUST pass before merging." }
+    ]
+  },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SUP-004",
+  "section": "IMPL §3.2.3",
+  "note": "'MUST' in capitals counts. The qualifying evidence is the second item; a code citation first does not stop the check."
+}

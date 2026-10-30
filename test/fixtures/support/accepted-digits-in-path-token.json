@@ -1,0 +1,13 @@
+{
+  "finding": {
+    "statement": "The initial schema is created in db/migrations/0042_init.sql.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "db/migrations/0042_init.sql", "basis": "code_observation", "excerpt": "CREATE TABLE links (" }
+    ]
+  },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SUP-002",
+  "section": "IMPL §3.2.3",
+  "note": "The path token is listed (SUP-001) and removed before SUP-002, so its digit run '0042' is not a count. The excerpt has no digits."
+}

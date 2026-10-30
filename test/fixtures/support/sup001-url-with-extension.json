@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "Setup steps are published at https://docs.example.invalid/setup.html.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "README.md", "basis": "documentation", "excerpt": "See the setup guide on the docs site." }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-001" },
+  "section": "IMPL §3.2.3",
+  "note": "An invented URL. It contains '/' and its last segment ends in '.html', so under the agreed token rule it is a path-like token, and it is in neither the excerpt nor the snapshot. A URL that does appear in an excerpt would be anchored."
+}

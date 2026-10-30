@@ -1,0 +1,13 @@
+{
+  "finding": {
+    "statement": "Requests time out after 3000 milliseconds.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "src/api/client.ts", "basis": "code_observation", "excerpt": "const TIMEOUT_MS = 3000;" }
+    ]
+  },
+  "expect": { "outcome": "accepted", "rule": null },
+  "nearMissOf": "SUP-002",
+  "section": "IMPL §3.2.3",
+  "note": "'3000' is a whole digit run in the excerpt: the following ';' is not a digit."
+}

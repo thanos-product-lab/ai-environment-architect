@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "Build new API clients on fetchJson.",
+    "mode": "prescriptive",
+    "evidence": [
+      { "path": "README.md", "basis": "documentation", "excerpt": "The client is built on fetchJson." }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-004" },
+  "section": "IMPL §3.2.3",
+  "note": "A description in documentation turned into a rule. The excerpt states a fact, with no directive word."
+}

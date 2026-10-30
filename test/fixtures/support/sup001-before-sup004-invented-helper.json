@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "Wrap every request in `withRetry`.",
+    "mode": "prescriptive",
+    "evidence": [
+      { "path": "src/api/client.ts", "basis": "code_observation", "excerpt": "// always use fetchJson instead of fetch" }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-001" },
+  "section": "IMPL §3.2.3",
+  "note": "Fails SUP-001 ('withRetry' is in no excerpt and not a listed path) and SUP-004 (code only). 'every' is ignored because the finding is prescriptive. SUP-001 is reported."
+}

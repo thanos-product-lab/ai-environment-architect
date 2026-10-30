@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "All route handlers in src/api/routes.ts return JSON.",
+    "mode": "descriptive",
+    "evidence": [
+      { "path": "src/api/routes.ts", "basis": "code_observation", "excerpt": "export const getLink = (req, res) => res.json(link);\nexport const listLinks = (req, res) => res.json(links);" }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-003" },
+  "section": "IMPL §3.2.3",
+  "note": "A universal claim from two sampled lines, with only code_observation evidence. The path is listed, so SUP-001 passes; there is no count, so SUP-002 passes."
+}

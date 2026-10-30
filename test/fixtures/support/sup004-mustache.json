@@ -1,0 +1,12 @@
+{
+  "finding": {
+    "statement": "Write email bodies as mustache templates.",
+    "mode": "prescriptive",
+    "evidence": [
+      { "path": "README.md", "basis": "documentation", "excerpt": "Emails use mustache templates from the templates folder." }
+    ]
+  },
+  "expect": { "outcome": "rejected", "rule": "SUP-004" },
+  "section": "IMPL §3.2.3",
+  "note": "'mustache' contains 'must' but is not the whole word. 'use' appears with no later 'instead'."
+}
