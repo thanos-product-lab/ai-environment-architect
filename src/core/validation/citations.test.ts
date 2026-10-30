@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MemoryFs } from "../../../test/support/memory-fs.js";
 import { renderItem } from "../context/item.js";
+import { DEFAULT_CONTEXT_SETTINGS, type TierMembership } from "../context/tiers.js";
 import { type Hash, sha256 } from "../hash.js";
 import { createAliasTable } from "./aliases.js";
 import {
@@ -15,6 +16,13 @@ import {
   validateCitation,
 } from "./citations.js";
 import type { ValidationEvent } from "./pipeline.js";
+
+/** No packages or imports: basis comes from the path's own tier (§3.2.4). */
+const MEMBERSHIP: TierMembership = {
+  packages: [""],
+  imports: [],
+  sourceExtensions: DEFAULT_CONTEXT_SETTINGS.sourceExtensions,
+};
 
 // Citations and provenance (IMPL §3.2.2): the quote exists, at the stated place, in content that
 // was actually sent in this call.
@@ -408,10 +416,24 @@ describe("citableItem", () => {
     content,
   };
 
+  it("derives its basis from the file's tier, never from the caller (§3.2.4)", () => {
+    const full = renderItem(input, "code", 1_000_000);
+    if (full === undefined) throw new Error("no rendering");
+    const basisAt = (path: string, membership = MEMBERSHIP) =>
+      citableItem({ ...input, path }, full, membership, input.hash).basis;
+    expect(basisAt("src/one.ts")).toBe("code_observation");
+    expect(basisAt("docs/one.md")).toBe("documentation");
+    expect(basisAt(".claude/one.md")).toBe("existing_guidance");
+    expect(basisAt("notes/one.txt")).toBe("code_observation");
+    expect(basisAt("notes/one.txt", { ...MEMBERSHIP, imports: ["notes/one.txt"] })).toBe(
+      "existing_guidance",
+    );
+  });
+
   it("keeps only the sent lines, as runs, whatever the line endings", () => {
     const full = renderItem(input, "code", 1_000_000);
     if (full === undefined) throw new Error("expected a rendering");
-    const all = citableItem(input, full, "code_observation", input.hash);
+    const all = citableItem(input, full, MEMBERSHIP, input.hash);
     expect(all.sent).toEqual([{ first: 1, lines: text.split("\r\n") }]);
     expect(all.totalLines).toBe(8);
   });
@@ -419,7 +441,7 @@ describe("citableItem", () => {
   it("leaves unsent lines out of the item entirely", () => {
     const excerpt = renderItem(input, "code", (renderItem(input, "code", 1e6)?.bytes ?? 0) - 200);
     if (excerpt === undefined) throw new Error("expected an excerpt");
-    const cited = citableItem(input, excerpt, "code_observation", input.hash);
+    const cited = citableItem(input, excerpt, MEMBERSHIP, input.hash);
     const sentLines = cited.sent.flatMap((run) => run.lines);
     expect(excerpt.included.length).toBeGreaterThan(0);
     expect(sentLines.join("\n")).not.toContain("a long body");

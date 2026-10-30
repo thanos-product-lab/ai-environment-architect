@@ -1,8 +1,8 @@
 # Domain Model
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 24 October 2026  
-**Version:** 0.12 — consolidated specification  
+**Date:** 30 October 2026  
+**Version:** 0.13 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,10 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.12
+
+1. **Finding basis (§6.3).** A finding's basis is the set of its citations' bases; "mixed" means a set with more than one entry ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.4).
 
 ### Changes from v0.11
 
@@ -202,7 +206,7 @@ One claim about the repository, or one explicit unknown.
 | `kind` | `claim` or `gap` |
 | `statement` | Plain language |
 | `mode` | `descriptive` ("tests live under `tests/`") or `prescriptive` ("docs require the generated client") |
-| `basis` | Derived from evidence: `documentation`, `code_observation`, `existing_guidance`, or mixed |
+| `basis` | Derived from evidence: the set of its evidence's bases (`documentation`, `code_observation`, `existing_guidance`), so a mixed basis has more than one ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.4) |
 | `scope` | `repository` or an explicit list of paths |
 | `evidenceIds` | Required for `claim`; may be empty for `gap` |
 | `droppedCitations` | Model-produced findings only: how many proposed citations failed validation or were merged into an earlier duplicate ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.5). Shown in the findings view |

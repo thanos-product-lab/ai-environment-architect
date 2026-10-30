@@ -131,11 +131,22 @@ export type DestinationStop =
     }
   | { readonly reason: "destination_secret"; readonly ruleId: SecretRuleId };
 
+/** What decides the tier of a file that wasn't selected, for evidence basis (IMPL §3.2.4). */
+export interface TierMembership {
+  /** Declared or inferred packages, sorted; files in none belong to the root package "". */
+  readonly packages: readonly string[];
+  /**
+   * Files reached by `@path` imports, in bytewise order: `read` entries, followed further when
+   * they are Markdown, and `listed_only` entries, which were never read and so are not followed.
+   */
+  readonly imports: readonly string[];
+  readonly sourceExtensions: readonly string[];
+}
+
 export type TierSelection =
   | {
       readonly state: "selected";
-      /** Declared or inferred packages, sorted; files in none belong to the root package "". */
-      readonly packages: readonly string[];
+      readonly membership: TierMembership;
       /** In tier order, then inclusion order. */
       readonly items: readonly SelectedItem[];
       /** Files tried and never included, in the order they were first tried. */
@@ -247,6 +258,31 @@ function directorySegments(path: string): string[] {
 
 function depthOf(path: string): number {
   return path.split("/").length - 1;
+}
+
+/**
+ * The tier a file belongs to, selected or not: the first of tiers 1, 2, 3 and 5 whose patterns
+ * match it, and tier 1 for an import no other tier matches. It agrees with `selectTiers` for
+ * every file selection tried, and is what evidence basis is derived from (IMPL §3.2.4).
+ */
+export function tierOf(path: string, membership: TierMembership): SelectedTier | undefined {
+  if (isTier1(path)) return 1;
+  if (tier2Group(path) !== undefined) return 2;
+  if (tier3Group(path) !== undefined) return 3;
+  if (isPackageReadme(path, new Set(membership.packages))) return 2;
+  if (isPackageManifest(path)) return 3;
+  if (isSourceFile(path, membership.sourceExtensions)) return 5;
+  if (membership.imports.includes(path)) return 1;
+  return undefined;
+}
+
+/** Whether the name ends with one of the extensions, compared ASCII case-insensitively. */
+function isSourceFile(path: string, extensions: readonly string[]): boolean {
+  const name = asciiLower(baseName(path));
+  return extensions.some((extension) => {
+    const ext = asciiLower(extension);
+    return name.length > ext.length && name.endsWith(ext);
+  });
 }
 
 function isTier1(path: string): boolean {
@@ -519,7 +555,7 @@ class Selector {
     claim([...tier2.keys(), ...tier3.keys()]);
     if (destination !== undefined) claimed.add(DESTINATION_PATH);
 
-    const { imported, gaps } = await this.resolveImports(
+    const { imported, listedImports, gaps } = await this.resolveImports(
       destination === undefined ? tier1 : [DESTINATION_PATH, ...tier1],
     );
     const importedOnly = imported.filter(
@@ -587,7 +623,11 @@ class Selector {
 
     return {
       state: "selected",
-      packages,
+      membership: {
+        packages,
+        imports: [...imported, ...listedImports].sort(comparePaths),
+        sourceExtensions: this.settings.sourceExtensions,
+      },
       items: this.items,
       skipped: [...this.skipped.values()],
       blocked: this.blocked,
@@ -727,11 +767,7 @@ class Selector {
   }
 
   private isSource(path: string): boolean {
-    const name = asciiLower(baseName(path));
-    return this.settings.sourceExtensions.some((extension) => {
-      const ext = asciiLower(extension);
-      return name.length > ext.length && name.endsWith(ext);
-    });
+    return isSourceFile(path, this.settings.sourceExtensions);
   }
 
   /** Workspace members; otherwise top-level directories with source files; otherwise the root. */
@@ -762,12 +798,20 @@ class Selector {
     return topLevel.size > 0 ? [...topLevel].sort(comparePaths) : [""];
   }
 
-  /** Follows `@path` imports from tier 1 Markdown, recursively and each path once. */
+  /**
+   * Follows `@path` imports from tier 1 Markdown, recursively and each path once. Imports of
+   * `listed_only` entries are not candidates, so selection ignores them, but they still count
+   * for basis (IMPL §3.2.4).
+   */
   private async resolveImports(
     starts: readonly string[],
-  ): Promise<{ imported: string[]; gaps: SelectionGap[] }> {
+  ): Promise<{ imported: string[]; listedImports: string[]; gaps: SelectionGap[] }> {
+    const listedOnly = new Set(
+      this.snapshot.files.filter((f) => f.status === "listed_only").map((f) => f.path),
+    );
     const visited = new Set(starts);
     const imported: string[] = [];
+    const listedImports: string[] = [];
     const outside: { importer: string; written: string }[] = [];
     const queue = [...starts];
     for (let path = queue.shift(); path !== undefined; path = queue.shift()) {
@@ -782,6 +826,9 @@ class Selector {
           visited.add(target.path);
           imported.push(target.path);
           queue.push(target.path);
+        } else if (listedOnly.has(target.path) && !visited.has(target.path)) {
+          visited.add(target.path);
+          listedImports.push(target.path);
         }
       }
     }
@@ -789,6 +836,7 @@ class Selector {
     outside.sort((a, b) => comparePaths(a.importer, b.importer));
     return {
       imported,
+      listedImports,
       // The import is scanned before it is cut, so a cut can't leave part of a secret behind.
       gaps: outside.map(({ importer, written }) => ({
         gapType: "other",

@@ -2,8 +2,13 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 30 October 2026  
-**Version:** 0.21  
+**Version:** 0.22  
 **Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
+
+### Changes from v0.21
+
+- **Evidence basis (§3.2.4).** A file's tier for basis is the first tier whose patterns match it, and tier 1 only when no pattern matches and an import resolves to it, as §1.5 already selects. An import counts when it resolves to a `read` or `listed_only` entry. Selection still ignores imports that aren't candidates (§1.5), and a `listed_only` file is never read, so its own imports are not followed.
+- **Open points (§3.9).** Documentation outside the tier 2 locations is `code_observation`.
 
 ### Changes from v0.20
 
@@ -365,7 +370,7 @@ The explanation names the reason and the options (shorten the file, or raise the
 - Only paths inside the repository are followed, and only to files in the snapshot. Imports are never followed through a symbolic link, and an imported file is still subject to exclusions and the secret scan (§1.7).
 - Resolution is cycle-safe: each path is visited at most once, so a file that imports itself, directly or through others, ends the chain.
 - Imported files join tier 1 as other agent configuration, `existing_guidance` evidence that is never a target, and are ordered and budgeted like it. A file that is already in tier 1 by its path is not added twice. A file that tier 2, 3 or 5 matches stays in that tier, so `@package.json` is still a tier 3 manifest and command evidence.
-- An import that does not resolve to a candidate file is ignored.
+- An import that does not resolve to a candidate file is ignored. One that resolves to a `listed_only` file still counts for evidence basis (§3.2.4).
 - An import that points outside the repository, including absolute and home-directory paths, is not read. A deterministic `gap` finding is created that names the importing file and the import as written, cut to 80 code points like an outline label (§1.6).
 
 #### Tier 2 — Project documentation
@@ -1270,7 +1275,7 @@ Anything these rules can't check is shown to the developer. Every finding is dis
 
 #### 3.2.4 Evidence basis
 
-Basis is derived by code from the tier the cited file belongs to (§1.5), whether it reached the model through the initial context or through expansion. The model never chooses it. For basis, a file belongs to the first tier whose patterns or `@path` imports match its path, whether or not it is a candidate, so a `listed_only` `docs/architecture.md` read by line range is `documentation`, and a `listed_only` file under `.claude/` is `existing_guidance`.
+Basis is derived by code from the tier the cited file belongs to (§1.5), whether it reached the model through the initial context or through expansion. The model never chooses it. For basis, a file belongs to the first tier whose patterns match its path, whether or not it is a candidate; failing that, to tier 1 if an `@path` import resolves to it. So a `listed_only` `docs/architecture.md` read by line range is `documentation`, and a `listed_only` file under `.claude/` is `existing_guidance`. An import counts when it resolves, as in §1.5, to a `read` or `listed_only` entry. Selection ignores the `listed_only` ones, because they aren't candidates, and their own imports are never followed, because they are never read.
 
 | File belongs to | Basis |
 |---|---|
@@ -1278,7 +1283,7 @@ Basis is derived by code from the tier the cited file belongs to (§1.5), whethe
 | Tier 2 (documentation) | `documentation` |
 | Tier 3, tier 5, or no tier | `code_observation` |
 
-An imported file that tier 2, 3 or 5 matches stays in that tier (§1.5), so `@package.json` is `code_observation`. A file that matches no tier's patterns, such as a changelog or a Markdown file under `src/`, is `code_observation`.
+An imported file that tier 2, 3 or 5 matches stays in that tier (§1.5), so `@package.json` is `code_observation`. A file that matches no tier's patterns and isn't imported, such as a changelog or a Markdown file under `src/`, is `code_observation`; an imported changelog is `existing_guidance`.
 
 A finding's basis is the set of its citations' bases.
 
@@ -1709,4 +1714,5 @@ A change to any prompt, schema, validator or detector requires the fixture suite
 - `SUP-002` misses counts outside its lists, such as *once*, *twice*, *a couple* and ordinals.
 - `SUP-001` matches a token in an excerpt as a substring, so `./format.ts` is anchored by an excerpt holding `../format.ts`, which names another file. A path-aware excerpt match would be stricter.
 - In recommendation content, `` `./scripts/build.sh` `` is both path-like and command-like (§3.4). Which class wins is settled when the detector is built.
+- Documentation outside the tier 2 locations, such as `documentation/` or `wiki/`, is `code_observation` (§3.2.4). This is conservative: it can't support a `prescriptive` finding. Watch how often it happens in the M6 live runs.
 - Whether a model-based support check is worth adding after the first slice. Adopt only if evaluation shows it reduces unsupported findings without excessive false rejections.

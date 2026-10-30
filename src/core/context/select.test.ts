@@ -440,3 +440,25 @@ describe("canonicalJson", () => {
     expect(() => canonicalJson({ a: new Date(0) })).toThrow();
   });
 });
+
+describe("tier membership (IMPL §3.2.4)", () => {
+  it("passes the selection's membership through the secret scan to the result", async () => {
+    const result = await run(
+      {
+        "CLAUDE.md": "@notes/team.md @node_modules/x/notes.md @notes/ignored.md\n",
+        "notes/team.md": "a\n",
+        "notes/ignored.md": "a\n",
+        "node_modules/x/notes.md": "a\n",
+        "package.json": '{ "workspaces": ["packages/*"] }\n',
+        "packages/a/package.json": "{}\n",
+      },
+      { ignored: ["notes/ignored.md"] },
+    );
+    if (result.state !== "ready") throw new Error(result.state);
+    expect(result.membership).toEqual({
+      packages: ["packages/a"],
+      imports: ["notes/team.md"],
+      sourceExtensions: DEFAULT_CONTEXT_SETTINGS.sourceExtensions,
+    });
+  });
+});

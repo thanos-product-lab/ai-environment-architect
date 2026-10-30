@@ -20,6 +20,7 @@ import {
   type SelectedItem,
   type SelectionGap,
   selectTiers,
+  type TierMembership,
 } from "./tiers.js";
 import { type ContentMark, type RenderedTree, renderTree } from "./tree.js";
 
@@ -120,6 +121,8 @@ export type ContextResult =
       readonly tree: RenderedTree;
       /** Deterministic `gap` findings, recorded by the session. */
       readonly gaps: readonly SelectionGap[];
+      /** For the tier, and so the evidence basis, of any cited file (IMPL §3.2.4). */
+      readonly membership: TierMembership;
       readonly manifest: InputManifest;
     }
   /** The session stops before any model call (IMPL §1.5, destination rule). */
@@ -225,6 +228,7 @@ export async function selectContext(
     items: [...before, ...after],
     tree,
     gaps: scanned.gaps,
+    membership: scanned.membership,
     manifest,
   };
 }

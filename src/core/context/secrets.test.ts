@@ -383,7 +383,7 @@ describe("applySecretScan", () => {
     const statement = `Found ${awsKey}.`;
     const selection = {
       state: "selected" as const,
-      packages: [],
+      membership: { packages: [], imports: [], sourceExtensions: [] },
       items: [],
       skipped: [],
       tiers: [],
@@ -412,7 +412,7 @@ describe("applySecretScan", () => {
     const path = `docs/${awsKey}.md`;
     const selection = {
       state: "selected" as const,
-      packages: [],
+      membership: { packages: [], imports: [], sourceExtensions: [] },
       items: [],
       skipped: [],
       tiers: [],

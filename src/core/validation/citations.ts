@@ -1,9 +1,11 @@
 import { unescapeDelimiters } from "../context/escape.js";
 import { type ItemInput, lineTexts, type RenderedItem } from "../context/item.js";
+import type { TierMembership } from "../context/tiers.js";
 import type { Hash } from "../hash.js";
 import { comparePaths } from "../paths.js";
 import type { RepositoryFs } from "../snapshot/repository-fs.js";
 import { type AliasTable, resolveReference } from "./aliases.js";
+import { basisOf } from "./basis.js";
 import {
   accept,
   type CheckEvent,
@@ -301,11 +303,14 @@ export function citationCheck<V extends Cited, C extends CitationContext>(): Ite
   };
 }
 
-/** The citable form of a rendered item: its sent lines only, as the file's own text. */
+/**
+ * The citable form of a rendered item: its sent lines only, as the file's own text. Its basis is
+ * derived here from the tier the file belongs to (§3.2.4), so no caller can choose it.
+ */
 export function citableItem(
   input: Pick<ItemInput, "path" | "hash" | "content">,
   rendered: Pick<RenderedItem, "included" | "totalLines">,
-  basis: Basis,
+  membership: TierMembership,
   currentHash: Hash | undefined,
 ): CitableItem {
   const lines = lineTexts(input.content);
@@ -313,7 +318,7 @@ export function citableItem(
     path: input.path,
     snapshotHash: input.hash,
     currentHash,
-    basis,
+    basis: basisOf(input.path, membership),
     totalLines: rendered.totalLines,
     sent: rendered.included.map((range) => ({
       first: range.first,

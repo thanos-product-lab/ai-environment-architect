@@ -15,6 +15,7 @@ import {
   DEFAULT_CONTEXT_SETTINGS,
   selectTiers,
   type TierSelection,
+  tierOf,
 } from "./tiers.js";
 
 // Tiers, including the test reserve (IMPL §1.5).
@@ -742,7 +743,7 @@ describe("tier 5: packages", () => {
       "tools/skip/package.json": "{}\n",
       "tools/skip/a.ts": "export const a = 1;\n",
     });
-    expect(result.packages).toEqual(["apps/web", "libs/x", "tools/cli"]);
+    expect(result.membership.packages).toEqual(["apps/web", "libs/x", "tools/cli"]);
   });
 
   it("counts a matched directory as a member only when it has a package.json", async () => {
@@ -755,7 +756,7 @@ describe("tier 5: packages", () => {
       "packages/b/package.json": "{}\n",
       "packages/assets/logo.ts": "export const a = 1;\n",
     });
-    expect(result.packages).toEqual(["packages/a"]);
+    expect(result.membership.packages).toEqual(["packages/a"]);
     expect(pathsIn(result, 2)).toEqual([]);
   });
 
@@ -766,12 +767,12 @@ describe("tier 5: packages", () => {
       "docs/a.md": "# a\n",
       "main.go": "package main\n",
     });
-    expect(result.packages).toEqual(["api", "web"]);
+    expect(result.membership.packages).toEqual(["api", "web"]);
   });
 
   it("falls back to the root as the one package", async () => {
     const result = await selected({ "main.go": "package main\n" });
-    expect(result.packages).toEqual([""]);
+    expect(result.membership.packages).toEqual([""]);
   });
 
   it("puts source files outside every package in a root package that comes first", async () => {
@@ -1048,4 +1049,50 @@ describe("determinism (IMPL §1.15)", () => {
     }
     expect(await select(nodes, settings, (names) => [...names].reverse())).toEqual(baseline);
   });
+});
+
+describe("tierOf (IMPL §3.2.4)", () => {
+  const repository: Record<string, MemoryNode> = {
+    "CLAUDE.md": "@package.json @README.md @src/index.ts @notes/team.txt @CHANGELOG.md\n",
+    "AGENTS.md": "a\n",
+    ".claude/rules/core.md": "a\n",
+    "README.md": "# R\n",
+    "CHANGELOG.md": "# C\n",
+    "notes/team.txt": "a\n",
+    "docs/guide.md": "# G\n",
+    "docs/adr/0001.md": "# A\n",
+    "package.json": '{ "workspaces": ["packages/*"] }\n',
+    Makefile: "build:\n\techo\n",
+    "tsconfig.json": "{}\n",
+    ".github/workflows/ci.yml": "on: push\n",
+    "packages/a/package.json": "{}\n",
+    "packages/a/README.md": "# A\n",
+    "packages/a/index.ts": "export const a = 1;\n",
+    "packages/a/a.test.ts": "export const t = 1;\n",
+    "src/index.ts": "export const s = 1;\n",
+    "src/notes.md": "# N\n",
+  };
+
+  for (const [name, order] of [
+    ["path order", undefined],
+    ["shuffled", seededShuffle(7)],
+  ] as const) {
+    it(`agrees with the tier selection gave every file it tried (${name})`, async () => {
+      const result = await select(repository, {}, order);
+      if (result.state !== "selected") throw new Error(result.state);
+      const tried = [...result.items, ...result.skipped, ...result.blocked];
+      expect(tried.length).toBeGreaterThan(10);
+      for (const file of tried)
+        expect(tierOf(file.path, result.membership), file.path).toBe(file.tier);
+      expect(tierOf("CHANGELOG.md", result.membership)).toBe(1);
+      expect(tierOf("src/notes.md", result.membership)).toBeUndefined();
+      expect(result.membership.imports).toEqual([
+        "CHANGELOG.md",
+        "README.md",
+        "notes/team.txt",
+        "package.json",
+        "src/index.ts",
+      ]);
+    });
+  }
 });

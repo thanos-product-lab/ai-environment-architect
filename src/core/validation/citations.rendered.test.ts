@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { unescapeDelimiters } from "../context/escape.js";
 import { type ItemInput, type RenderedItem, renderItem } from "../context/item.js";
+import { DEFAULT_CONTEXT_SETTINGS, type TierMembership } from "../context/tiers.js";
 import { sha256 } from "../hash.js";
 import { createAliasTable } from "./aliases.js";
 import {
@@ -14,6 +15,13 @@ import {
   validateCitation,
 } from "./citations.js";
 import { type CallValidator, validateResponse } from "./pipeline.js";
+
+/** No packages or imports: basis comes from the path's own tier (§3.2.4). */
+const MEMBERSHIP: TierMembership = {
+  packages: [""],
+  imports: [],
+  sourceExtensions: DEFAULT_CONTEXT_SETTINGS.sourceExtensions,
+};
 
 // Citations against real renderings (IMPL §3.2.2, §1.6): the lines validation checks are exactly
 // the CONTENT lines the model was sent, and nothing else in an item can be cited.
@@ -42,7 +50,7 @@ function rendered(input: ItemInput, limit = 1_000_000): RenderedItem {
 function contextOf(input: ItemInput, rendering: RenderedItem): CitationContext {
   return {
     aliases: createAliasTable("analyse", { items: [input.id] }),
-    items: new Map([[input.id, citableItem(input, rendering, "code_observation", input.hash)]]),
+    items: new Map([[input.id, citableItem(input, rendering, MEMBERSHIP, input.hash)]]),
   };
 }
 
@@ -145,7 +153,7 @@ describe("citation properties over real renderings (IMPL §3.8)", () => {
   it("checks quotes against exactly the CONTENT lines the item rendered", () => {
     fc.assert(
       fc.property(renderedFile, ({ input, rendering }) => {
-        const item = citableItem(input, rendering, "code_observation", input.hash);
+        const item = citableItem(input, rendering, MEMBERSHIP, input.hash);
         const sent = new Map(
           item.sent.flatMap((run) => run.lines.map((text, k) => [run.first + k, text] as const)),
         );
