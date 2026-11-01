@@ -453,9 +453,8 @@ describe("conflicts and questions follow their members (IMPL §4.4.2)", () => {
     expect(currentState(log.records).questions.size).toBe(0);
   });
 
-  it("a question with no targets is never current", () => {
+  it("a question record needs at least one finding, gap or conflict", () => {
     const log = newLog();
-    question(log, {});
-    expect(currentState(log.records).questions.size).toBe(0);
+    expect(() => question(log, {})).toThrow(/at least one finding, gap or conflict/);
   });
 });

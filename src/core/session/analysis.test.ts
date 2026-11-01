@@ -837,16 +837,70 @@ describe("resolveConflict (IMPL §4.5)", () => {
     );
   });
 
-  it("refuses a conflict that isn't unresolved", () => {
+  it("refuses a withdrawn conflict, which isn't current", () => {
     const { log, call1 } = expansionCall();
     const conflictId = call1.conflicts.get("c1") as string;
     log.revise("conflict", conflictId, {
       status: "withdrawn",
       withdrawnReason: "withdrawn_by_model",
     });
-    expect(() => resolveConflict(log, conflictId, decide(log, conflictId).id)).toThrow(
-      /not unresolved/,
+    const decision = decide(log, conflictId);
+    const from = log.records.length;
+    expect(() => resolveConflict(log, conflictId, decision.id)).toThrow(/not current/);
+    expect(appended(log, from)).toEqual([]);
+  });
+
+  it("refuses a conflict that is already resolved", () => {
+    const { log, call1 } = expansionCall();
+    const conflictId = call1.conflicts.get("c1") as string;
+    resolveConflict(log, conflictId, decide(log, conflictId).id);
+    const again = decide(log, conflictId);
+    const from = log.records.length;
+    expect(() => resolveConflict(log, conflictId, again.id)).toThrow(/not unresolved/);
+    expect(appended(log, from)).toEqual([]);
+  });
+
+  it("refuses a conflict from an earlier snapshot", () => {
+    const { log, call1 } = expansionCall();
+    const conflictId = call1.conflicts.get("c1") as string;
+    log.append(
+      {
+        type: "snapshot",
+        capturedAt: "2026-11-01T11:00:00.000Z",
+        scope: { roots: ["."] },
+        exclusions: [],
+        files: [],
+        destination: { state: "absent" },
+        readFailures: [],
+        stability: { state: "stable" },
+        git: { state: "unknown", reason: "not_inspected" },
+        ignoreRules: { state: "applied" },
+      },
+      { id: "snap_0002" },
     );
+    const from = log.records.length;
+    const decision = decide(log, conflictId);
+    expect(() => resolveConflict(log, conflictId, decision.id)).toThrow(/not current/);
+    expect(appended(log, from)).toEqual([decision]);
+  });
+
+  it("refuses a conflict with a corrected member", () => {
+    const { log, call1 } = expansionCall();
+    const conflictId = call1.conflicts.get("c1") as string;
+    log.append({
+      type: "decision",
+      statement: "That finding is wrong.",
+      scope: { kind: "repository" },
+      exceptions: [],
+      findingId: call1.findings.get("f1") as string,
+      origin: "developer_correction",
+      actor: "developer",
+      decidedAt: "2026-11-01T10:19:00.000Z",
+    });
+    const from = log.records.length;
+    const decision = decide(log, conflictId);
+    expect(() => resolveConflict(log, conflictId, decision.id)).toThrow(/not current/);
+    expect(appended(log, from)).toEqual([decision]);
   });
 });
 
@@ -1014,7 +1068,7 @@ describe("acting on the revisions a call was sent (IMPL §4.4.1, §4.5)", () => 
       actor: "developer",
       decidedAt: "2026-11-01T10:20:00.000Z",
     });
-    expect(() => resolveConflict(log, conflictId, decision.id)).toThrow(/not unresolved/);
+    expect(() => resolveConflict(log, conflictId, decision.id)).toThrow(/not current/);
   });
 });
 

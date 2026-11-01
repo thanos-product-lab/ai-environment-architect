@@ -16,6 +16,7 @@ import type {
 import type { CitationContext, EntryEvidence, Evidence } from "../validation/citations.js";
 import { deterministicGapCoverage } from "../validation/coverage.js";
 import type { Accepted, ValidationEvent, ValidationResult } from "../validation/pipeline.js";
+import { currentState } from "./current.js";
 import { type FailedTarget, recordFailedItems } from "./failed.js";
 import type { Revised, SessionLog } from "./log.js";
 import type { RecordOf } from "./records.js";
@@ -185,7 +186,10 @@ export function recordAnalyseExpansion(
   return recorder.keys();
 }
 
-/** A decision resolves a conflict: its next revision, `resolved`, names the decision (§4.5). */
+/**
+ * A decision resolves a current, unresolved conflict: its next revision, `resolved`, names the
+ * decision (§4.5).
+ */
 export function resolveConflict(
   log: SessionLog,
   conflictId: string,
@@ -194,9 +198,11 @@ export function resolveConflict(
   const decision = log.require("decision", decisionId);
   if (decision.conflictId !== conflictId)
     throw new Error(`${decisionId} doesn't answer conflict ${conflictId}`);
-  const current = log.revisions("conflict", conflictId).at(-1);
-  if (current === undefined || current.status !== "unresolved" || log.isSuperseded(current.id))
-    throw new Error(`conflict ${conflictId} is not unresolved`);
+  // Only a current conflict can be resolved: not withdrawn or replaced, of the active snapshot,
+  // and with every member finding current, so none corrected (§4.4.2).
+  const current = currentState(log.records).conflicts.get(conflictId);
+  if (current === undefined) throw new Error(`conflict ${conflictId} is not current`);
+  if (current.status !== "unresolved") throw new Error(`conflict ${conflictId} is not unresolved`);
   return log.revise("conflict", conflictId, {
     status: "resolved",
     resolvingDecisionId: decisionId,

@@ -643,6 +643,10 @@ const questionRevision = z
   })
   .refine((r) => (r.status === "unreached") === (r.unreachedReason !== undefined), {
     message: "unreachedReason is set exactly when unreached",
+  })
+  // As the model output's `resolves` (1–10, IMPL §3.3.4): a question is about something.
+  .refine((r) => r.findingIds.length + r.conflictIds.length + r.gapIds.length > 0, {
+    message: "a question resolves at least one finding, gap or conflict",
   });
 
 const failedQuestion = z.strictObject({
