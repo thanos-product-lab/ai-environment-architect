@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ANALYSE_COLLECTION_LIMITS } from "../../schemas/analyse.js";
 import type { Hash } from "../hash.js";
 
 // Session records (IMPL §4.3–§4.5; DM §5–§8). The session file is a header and an append-only
@@ -210,6 +211,12 @@ export const generationConfigRecord = z.strictObject({
   budget: z.strictObject({
     maxTokens: z.int().min(1).optional(),
     maxCostUsd: z.number().positive().optional(),
+  }),
+  /** IMPL §1.8. Not part of `settingsHash`, which covers the initial context only. */
+  expansion: z.strictObject({
+    maxExpansionRequests: z.int().min(0).max(ANALYSE_COLLECTION_LIMITS.expansionRequests),
+    expansionBytes: count,
+    expansionEntryBytes: count,
   }),
   questionBudget: count,
   retainModelInputs: z.boolean(),

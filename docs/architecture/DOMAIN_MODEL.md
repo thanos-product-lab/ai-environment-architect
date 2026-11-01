@@ -2,7 +2,7 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 1 November 2026  
-**Version:** 0.21 — consolidated specification  
+**Version:** 0.22 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,10 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.21
+
+1. **Generation config (§5).** It holds the expansion settings too ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.8, §1.14).
 
 ### Changes from v0.20
 
@@ -170,7 +174,7 @@ One attempt to configure one repository.
 | `outputScope` | `["root CLAUDE.md"]` in the first slice |
 | `repository` | Identity and resolved local root |
 | `targetPath` | Fixed to root `CLAUDE.md` |
-| `generationConfig` | Requested model, context selection settings and their hash, generation budget (token and/or cost ceiling), question budget, `retainModelInputs`. The prompt and output schema versions are recorded on each model call (§13.1) |
+| `generationConfig` | Requested model, context selection settings and their hash, expansion settings, generation budget (token and/or cost ceiling), question budget, `retainModelInputs`. The prompt and output schema versions are recorded on each model call (§13.1) |
 | `stage` | `inspect`, `clarify`, `recommend`, `review`, `apply`, `complete` |
 | `status` | `ready`, `running`, `awaiting_user`, `blocked`, `failed`, `completed`, `cancelled` |
 | `outcome` | `applied`, `no_change`, `failed`, `cancelled`, or unset while in progress |

@@ -2,8 +2,12 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 1 November 2026  
-**Version:** 0.32  
+**Version:** 0.33  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.32
+
+- **Expansion settings (§4.4.1).** `generation_config` records `maxExpansionRequests`, `expansionBytes` and `expansionEntryBytes` (§1.8, §1.14), outside `settingsHash`, which covers the initial context only ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) v0.22).
 
 ### Changes from v0.31
 
@@ -2008,7 +2012,7 @@ The lineage of `session_state` and `generation_config` is the session itself, so
 | Record (`type`) | Lineage ID (prefix) | Record ID prefix | How it changes | Current status |
 |---|---|---|---|---|
 | `session_state` | the session | `st_` | A revision per change of stage, status or outcome, with `reason` when it isn't a normal step: `interrupted`, `budget_reached` (with the purpose of the call left unsent), `stage_skipped`. Carries `productVersion` | the latest |
-| `generation_config` | the session | `gc_` | The settings of DM §5 `generationConfig` and §1.14, with their `settingsHash`. Raising a budget (§2.12) appends a revision with a reason | the latest |
+| `generation_config` | the session | `gc_` | The settings of DM §5 `generationConfig` and §1.14: the context selection settings with their `settingsHash`, the expansion settings (§1.8), which `settingsHash` doesn't cover, the requested model, the generation and question budgets and `retainModelInputs`. Raising a budget (§2.12) appends a revision with a reason | the latest |
 | `snapshot` | — | `snap_` | Immutable. A refresh appends a new snapshot (DM §6.1). The destination's bytes are in `content/`; its Guidance Blocks are stored | the latest is active |
 | `content_notice` | — | `cn_` | Immutable. One per valid notice (§3.3.2 step 10), with `snapshotId`, `modelCallId`, the `item` alias, the `path`, `fileHash`, `lineStart` and `lineEnd` code resolves it to, and the `description` | those of the active snapshot |
 | `evidence` | — | `ev_` | Immutable. Created for accepted findings only (§4.4.3); `absence_check` evidence for each accepted absence claim (§4.5) | — |

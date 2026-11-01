@@ -3,6 +3,7 @@ import { countingIds, hashOf, newLog, tickingClock } from "../../../test/support
 import { settingsHash } from "../context/select.js";
 import { DEFAULT_CONTEXT_SETTINGS } from "../context/tiers.js";
 import { DEFAULT_SNAPSHOT_SETTINGS } from "../snapshot/snapshot.js";
+import { DEFAULT_EXPANSION_SETTINGS } from "../validation/expansion.js";
 import { SessionLog } from "./log.js";
 import { RECORD_KINDS, sessionRecord } from "./records.js";
 
@@ -378,6 +379,7 @@ describe("generation_config (IMPL §4.4.1)", () => {
       settingsHash: settingsHash(settings),
       requestedModel: "claude-opus-5-5",
       budget: { maxCostUsd: 2 },
+      expansion: DEFAULT_EXPANSION_SETTINGS,
       questionBudget: 5,
       retainModelInputs: true,
     });
@@ -386,6 +388,18 @@ describe("generation_config (IMPL §4.4.1)", () => {
       reason: "budget_raised",
     });
     expect(first).toMatchObject({ id: "gc_0001", revision: 1 });
+    expect(first.expansion).toEqual({
+      maxExpansionRequests: 5,
+      expansionBytes: 60_000,
+      expansionEntryBytes: 8_000,
+    });
+    // The schema's ceiling of 5 holds: a higher setting needs a new schema version (IMPL §3.3.2).
+    expect(() =>
+      log.revise("generation_config", "generation_config", {
+        expansion: { ...DEFAULT_EXPANSION_SETTINGS, maxExpansionRequests: 6 },
+        reason: "settings_changed",
+      }),
+    ).toThrow(/maxExpansionRequests/);
     expect(raised).toMatchObject({
       revision: 2,
       supersedes: [first.id],

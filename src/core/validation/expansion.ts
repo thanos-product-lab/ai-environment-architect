@@ -13,6 +13,22 @@ import { accept, type ItemCheck, reject } from "./pipeline.js";
 
 export type ExpansionRequest = z.infer<typeof analyse.response>["expansionRequests"][number];
 
+/** The expansion settings (IMPL §1.8, §1.14), recorded with the session's configuration. */
+export interface ExpansionSettings {
+  /** At most the `analyse` schema's ceiling of 5; a lower setting rejects requests beyond it. */
+  readonly maxExpansionRequests: number;
+  /** The total of all expansion items in the one expansion round. */
+  readonly expansionBytes: number;
+  /** The cap on each `read` entry. */
+  readonly expansionEntryBytes: number;
+}
+
+export const DEFAULT_EXPANSION_SETTINGS: ExpansionSettings = {
+  maxExpansionRequests: 5,
+  expansionBytes: 60_000,
+  expansionEntryBytes: 8_000,
+};
+
 export interface ExpansionIndex {
   /** `maxExpansionRequests` (§1.14): at most the schema's ceiling of 5. */
   readonly maxRequests: number;
