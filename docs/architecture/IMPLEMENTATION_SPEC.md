@@ -2,8 +2,12 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 1 November 2026  
-**Version:** 0.29  
+**Version:** 0.30  
 **Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
+
+### Changes from v0.29
+
+- **Basis of entry evidence (§3.2.4, §3.2.5).** `entry` evidence is always `code_observation`, whatever tier the file belongs to: it only observes that a file exists. A known fact about agent configuration is therefore `code_observation` ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) v0.19). `algorithmVersion` is `context-select/1.7.0`, because the rendered known facts change (§1.13).
 
 ### Changes from v0.28
 
@@ -750,7 +754,7 @@ Every model call records an input manifest ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md)
 ```json
 {
   "manifestVersion": 2,
-  "algorithmVersion": "context-select/1.6.0",
+  "algorithmVersion": "context-select/1.7.0",
   "secretRulesVersion": "secret-scan/1.1.0",
   "declarationPatternsVersion": "declarations/1.0.0",
   "settingsHash": "sha256:…",
@@ -1366,6 +1370,8 @@ Basis is derived by code from the tier the cited file belongs to (§1.5), whethe
 | Tier 2 (documentation) | `documentation` |
 | Tier 3, tier 5, or no tier | `code_observation` |
 
+The table applies to `lines` evidence. `entry` evidence (§3.2.5), which only shows that a file exists in the file list, is always `code_observation`, whatever tier the file belongs to: it says nothing about what a document or configuration file prescribes.
+
 An imported file that tier 2, 3 or 5 matches stays in that tier (§1.5), so `@package.json` is `code_observation`. A file that matches no tier's patterns and isn't imported, such as a changelog or a Markdown file under `src/`, is `code_observation`; an imported changelog is `existing_guidance`.
 
 A finding's basis is the set of its citations' bases.
@@ -1374,7 +1380,7 @@ Consequence: a code comment such as "always use X" is a `code_observation`. It c
 
 #### 3.2.5 Known facts
 
-Before call 1, code extracts facts it can determine without a model, and records them as `claim` findings with `mode: descriptive`, `producedBy: deterministic`, code-generated wording, and evidence that code creates from content verified against the snapshot hash ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.2). Each evidence's basis follows §3.2.4. If a file's content no longer matches its hash, the snapshot is unstable, as in selection (§1.3).
+Before call 1, code extracts facts it can determine without a model, and records them as `claim` findings with `mode: descriptive`, `producedBy: deterministic`, code-generated wording, and evidence that code creates from content verified against the snapshot hash ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.2). Each evidence's basis follows §3.2.4, so `entry` evidence is `code_observation`. If a file's content no longer matches its hash, the snapshot is unstable, as in selection (§1.3).
 
 | Fact | From | Statement | Scope | Evidence |
 |---|---|---|---|---|
@@ -1408,7 +1414,7 @@ An entry whose path the secret scan withholds gives no fact and no gap.
 
 ```text
 <<<KNOWN FACTS>>>
-F-1  [existing guidance · existing_guidance]  scope: repository
+F-1  [observed · code_observation]  scope: repository
      `CLAUDE.md` is existing agent configuration.
      evidence: CLAUDE.md (file)
 F-2  [observed · code_observation]  scope: repository

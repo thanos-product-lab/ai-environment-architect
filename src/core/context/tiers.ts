@@ -30,7 +30,7 @@ import { importWithheld, type SecretRuleId, scanItem, scanText } from "./secrets
  * The selection algorithm's version (IMPL §1.3). The name lists and ranking rules below are part
  * of it: increase it with any change to them, because that changes the context.
  */
-export const ALGORITHM_VERSION = "context-select/1.6.0";
+export const ALGORITHM_VERSION = "context-select/1.7.0";
 
 export interface ContextSettings {
   /** The five tier caps and `knownFactsBytes` together may not exceed it. */

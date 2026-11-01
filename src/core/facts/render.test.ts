@@ -13,8 +13,8 @@ const config: KnownFact = {
   producedBy: "deterministic",
   statement: "`CLAUDE.md` is existing agent configuration.",
   scope: { kind: "repository" },
-  evidence: [{ kind: "entry", path: "CLAUDE.md", fileHash: HASH, basis: "existing_guidance" }],
-  basis: ["existing_guidance"],
+  evidence: [{ kind: "entry", path: "CLAUDE.md", fileHash: HASH, basis: "code_observation" }],
+  basis: ["code_observation"],
   fact: { type: "agent_configuration", path: "CLAUDE.md" },
 };
 
@@ -47,7 +47,7 @@ describe("renderKnownFacts", () => {
     );
     const text = [
       "<<<KNOWN FACTS>>>",
-      "F-1  [existing guidance · existing_guidance]  scope: repository",
+      "F-1  [observed · code_observation]  scope: repository",
       "     `CLAUDE.md` is existing agent configuration.",
       "     evidence: CLAUDE.md (file)",
       "F-2  [observed · code_observation]  scope: repository",
@@ -72,7 +72,15 @@ describe("renderKnownFacts", () => {
       scope: { kind: "paths", paths: ["packages/a"] },
       evidence: [
         { kind: "entry", path: "pnpm-workspace.yaml", fileHash: HASH, basis: "code_observation" },
-        { kind: "entry", path: "docs/x.md", fileHash: HASH, basis: "documentation" },
+        {
+          kind: "lines",
+          path: "docs/x.md",
+          fileHash: HASH,
+          lineStart: 3,
+          lineEnd: 3,
+          excerpt: "Run the dev server.",
+          basis: "documentation",
+        },
       ],
       basis: ["documentation", "code_observation"],
     };
@@ -82,7 +90,8 @@ describe("renderKnownFacts", () => {
         "F-1  [documented, observed · documentation, code_observation]  scope: packages/a",
         "     `package.json` defines the script `dev`.",
         "     evidence: pnpm-workspace.yaml (file)",
-        "     evidence: docs/x.md (file)",
+        "     evidence: docs/x.md:3-3",
+        "       | Run the dev server.",
         "<<<END KNOWN FACTS>>>",
         "",
       ].join("\n"),

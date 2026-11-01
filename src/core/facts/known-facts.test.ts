@@ -99,21 +99,23 @@ describe("extractKnownFacts", () => {
     }
     const byStatement = (s: string) => result.facts.find((fact) => fact.statement === s);
 
+    // Entry evidence only observes the file list, so it is code_observation whatever the tier
+    // (IMPL §3.2.4).
     expect(byStatement("`CLAUDE.md` is existing agent configuration.")).toMatchObject({
       scope: { kind: "repository" },
-      basis: ["existing_guidance"],
+      basis: ["code_observation"],
       evidence: [
         {
           kind: "entry",
           path: "CLAUDE.md",
           fileHash: sha256(new TextEncoder().encode(REPOSITORY["CLAUDE.md"] as string)),
-          basis: "existing_guidance",
+          basis: "code_observation",
         },
       ],
       fact: { type: "agent_configuration", path: "CLAUDE.md" },
     });
     expect(byStatement("`notes/team.txt` is imported by `CLAUDE.md`.")).toMatchObject({
-      basis: ["existing_guidance"],
+      basis: ["code_observation"],
       fact: { type: "agent_configuration", path: "notes/team.txt", importedBy: "CLAUDE.md" },
     });
     expect(

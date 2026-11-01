@@ -121,11 +121,13 @@ export async function extractKnownFacts(
   const gaps = new Map<string, SelectionGap>();
   const changed: string[] = [];
 
+  // Entry evidence only observes the file list, so it is code_observation whatever the file's
+  // tier (IMPL §3.2.4).
   const entryEvidence = (entry: Entry): EntryEvidence => ({
     kind: "entry",
     path: entry.path,
     fileHash: entry.hash,
-    basis: basisOf(entry.path, membership),
+    basis: "code_observation",
   });
   const add = (
     scope: string,

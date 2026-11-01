@@ -69,12 +69,15 @@ export interface Evidence {
   readonly basis: Basis;
 }
 
-/** Evidence that a file exists in the snapshot, with no lines (DM §6.2). Only code creates it. */
+/**
+ * Evidence that a file exists in the snapshot, with no lines (DM §6.2). Only code creates it. It
+ * only observes the file list, so its basis is always `code_observation` (IMPL §3.2.4).
+ */
 export interface EntryEvidence {
   readonly kind: "entry";
   readonly path: string;
   readonly fileHash: Hash;
-  readonly basis: Basis;
+  readonly basis: "code_observation";
 }
 
 export interface Correction {
