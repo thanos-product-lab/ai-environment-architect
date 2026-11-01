@@ -2,8 +2,12 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 1 November 2026  
-**Version:** 0.35  
+**Version:** 0.36  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.35
+
+- **Storage location (§4.2).** A relative `$AI_ENVIRONMENT_ARCHITECT_HOME` is refused, not ignored, and an empty variable counts as unset. The storage check uses the native real path, which gives the file system's letter case, and resolves a storage directory that doesn't exist yet through its deepest existing ancestor.
 
 ### Changes from v0.34
 
@@ -1933,13 +1937,15 @@ This section turns [`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §13–§15 and the [Eva
 
 The storage directory is the XDG data directory, on both supported platforms (ADR 0002):
 
-1. `$AI_ENVIRONMENT_ARCHITECT_HOME`, if set: the one override;
+1. `$AI_ENVIRONMENT_ARCHITECT_HOME`, if set: the one override. It must be an absolute path; a relative one is refused with a message, not ignored, because the developer set it deliberately;
 2. otherwise `$XDG_DATA_HOME/ai-environment-architect`, if `XDG_DATA_HOME` is set to an absolute path (a relative one is ignored, as the XDG specification requires);
 3. otherwise `~/.local/share/ai-environment-architect`.
 
+An empty variable counts as unset, as in the XDG specification.
+
 - The CLI resolves it once at start and passes it to core as a path. Core never reads `process.env`. There is no command-line option for it.
 - Sessions and the data-notice state (§4.9) both live there.
-- **Never inside the target repository.** If the storage directory's real path is the repository root or inside it, by any route (the override, `XDG_DATA_HOME`, or a repository at the home directory), `init` and `resume` refuse before anything is read or written, and say which setting to change. There is no exception: nothing is written inside the target repository except by apply (DM §11.2). The snapshot exclusion for session storage (§1.4) stays as a second safeguard; with this refusal it never matches.
+- **Never inside the target repository.** If the storage directory's real path is the repository root or inside it, by any route (the override, `XDG_DATA_HOME`, or a repository at the home directory), `init` and `resume` refuse before anything is read or written, and say which setting to change. There is no exception: nothing is written inside the target repository except by apply (DM §11.2). The snapshot exclusion for session storage (§1.4) stays as a second safeguard; with this refusal it never matches. Real paths come from the native `realpath`, which also gives the file system's letter case, so a differently cased route on a case-insensitive volume is caught. A storage directory that doesn't exist yet is resolved through its deepest existing ancestor; the check creates nothing.
 
 ```text
 <storage directory>/
