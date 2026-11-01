@@ -8,6 +8,7 @@
 ### Changes from v0.35
 
 - **Storage location (§4.2).** A relative `$AI_ENVIRONMENT_ARCHITECT_HOME` is refused, not ignored, and an empty variable counts as unset. The storage check uses the native real path, which gives the file system's letter case, and resolves a storage directory that doesn't exist yet through its deepest existing ancestor.
+- **Atomic writes, the lock and the data notice (§4.7, §4.9).** A save runs the load checks on what it is about to write and refuses a session that wouldn't load. A save also refuses a header naming another session, and syncs each new directory's parent. The lock is created through a hard link from a synced temporary file, so it never appears empty; a file system that refuses hard links stops the process with a message naming the storage directory, with no fallback. Only `init` creates a session directory. A process that may not be signalled counts as running; an unreadable lock is held by an unknown owner and isn't stale; a stale lock is moved aside and removed only if it is the one reported, otherwise put back; a signal is raised again after the lock is removed. An unreadable `notices.json` reads as no confirmations.
 
 ### Changes from v0.34
 
@@ -2192,14 +2193,18 @@ type ModelCallEnded = Omit<ModelCallStarted, "revision" | "state"> & {
 2. Serialise `session.json` (§4.3) to `session.json.tmp-<random>` in the session directory, sync it, rename it over `session.json`, and sync the directory.
 3. Only then report the change as saved.
 
+Before step 2, the save runs the load checks (§4.9) on the bytes it is about to write, and refuses to write a session that wouldn't load, or whose header names another session, leaving the saved one in place. New directories are created one level at a time, and each parent is synced after its new entry.
+
 A crash therefore leaves either the old file or the new one, never a mix. Content files without a referring record may be left behind; they are harmless and are removed with the session. The random part of the temporary name comes from the storage adapter, not core.
 
 **When to write.** After every record that matters for recovery: each `session_state`, each `model_call` revision, each `apply_attempt` revision, each developer action (answer, skip, decision, selection, edit, review, acknowledgement) and each effort revision. The developer never loses an answer to a crash.
 
-**Lock.** A process that changes a session (`init`, `resume`, `delete`, `purge-inputs`) first creates `session.lock` exclusively (`O_CREAT | O_EXCL`), holding `{ pid, hostname, startedAt, productVersion }`. It removes the lock on exit, including on `SIGINT` and `SIGTERM`.
+**Lock.** A process that changes a session (`init`, `resume`, `delete`, `purge-inputs`) first creates `session.lock` exclusively, holding `{ pid, hostname, startedAt, productVersion }`. The owner is written to a synced temporary file first, which a hard link puts in place: the link fails if a lock exists, as `O_CREAT | O_EXCL` would, and the lock never appears without its content. If the storage directory's file system refuses hard links, the process stops with a message naming the storage directory; there is no fallback to another way of locking. Only `init` creates the session directory; a process given a session ID with no directory says so and creates nothing. It removes the lock on exit, including on `SIGINT` and `SIGTERM`.
 
 - If the lock exists, the process exits without changes and names the process ID and host (§2.12).
-- A lock is **stale** when its host is this machine and its process is not running. The CLI says so and offers to remove it, defaulting to no. A lock from another host is never removed automatically.
+- A lock is **stale** when its host is this machine and its process is not running. A process that exists but may not be signalled (another user's) counts as running. The CLI says so and offers to remove it, defaulting to no; it is removed only if it is unchanged since it was reported and still stale. The lock is first moved aside and the moved file checked, so a lock another process took meanwhile is put back, never deleted. A lock from another host is never removed automatically.
+- A lock file that can't be read as a lock, such as one altered by hand, is held by an unknown owner. It isn't stale, so the developer removes it by hand; the message names its path. A lock that disappears before it can be read was just released, and the process tries again.
+- On `SIGINT` or `SIGTERM` the process removes the lock and raises the signal again, so it still ends the way the signal asks.
 - Read-only commands (`status`, `sessions`, `export`) take no lock. They read `session.json`, which atomic rename keeps whole.
 
 As DM §11.2 says, the lock can't stop other editors from changing `CLAUDE.md`; apply's hash re-check does that.
@@ -2234,7 +2239,7 @@ This implements §1.12, which covers responses as well as requests.
 
 A session that passes is loaded as a list of typed records. On resume, the process holding the lock then runs the interrupted-work rules, in this order: apply recovery (DM §11.2), interrupted model calls and effort intervals (§4.6), and a `session_state` with the reason `interrupted` if the last state was `running`.
 
-**Data notice.** `notices.json`, in the storage directory (§4.2), records each repository root whose data notice (§2.3) was confirmed, with the notice's version and the time. A changed notice text increases its version and is shown again. Two processes writing it at once can lose one confirmation; the cost is that the notice is shown once more.
+**Data notice.** `notices.json`, in the storage directory (§4.2), records each repository root whose data notice (§2.3) was confirmed, with the notice's version and the time. A changed notice text increases its version and is shown again. Two processes writing it at once can lose one confirmation; the cost is that the notice is shown once more. A missing or unreadable `notices.json` reads as no confirmations, at the same cost: the notice is shown again, and the next confirmation replaces the file.
 
 ### 4.10 Export
 
