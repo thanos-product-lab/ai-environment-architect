@@ -1,6 +1,6 @@
 {
-  "description": "F-4 and F-5 are both replaced by the same f1, so C-2 is carried to f1 and f1, fewer than two distinct members, and is marked withdrawn; C-3 (F-3, f1, F-6) keeps distinct sources.",
-  "section": "IMPL §3.3.3 (fewer than two distinct members: \"member withdrawn\")",
+  "description": "F-4 and F-5 are both replaced by the same f1, so C-2 is carried to f1 and f1, fewer than two distinct members with none withdrawn, and is withdrawn with members_merged; C-3 (F-3, f1, F-6) keeps distinct sources.",
+  "section": "IMPL §3.3.3 (fewer than two distinct members, none withdrawn: \"members_merged\")",
   "response": {
     "findings": [
       {
@@ -30,7 +30,7 @@
     "correctedCitationRate": { "state": "known", "corrected": 0, "checked": 2 },
     "citationsProposed": { "state": "known", "count": 2 },
     "conflictOutcomes": [
-      { "alias": "C-2", "status": "withdrawn", "withdrawnReason": "member withdrawn" }
+      { "alias": "C-2", "status": "withdrawn", "withdrawnReason": "members_merged" }
     ]
   }
 }

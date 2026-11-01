@@ -14,6 +14,13 @@ const listedOnly = (path: string): SnapshotFile => ({
   hash: H,
   reason: "too_large",
 });
+const unsendable = (path: string, reason: "contains_nul" | "not_utf8"): SnapshotFile => ({
+  path,
+  status: "listed_only",
+  size: 1,
+  hash: H,
+  reason,
+});
 const excludedDir = (path: string): SnapshotFile => ({
   path,
   status: "excluded",
@@ -202,5 +209,29 @@ describe("renderTree", () => {
         "<<<END TREE>>>",
       ),
     );
+  });
+});
+
+describe("listed-only markers (IMPL §1.6)", () => {
+  it("marks a too-large file [L], and one with a NUL byte or invalid UTF-8 [N]", () => {
+    const files = [
+      listedOnly("big.log"),
+      unsendable("blob.bin", "contains_nul"),
+      unsendable("legacy.txt", "not_utf8"),
+    ];
+    expect(renderTree(files, new Map(), SETTINGS, 100_000).text).toBe(
+      lines(
+        "<<<TREE depth=4 files=3>>>",
+        "[L] big.log",
+        "[N] blob.bin",
+        "[N] legacy.txt",
+        "<<<END TREE>>>",
+      ),
+    );
+  });
+
+  it("still marks a withheld name [S], whatever the reason", () => {
+    const files = [unsendable("AKIAIOSFODNN7EXAMPLE.bin", "contains_nul")];
+    expect(renderTree(files, new Map(), SETTINGS, 100_000).text).toContain("[S] <withheld>\n");
   });
 });

@@ -113,6 +113,14 @@ function checkRecords(context: AnalyseExpansionContext): void {
     if (!named.has(entry.alias)) throw new Error(`no call-1 record for ${entry.alias}`);
   for (const record of records)
     if (!listed.has(record.alias)) throw new Error(`${record.alias} is not in the alias table`);
+  // Outcomes are returned in the order given, which must be alias order (§3.3.3).
+  const order = (kind: string) => table.filter((e) => e.kind === kind).map((e) => e.alias);
+  const given = (list: readonly { readonly alias: string }[]) => list.map((r) => r.alias);
+  if (
+    given(context.callOne.findings).join() !== order("F").join() ||
+    given(context.callOne.conflicts).join() !== order("C").join()
+  )
+    throw new Error("call-1 records are not in alias order");
 }
 
 function derive(context: AnalyseExpansionContext): DerivedContext {
@@ -234,7 +242,7 @@ export interface AnalyseExpansionValidation {
   readonly citationsProposed: CitationsProposed;
   /** Each accepted new conflict's members, after redirection and revisions. */
   readonly conflictMembers: ReadonlyMap<string, readonly string[]>;
-  /** What the accepted revisions do to the call-1 conflicts they don't target. */
+  /** One outcome for every call-1 conflict, in alias order (§3.3.3). */
   readonly conflictOutcomes: readonly ConflictOutcome[];
 }
 
@@ -248,8 +256,14 @@ export function validateAnalyseExpansion(
     correctedCitationRate: correctedCitationRate(result),
     citationsProposed: citationsProposed(result),
   };
+  // Nothing is accepted from a response that fails the schema, so every call-1 conflict is kept.
   if (result.status !== "validated")
-    return { result, ...rates, conflictMembers: new Map(), conflictOutcomes: [] };
+    return {
+      result,
+      ...rates,
+      conflictMembers: new Map(),
+      conflictOutcomes: context.callOne.conflicts.map((c) => ({ alias: c.alias, status: "kept" })),
+    };
   const { accepted, redirects } = result;
   return {
     result,

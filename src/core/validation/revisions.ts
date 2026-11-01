@@ -138,22 +138,30 @@ export interface PriorConflict {
   readonly members: readonly string[];
 }
 
+export type WithdrawnReason =
+  | "withdrawn by the model"
+  | "member withdrawn"
+  | "members_merged"
+  | "sources not distinct";
+
+/** What this call does to one call-1 conflict (§3.3.3, DM §6.5). */
 export type ConflictOutcome =
+  | { readonly alias: string; readonly status: "kept" }
+  /** A new conflict revision with these members supersedes the old one. */
+  | { readonly alias: string; readonly status: "revised"; readonly members: readonly string[] }
+  /** A new conflict, the response's conflict with this key, supersedes the old one. */
+  | { readonly alias: string; readonly status: "replaced"; readonly replacement: string }
   | {
       readonly alias: string;
       readonly status: "withdrawn";
-      readonly withdrawnReason: "member withdrawn" | "sources not distinct";
-    }
-  /**
-   * A new conflict revision with these members supersedes the old one (DM §6.5): a member was
-   * withdrawn, or stands for its replacement.
-   */
-  | { readonly alias: string; readonly status: "revised"; readonly members: readonly string[] };
+      readonly withdrawnReason: WithdrawnReason;
+    };
 
 /**
- * What the accepted revisions do to the call-1 conflicts no revision targets (§3.3.3), in the
- * order given. Conflicts the revisions leave unchanged are not listed. These are outcomes for
- * call-1 records, not rejections of the response, so they produce no validation events.
+ * One outcome for every call-1 conflict, in the order given. A conflict an accepted revision
+ * targets is withdrawn or replaced by it. Otherwise any change to its members, one lost or one
+ * standing for its replacement, runs CONF-001 and then SUP-005 on the new set (§3.3.3). These
+ * are outcomes for call-1 records, not rejections of the response, so they produce no events.
  */
 export function priorConflictOutcomes<A extends RevisionItems>(
   conflicts: readonly PriorConflict[],
@@ -161,21 +169,34 @@ export function priorConflictOutcomes<A extends RevisionItems>(
   redirects: ReadonlyMap<string, string>,
   sources: FindingSources,
 ): ConflictOutcome[] {
-  const targeted = new Set(surviving.revisions.map((item) => item.value.target));
+  const revisions = new Map(surviving.revisions.map((item) => [item.value.target, item.value]));
   const carry = carryThroughRevisions(surviving, redirects);
   const findings = findingPaths(surviving);
   const aliases = aliasPaths(sources);
-  return conflicts.flatMap((conflict): ConflictOutcome[] => {
-    if (targeted.has(conflict.alias)) return [];
-    if (!conflict.members.some((member) => carry.has(member))) return [];
-    // Any change to the member set runs CONF-001, then SUP-005, on the new set (§3.3.3).
+  return conflicts.map((conflict): ConflictOutcome => {
+    const { alias } = conflict;
+    const revision = revisions.get(alias);
+    if (revision?.action === "withdraw")
+      return { alias, status: "withdrawn", withdrawnReason: "withdrawn by the model" };
+    if (revision?.action === "replace")
+      return {
+        alias,
+        status: "replaced",
+        replacement: redirects.get(revision.replacement) ?? revision.replacement,
+      };
+    if (!conflict.members.some((member) => carry.has(member))) return { alias, status: "kept" };
     const resolved = resolveMembers(conflict.members, findings, aliases, new Map(), carry);
-    if (resolved.length < 2)
-      return [{ alias: conflict.alias, status: "withdrawn", withdrawnReason: "member withdrawn" }];
+    if (resolved.length < 2) {
+      // Fewer than two members with none withdrawn means replacements made them one finding.
+      const lost = conflict.members.some((member) => carry.get(member) === null);
+      return {
+        alias,
+        status: "withdrawn",
+        withdrawnReason: lost ? "member withdrawn" : "members_merged",
+      };
+    }
     if (!hasDistinctSources(resolved.map((member) => member.paths)))
-      return [
-        { alias: conflict.alias, status: "withdrawn", withdrawnReason: "sources not distinct" },
-      ];
-    return [{ alias: conflict.alias, status: "revised", members: resolved.map((m) => m.member) }];
+      return { alias, status: "withdrawn", withdrawnReason: "sources not distinct" };
+    return { alias, status: "revised", members: resolved.map((member) => member.member) };
   });
 }

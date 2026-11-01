@@ -173,12 +173,18 @@ for (const call of CALLS) {
         expect(observed.citationsProposed).toEqual(expected.citationsProposed);
       if (expected.correctedCitationRate !== undefined)
         expect(observed.correctedCitationRate).toMatchObject(expected.correctedCitationRate);
-      // `conflictOutcomes` lists the call-1 conflicts withdrawn, `revisedConflicts` those revised.
+      // `conflictOutcomes` lists the call-1 conflicts withdrawn because their members changed,
+      // and `revisedConflicts` those revised; a conflict the model withdraws or replaces itself
+      // shows in `accepted.revisions`. The full outcome list is covered by the unit tests.
       if (expected.conflictOutcomes !== undefined)
         expect(
-          observed.conflictOutcomes?.filter(
-            (outcome) => (outcome as { status: string }).status === "withdrawn",
-          ),
+          observed.conflictOutcomes?.filter((outcome) => {
+            const { status, withdrawnReason } = outcome as {
+              status: string;
+              withdrawnReason?: string;
+            };
+            return status === "withdrawn" && withdrawnReason !== "withdrawn by the model";
+          }),
         ).toEqual(expected.conflictOutcomes);
       if (expected.presented !== undefined) expect(observed.presented).toEqual(expected.presented);
       if (expected.unreached !== undefined) expect(observed.unreached).toEqual(expected.unreached);

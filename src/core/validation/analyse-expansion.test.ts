@@ -177,7 +177,10 @@ describe("revisions (IMPL §3.3.3)", () => {
       ["f1", "item", "SUP-002"],
       ["revisions/0", "cross_item", "REV-001"],
     ]);
-    expect(outcome.conflictOutcomes).toEqual([]);
+    expect(outcome.conflictOutcomes).toEqual([
+      { alias: "C-1", status: "kept" },
+      { alias: "C-2", status: "kept" },
+    ]);
   });
 
   it("REV-001 rejects a conflict replacement that failed CONF-001", () => {
@@ -241,6 +244,7 @@ describe("conflict members through revisions (IMPL §3.3.3)", () => {
     const outcome = run({ revisions: [withdraw("F-2")] });
     expect(outcome.conflictOutcomes).toEqual([
       { alias: "C-1", status: "withdrawn", withdrawnReason: "member withdrawn" },
+      { alias: "C-2", status: "kept" },
     ]);
   });
 
@@ -301,10 +305,87 @@ describe("conflict members through revisions (IMPL §3.3.3)", () => {
     ]);
   });
 
-  it("leaves out call-1 conflicts a revision targets or doesn't affect", () => {
+  it("returns an outcome for every call-1 conflict, the model's own withdrawal included", () => {
     const outcome = run({ revisions: [withdraw("C-1"), withdraw("F-4")] });
     expect(outcome.conflictOutcomes).toEqual([
+      { alias: "C-1", status: "withdrawn", withdrawnReason: "withdrawn by the model" },
       { alias: "C-2", status: "withdrawn", withdrawnReason: "member withdrawn" },
+    ]);
+  });
+
+  it("marks a call-1 conflict the model replaces as replaced by the new conflict", () => {
+    const outcome = run({
+      findings: [apiFinding("f1")],
+      conflicts: [{ key: "c1", description: "x disagrees", findings: ["f1", "F-2"] }],
+      revisions: [replace("C-1", "c1")],
+    });
+    expect(events(outcome)).toEqual([]);
+    expect(outcome.conflictOutcomes).toEqual([
+      { alias: "C-1", status: "replaced", replacement: "c1" },
+      { alias: "C-2", status: "kept" },
+    ]);
+  });
+
+  it("names the kept conflict when the replacement is dropped as a duplicate of it", () => {
+    const pair = (key: string) => ({ key, description: "x disagrees", findings: ["f1", "F-2"] });
+    const outcome = run({
+      findings: [apiFinding("f1")],
+      conflicts: [pair("c1"), { ...pair("c2"), description: "y disagrees" }],
+      revisions: [replace("C-1", "c2")],
+    });
+    expect(outcome.conflictOutcomes[0]).toEqual({
+      alias: "C-1",
+      status: "replaced",
+      replacement: "c2",
+    });
+  });
+
+  it("keeps every call-1 conflict when the response fails the schema", () => {
+    const outcome = validateAnalyseExpansion("{", analyseExpansionContext(fixture));
+    expect(outcome.conflictOutcomes).toEqual([
+      { alias: "C-1", status: "kept" },
+      { alias: "C-2", status: "kept" },
+    ]);
+  });
+
+  it("refuses call-1 conflicts out of alias order", () => {
+    const context = analyseExpansionContext(fixture);
+    const swapped = {
+      ...context,
+      callOne: { ...context.callOne, conflicts: [...context.callOne.conflicts].reverse() },
+    };
+    expect(() => validateAnalyseExpansion("{}", swapped)).toThrow(/alias order/);
+  });
+
+  it("withdraws with members_merged a conflict whose members one replacement merges", () => {
+    const outcome = run({
+      findings: [apiFinding("f1")],
+      revisions: [replace("F-2", "f1"), replace("F-3", "f1")],
+    });
+    expect(outcome.conflictOutcomes).toEqual([
+      { alias: "C-1", status: "withdrawn", withdrawnReason: "members_merged" },
+      { alias: "C-2", status: "revised", members: ["f1", "F-4"] },
+    ]);
+  });
+
+  it("keeps member withdrawn when a merge and a withdrawal together leave one member", () => {
+    const wide = {
+      ...fixture,
+      conflicts: [{ alias: "C-1", members: ["F-2", "F-3", "F-4"] }],
+    };
+    const outcome = validateAnalyseExpansion(
+      JSON.stringify({
+        findings: [apiFinding("f1")],
+        gaps: [],
+        absenceClaims: [],
+        conflicts: [],
+        revisions: [replace("F-2", "f1"), replace("F-3", "f1"), withdraw("F-4")],
+        contentNotices: [],
+      }),
+      analyseExpansionContext(wide),
+    );
+    expect(outcome.conflictOutcomes).toEqual([
+      { alias: "C-1", status: "withdrawn", withdrawnReason: "member withdrawn" },
     ]);
   });
 

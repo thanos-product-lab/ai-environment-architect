@@ -141,8 +141,8 @@ describe("selectContext (IMPL §1.3)", () => {
     expect(destination?.rendered.text).not.toContain("Rules/heading");
   });
 
-  it("is context-select/1.5.0, since the context starts with the known facts", () => {
-    expect(ALGORITHM_VERSION).toBe("context-select/1.5.0");
+  it("is context-select/1.6.0, since the tree marks unsendable files [N]", () => {
+    expect(ALGORITHM_VERSION).toBe("context-select/1.6.0");
   });
 
   it("counts the block list against maxDestinationBytes", async () => {

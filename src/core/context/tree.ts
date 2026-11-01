@@ -125,9 +125,12 @@ function renderNode(
     case "symlink":
       out.push(`${indent}[>] ${name} -> ${displayName(entry.target)}\n`);
       return;
-    case "listed_only":
-      out.push(`${indent}[${isWithheldPath(entry.path) ? "S" : "L"}] ${name}\n`);
+    case "listed_only": {
+      // [L] can still be read by line range; [N] holds a NUL byte or isn't UTF-8, so never (§1.8).
+      const mark = entry.reason === "too_large" ? "L" : "N";
+      out.push(`${indent}[${isWithheldPath(entry.path) ? "S" : mark}] ${name}\n`);
       return;
+    }
     case "ignored":
       if (entry.kind === "directory") out.push(`${indent}${name}/ [ignored]\n`);
       else out.push(`${indent}[${isWithheldPath(entry.path) ? "S" : "I"}] ${name}\n`);
