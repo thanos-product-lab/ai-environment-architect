@@ -54,6 +54,17 @@ export const RECORD_KINDS = {
 
 export type RecordTypeName = keyof typeof RECORD_KINDS;
 
+/**
+ * The statuses a revision may have and still be current (§4.4.1, the table's last column). A
+ * type not listed has no status that rules it out.
+ */
+export const CURRENT_STATUSES: Partial<Record<RecordTypeName, ReadonlySet<string>>> = {
+  finding: new Set(["active"]),
+  conflict: new Set(["unresolved", "resolved"]),
+  question: new Set(["open", "answered", "skipped", "unreached"]),
+  recommendation_revision: new Set(["valid"]),
+};
+
 // --- Building blocks -------------------------------------------------------------------------
 
 const HASH = /^sha256:[0-9a-f]{64}$/;

@@ -1,5 +1,6 @@
 import type { Clock, IdSource } from "../ports.js";
 import {
+  CURRENT_STATUSES,
   RECORD_KINDS,
   type RecordKind,
   type RecordOf,
@@ -68,14 +69,6 @@ export type Changes<T extends Type> = Partial<
     >
   >
 >;
-
-/** The statuses a revision may have and still be current (§4.4.1, the table's last column). */
-const CURRENT_STATUSES: Partial<Record<Type, ReadonlySet<string>>> = {
-  finding: new Set(["active"]),
-  conflict: new Set(["unresolved", "resolved"]),
-  question: new Set(["open", "answered", "skipped", "unreached"]),
-  recommendation_revision: new Set(["valid"]),
-};
 
 /** A record of a lineage that isn't `failed_validation`, so it has its lineage ID. */
 export type Revised<T extends Type> = Exclude<
