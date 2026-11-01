@@ -25,6 +25,7 @@ const fixture: FixtureContext = {
     { path: "src/client.ts", status: "read" },
     { path: "src/api.ts", status: "read" },
     { path: "package.json", status: "read" },
+    { path: "Makefile", status: "listed_only", reason: "not_utf8" },
   ],
   ignoreRules: { state: "applied" },
   items: [
@@ -77,6 +78,22 @@ const fixture: FixtureContext = {
       scope: { kind: "repository" },
       evidencePaths: ["docs/guide.md"],
     },
+    {
+      alias: "F-5",
+      kind: "gap",
+      producedBy: "deterministic",
+      statement: "`Makefile` could not be read or parsed, so its commands are not known facts.",
+      gapType: "other",
+      relatedPaths: ["Makefile"],
+    },
+    {
+      alias: "F-6",
+      kind: "gap",
+      statement: "No lint command is documented.",
+      gapType: "no_command",
+      relatedPaths: ["docs/guide.md"],
+    },
+    { alias: "F-7", kind: "absenceClaim", pathGlob: "test/**/*.ts" },
   ],
   conflicts: [
     { alias: "C-1", members: ["F-2", "F-3"] },
@@ -126,7 +143,7 @@ const events = (outcome: ReturnType<typeof run>) =>
 describe("revisions (IMPL §3.3.3)", () => {
   it("REV-002 rejects a withdrawal or replacement of a known fact", () => {
     const outcome = run({ findings: [apiFinding("f1")], revisions: [withdraw("F-1")] });
-    expect(events(outcome)).toEqual([["F-1", "item", "REV-002"]]);
+    expect(events(outcome)).toEqual([["revisions/0", "item", "REV-002"]]);
   });
 
   it("ALIAS-003 rejects a finding replaced by a conflict key, or a target of another kind", () => {
@@ -136,9 +153,9 @@ describe("revisions (IMPL §3.3.3)", () => {
       revisions: [replace("F-3", "c1"), withdraw("E-1"), replace("C-1", "f1")],
     });
     expect(events(outcome)).toEqual([
-      ["F-3", "item", "ALIAS-003"],
-      ["E-1", "item", "ALIAS-003"],
-      ["C-1", "item", "ALIAS-003"],
+      ["revisions/0", "item", "ALIAS-003"],
+      ["revisions/1", "item", "ALIAS-003"],
+      ["revisions/2", "item", "ALIAS-003"],
     ]);
   });
 
@@ -147,7 +164,7 @@ describe("revisions (IMPL §3.3.3)", () => {
       findings: [apiFinding("f1")],
       revisions: [withdraw("F-4"), replace("F-4", "f1")],
     });
-    expect(events(outcome)).toEqual([["F-4", "cross_item", "REV-003"]]);
+    expect(events(outcome)).toEqual([["revisions/1", "cross_item", "REV-003"]]);
     expect(
       outcome.result.status === "validated" && outcome.result.accepted.revisions[0]?.value,
     ).toEqual(withdraw("F-4"));
@@ -158,7 +175,7 @@ describe("revisions (IMPL §3.3.3)", () => {
     const outcome = run({ findings: [bad], revisions: [replace("F-3", "f1")] });
     expect(events(outcome)).toEqual([
       ["f1", "item", "SUP-002"],
-      ["F-3", "cross_item", "REV-001"],
+      ["revisions/0", "cross_item", "REV-001"],
     ]);
     expect(outcome.conflictOutcomes).toEqual([]);
   });
@@ -171,7 +188,7 @@ describe("revisions (IMPL §3.3.3)", () => {
     });
     expect(events(outcome)).toEqual([
       ["c1", "cross_item", "CONF-001"],
-      ["C-2", "cross_item", "REV-001"],
+      ["revisions/1", "cross_item", "REV-001"],
     ]);
   });
 
@@ -179,7 +196,7 @@ describe("revisions (IMPL §3.3.3)", () => {
     const outcome = run({ findings: [guideFinding("f1")], revisions: [replace("F-4", "f1")] });
     expect(events(outcome)).toEqual([
       ["f1", "cross_item", "DUP-001"],
-      ["F-4", "cross_item", "REV-001"],
+      ["revisions/0", "cross_item", "REV-001"],
     ]);
   });
 });
@@ -223,7 +240,7 @@ describe("conflict members through revisions (IMPL §3.3.3)", () => {
   it("marks a call-1 conflict that loses a member below two as withdrawn", () => {
     const outcome = run({ revisions: [withdraw("F-2")] });
     expect(outcome.conflictOutcomes).toEqual([
-      { alias: "C-1", status: "withdrawn", reason: "member withdrawn" },
+      { alias: "C-1", status: "withdrawn", withdrawnReason: "member withdrawn" },
     ]);
   });
 
@@ -234,20 +251,20 @@ describe("conflict members through revisions (IMPL §3.3.3)", () => {
       revisions: [replace("F-3", "f1")],
     });
     expect(outcome.conflictOutcomes).toEqual([
-      { alias: "C-1", status: "withdrawn", reason: "sources not distinct" },
-      { alias: "C-2", status: "withdrawn", reason: "sources not distinct" },
+      { alias: "C-1", status: "withdrawn", withdrawnReason: "sources not distinct" },
+      { alias: "C-2", status: "withdrawn", withdrawnReason: "sources not distinct" },
     ]);
   });
 
-  it("keeps a call-1 conflict whose replacement member still has distinct sources", () => {
+  it("revises a call-1 conflict whose replacement member still has distinct sources", () => {
     const outcome = run({ findings: [apiFinding("f1")], revisions: [replace("F-3", "f1")] });
     expect(outcome.conflictOutcomes).toEqual([
-      { alias: "C-1", status: "kept", members: ["F-2", "f1"] },
-      { alias: "C-2", status: "kept", members: ["f1", "F-4"] },
+      { alias: "C-1", status: "revised", members: ["F-2", "f1"] },
+      { alias: "C-2", status: "revised", members: ["f1", "F-4"] },
     ]);
   });
 
-  it("reports a call-1 conflict that loses a member but keeps two, with its new members", () => {
+  it("revises a call-1 conflict that loses a member but keeps two, with its new members", () => {
     const wide = { ...fixture, conflicts: [{ alias: "C-1", members: ["F-2", "F-3", "F-4"] }] };
     const outcome = validateAnalyseExpansion(
       JSON.stringify({
@@ -261,15 +278,145 @@ describe("conflict members through revisions (IMPL §3.3.3)", () => {
       analyseExpansionContext(wide),
     );
     expect(outcome.conflictOutcomes).toEqual([
-      { alias: "C-1", status: "kept", members: ["F-2", "F-3"] },
+      { alias: "C-1", status: "revised", members: ["F-2", "F-3"] },
+    ]);
+  });
+
+  it("SUP-005 withdraws a call-1 conflict whose remaining members share their sources", () => {
+    // F-2 and F-4 both cite only the guide; F-3 made the conflict distinct until it went.
+    const wide = { ...fixture, conflicts: [{ alias: "C-1", members: ["F-2", "F-3", "F-4"] }] };
+    const outcome = validateAnalyseExpansion(
+      JSON.stringify({
+        findings: [],
+        gaps: [],
+        absenceClaims: [],
+        conflicts: [],
+        revisions: [withdraw("F-3")],
+        contentNotices: [],
+      }),
+      analyseExpansionContext(wide),
+    );
+    expect(outcome.conflictOutcomes).toEqual([
+      { alias: "C-1", status: "withdrawn", withdrawnReason: "sources not distinct" },
     ]);
   });
 
   it("leaves out call-1 conflicts a revision targets or doesn't affect", () => {
     const outcome = run({ revisions: [withdraw("C-1"), withdraw("F-4")] });
     expect(outcome.conflictOutcomes).toEqual([
-      { alias: "C-2", status: "withdrawn", reason: "member withdrawn" },
+      { alias: "C-2", status: "withdrawn", withdrawnReason: "member withdrawn" },
     ]);
+  });
+
+  it("ALIAS-003 rejects a conflict member naming a call-1 gap or absence claim", () => {
+    const outcome = run({
+      findings: [apiFinding("f1")],
+      conflicts: [
+        { key: "c1", description: "x disagrees", findings: ["f1", "F-6"] },
+        { key: "c2", description: "y disagrees", findings: ["f1", "F-7"] },
+      ],
+    });
+    expect(events(outcome)).toEqual([
+      ["c1", "item", "ALIAS-003"],
+      ["c2", "item", "ALIAS-003"],
+    ]);
+  });
+});
+
+describe("call-1 records (IMPL §3.3.3)", () => {
+  it("REV-002 rejects a withdrawal of a deterministic gap", () => {
+    const outcome = run({ revisions: [withdraw("F-5")] });
+    expect(events(outcome)).toEqual([["revisions/0", "item", "REV-002"]]);
+  });
+
+  it("accepts a withdrawal of a model gap", () => {
+    expect(events(run({ revisions: [withdraw("F-6")] }))).toEqual([]);
+  });
+
+  it("DUP-001 drops a new gap or absence claim that restates a call-1 one", () => {
+    const outcome = run({
+      gaps: [
+        {
+          key: "g1",
+          statement: "No lint  command is documented.",
+          gapType: "no_command",
+          relatedPaths: ["./docs/guide.md"],
+        },
+      ],
+      absenceClaims: [{ key: "a1", pathGlob: "./test/**/*.ts", reason: "none seen" }],
+    });
+    expect(events(outcome).filter((e) => e[1] === "cross_item")).toEqual([
+      ["g1", "cross_item", "DUP-001"],
+      ["a1", "cross_item", "DUP-001"],
+    ]);
+  });
+
+  it("does not compare with a call-1 gap the response withdraws", () => {
+    const outcome = run({
+      gaps: [
+        {
+          key: "g1",
+          statement: "No lint command is documented.",
+          gapType: "no_command",
+          relatedPaths: ["docs/guide.md"],
+        },
+      ],
+      revisions: [withdraw("F-6")],
+    });
+    expect(events(outcome).filter((e) => e[1] === "cross_item")).toEqual([]);
+  });
+
+  it("accepts one replacement standing for two targets", () => {
+    const outcome = run({
+      findings: [apiFinding("f1")],
+      revisions: [replace("F-2", "f1"), replace("F-4", "f1")],
+    });
+    expect(events(outcome)).toEqual([]);
+    expect(outcome.conflictOutcomes).toEqual([
+      { alias: "C-1", status: "revised", members: ["f1", "F-3"] },
+      { alias: "C-2", status: "revised", members: ["F-3", "f1"] },
+    ]);
+  });
+
+  it("DUP-001 drops a new gap that restates a deterministic call-1 gap", () => {
+    const outcome = run({
+      gaps: [
+        {
+          key: "g1",
+          statement: "`Makefile` could not be read or parsed, so its commands are not known facts.",
+          gapType: "other",
+          relatedPaths: ["Makefile"],
+        },
+      ],
+    });
+    expect(events(outcome).filter((e) => e[1] === "cross_item")).toEqual([
+      ["g1", "cross_item", "DUP-001"],
+    ]);
+  });
+
+  it("refuses call-1 records that disagree with the alias table", () => {
+    const context = analyseExpansionContext(fixture);
+    const missing = {
+      ...context,
+      callOne: { ...context.callOne, findings: context.callOne.findings.slice(1) },
+    };
+    const text = JSON.stringify({
+      findings: [],
+      gaps: [],
+      absenceClaims: [],
+      conflicts: [],
+      revisions: [withdraw("F-1")],
+      contentNotices: [],
+    });
+    expect(() => validateAnalyseExpansion(text, missing)).toThrow(/F-1/);
+    const extra = {
+      ...context,
+      callOne: {
+        ...context.callOne,
+        conflicts: [...context.callOne.conflicts, { alias: "C-9", members: ["F-2", "F-3"] }],
+      },
+    };
+    expect(() => validateAnalyseExpansion(text, extra)).toThrow(/C-9/);
   });
 });
 

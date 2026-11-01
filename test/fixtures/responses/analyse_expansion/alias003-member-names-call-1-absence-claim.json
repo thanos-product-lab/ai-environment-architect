@@ -1,0 +1,71 @@
+{
+  "description": "A new conflict names F-9, a call-1 absence claim, as a member, and ALIAS-003 rejects it.",
+  "section": "IMPL §3.3.3 (conflict members are claims)",
+  "context": "context-records.json",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "Some client helpers post JSON with fetch.",
+        "mode": "descriptive",
+        "scope": {
+          "kind": "paths",
+          "paths": [
+            "src/client.ts"
+          ]
+        },
+        "citations": [
+          {
+            "item": "E-1",
+            "lines": "8-8",
+            "quote": "return fetch(url, { method: \"POST\", body: JSON.stringify(body) });"
+          }
+        ]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [
+      {
+        "key": "c1",
+        "description": "The client and the server handle responses differently.",
+        "findings": [
+          "f1",
+          "F-9"
+        ]
+      }
+    ],
+    "revisions": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      {
+        "itemKey": "c1",
+        "stage": "item",
+        "rule": "ALIAS-003",
+        "outcome": "rejected"
+      }
+    ],
+    "accepted": {
+      "findings": [
+        "f1"
+      ],
+      "gaps": [],
+      "absenceClaims": [],
+      "conflicts": [],
+      "revisions": [],
+      "contentNotices": []
+    },
+    "correctedCitationRate": {
+      "state": "known",
+      "corrected": 0,
+      "checked": 1
+    },
+    "citationsProposed": {
+      "state": "known",
+      "count": 1
+    }
+  }
+}

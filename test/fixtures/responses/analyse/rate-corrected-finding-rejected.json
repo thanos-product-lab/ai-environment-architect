@@ -26,6 +26,7 @@
       { "itemKey": "f1", "stage": "item", "rule": "SUP-002", "outcome": "rejected" }
     ],
     "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
-    "correctedCitationRate": { "state": "known", "corrected": 1, "proposed": 1 }
+    "correctedCitationRate": { "state": "known", "corrected": 1, "checked": 1 },
+    "citationsProposed": { "state": "known", "count": 1 }
   }
 }

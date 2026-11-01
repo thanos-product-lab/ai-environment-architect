@@ -1,7 +1,7 @@
 # Milestones
 
 **AI Environment Architect · First slice**  
-**Last updated:** 21 October 2026
+**Last updated:** 1 November 2026
 
 This is the build order for the first slice: inspect → clarify → recommend → review → apply, for one repository and its root `CLAUDE.md`. It says *what to build when*. *How it behaves* is in the specs. Each step points to a spec section rather than repeating it.
 
@@ -22,7 +22,7 @@ The order is set by dependencies. Deterministic parts come first and are tested 
 | M0 | Scaffold and development repositories | No | Done |
 | M1 | Snapshot and destination parsing | No | Done |
 | M2 | Context selection and "What we read" | No | Done |
-| M3 | Validation core | No (recorded responses) | In progress |
+| M3 | Validation core | No (recorded responses) | Done |
 | M4 | Sessions and persistence | No | Not started |
 | M5 | Recommendations, assembly, review and apply | No (recorded responses) | Not started |
 | M6 | Claude adapter and model calls | Yes | Not started |
@@ -86,9 +86,9 @@ The token check (IMPL §1.10) waits for M6, because it needs the provider's toke
 - [x] Evidence basis and known facts from manifests. `/implement-spec IMPL 3.2.4`, then `IMPL 3.2.5`
 - [x] Coverage-aware gap and absence checks. `/implement-spec IMPL 1.11`
 - [x] Item validation for `analyse`, `analyse_expansion` and `generate_questions`, including question ranking and the corrected-citation rate (IMPL §3.3.2–§3.3.4, §3.2.2).
-- [ ] Adversarial fixtures for every rule, from the `fixture-adversary` agent.
+- [x] Adversarial fixtures for every rule of the first three calls (`analyse`, `analyse_expansion`, `generate_questions`), from the `fixture-adversary` agent.
 
-**Done when:** every rule has a rejecting fixture and an accepted near miss, and the property tests in IMPL §3.8 pass.
+**Done when:** every rule of the first three calls has a rejecting fixture and an accepted near miss, and the property tests in IMPL §3.8 pass.
 
 ## M4 · Sessions and persistence
 
@@ -115,6 +115,7 @@ The token check (IMPL §1.10) waits for M6, because it needs the provider's toke
 - [ ] Tiered freshness. `/implement-spec DM 11.1`
 - [ ] Apply and recovery. `/implement-spec DM 11.2`
 - [ ] Change propagation and `regenerate_recommendations` validation (DM §12, IMPL §3.3.6).
+- [ ] Adversarial fixtures for every rule of `recommend` and `regenerate_recommendations` and the reference detector (`REC`, `REF`, `HELD`, `REGEN`, `DUP-004`), each with a rejecting fixture and an accepted near miss, from the `fixture-adversary` agent.
 
 **Done when:** DM §17 passes for assembly, approval, freshness, apply, recovery and no-change, using recorded responses only.
 
@@ -173,3 +174,4 @@ Maintenance checks for stale paths and commands; scoped rule files; a local web 
 - **20 October 2026:** the command is `<cli> inspect [path]` (IMPL §2.2), a preview of the screen `init` will show.
 - **21 October 2026:** M3 reordered: the pipeline and schemas come first, so each rule is built on parsed output, and evidence basis and known facts are one step. Before it started, IMPL §3 and §1.11 were reconciled with M1 and M2 (IMPL v0.14, DM v0.9).
 - **24 October 2026:** schemas moved to `src/schemas/` (IMPL v0.16). M6 notes that the adapter sends the generated schema unchanged, and that the package ships `prompts/` and loads it relative to its install location.
+- **1 November 2026:** M3's fixture step covers the rules of the first three calls only. Fixtures for the `recommend` and regeneration rules and the reference detector move to M5, where those rules are built. M3 is done: every rule of the first three calls has a rejecting fixture and an accepted near miss, and the IMPL §3.8 property tests pass, with a whole-call determinism property added.

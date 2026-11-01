@@ -45,6 +45,7 @@ interface Expect {
   }[];
   readonly accepted?: Record<string, readonly string[]>;
   readonly correctedCitationRate?: object;
+  readonly citationsProposed?: object;
   readonly conflictOutcomes?: readonly unknown[];
   readonly presented?: readonly string[];
   readonly unreached?: readonly string[];
@@ -53,6 +54,8 @@ interface Expect {
   readonly acceptedConflictMembers?: Record<string, readonly string[]>;
   /** Accepted revisions by response index; a replacement as it resolves after redirection. */
   readonly acceptedRevisions?: readonly object[];
+  /** The call-1 conflicts revised by a change to their members, in alias order. */
+  readonly revisedConflicts?: readonly unknown[];
 }
 
 interface Case {
@@ -69,6 +72,7 @@ interface Observed {
   readonly events: Expect["events"];
   readonly accepted: Record<string, readonly string[]> | undefined;
   readonly correctedCitationRate?: object;
+  readonly citationsProposed?: object;
   readonly conflictOutcomes?: readonly unknown[];
   readonly presented?: readonly string[];
   readonly unreached?: readonly string[];
@@ -103,6 +107,7 @@ function observe(call: Call, text: string, fixture: FixtureContext, reversed: bo
     return {
       ...summary(outcome.result),
       correctedCitationRate: outcome.correctedCitationRate,
+      citationsProposed: outcome.citationsProposed,
       conflictMembers: Object.fromEntries(outcome.conflictMembers),
     };
   }
@@ -111,6 +116,7 @@ function observe(call: Call, text: string, fixture: FixtureContext, reversed: bo
     return {
       ...summary(outcome.result),
       correctedCitationRate: outcome.correctedCitationRate,
+      citationsProposed: outcome.citationsProposed,
       conflictOutcomes: outcome.conflictOutcomes,
       conflictMembers: Object.fromEntries(outcome.conflictMembers),
       revisions:
@@ -163,10 +169,11 @@ for (const call of CALLS) {
         // A response that fails the schema has nothing accepted.
         for (const [collection, keys] of Object.entries(expected.accepted))
           expect(observed.accepted?.[collection] ?? [], collection).toEqual(keys);
+      if (expected.citationsProposed !== undefined)
+        expect(observed.citationsProposed).toEqual(expected.citationsProposed);
       if (expected.correctedCitationRate !== undefined)
         expect(observed.correctedCitationRate).toMatchObject(expected.correctedCitationRate);
-      // Fixtures list the call-1 conflicts withdrawn; a conflict kept with a replacement member
-      // is covered by the unit tests.
+      // `conflictOutcomes` lists the call-1 conflicts withdrawn, `revisedConflicts` those revised.
       if (expected.conflictOutcomes !== undefined)
         expect(
           observed.conflictOutcomes?.filter(
@@ -179,6 +186,12 @@ for (const call of CALLS) {
         for (const detail of observed.details) expect(detail).not.toContain(excluded);
       for (const [key, members] of Object.entries(expected.acceptedConflictMembers ?? {}))
         expect(observed.conflictMembers?.[key], key).toEqual(members);
+      if (expected.revisedConflicts !== undefined)
+        expect(
+          observed.conflictOutcomes?.filter(
+            (outcome) => (outcome as { status: string }).status === "revised",
+          ),
+        ).toEqual(expected.revisedConflicts);
       if (expected.acceptedRevisions !== undefined)
         expect(observed.revisions).toEqual(expected.acceptedRevisions);
       if (fixtureCase.nearMissOf !== undefined) expect(names).toContain(fixtureCase.nearMissOf);

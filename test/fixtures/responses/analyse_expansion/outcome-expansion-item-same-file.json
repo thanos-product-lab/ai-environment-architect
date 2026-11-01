@@ -22,10 +22,11 @@
   "expect": {
     "status": "validated",
     "events": [],
-    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": ["F-2"], "contentNotices": [] },
-    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 1 },
+    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": ["revisions/0"], "contentNotices": [] },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "checked": 1 },
+    "citationsProposed": { "state": "known", "count": 1 },
     "conflictOutcomes": [
-      { "alias": "C-1", "status": "withdrawn", "reason": "sources not distinct" }
+      { "alias": "C-1", "status": "withdrawn", "withdrawnReason": "sources not distinct" }
     ]
   }
 }

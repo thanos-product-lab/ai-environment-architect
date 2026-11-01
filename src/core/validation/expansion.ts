@@ -18,8 +18,13 @@ export interface ExpansionIndex {
   readonly maxRequests: number;
   /** The snapshot's scope roots as segments; `.` is the empty list, which covers everything. */
   readonly scopeRoots: readonly (readonly string[])[];
-  /** `read` and `listed_only` entries that are not withheld or blocked: what a `read` may name. */
+  /**
+   * `read` entries, and `listed_only` ones too large to excerpt, that are not withheld or blocked:
+   * what a `read` may name. A file that holds a NUL byte or isn't UTF-8 is never readable.
+   */
   readonly readable: ReadonlySet<string>;
+  /** The readable `listed_only` entries, which only a range read can see (EXP-006). */
+  readonly rangesOnly: ReadonlySet<string>;
   /** `read` entries that are not withheld or blocked, as segments: what a search runs over. */
   readonly searchable: readonly (readonly string[])[];
   /** What the initial context sent of each file. */
@@ -58,7 +63,16 @@ export function expansionIndex(input: {
     scopeRoots: input.scopeRoots.map((root) => (root === "." ? [] : root.split("/"))),
     readable: new Set(
       visible
-        .filter((file) => file.status === "read" || file.status === "listed_only")
+        .filter(
+          (file) =>
+            file.status === "read" ||
+            (file.status === "listed_only" && file.reason === "too_large"),
+        )
+        .map((file) => file.path),
+    ),
+    rangesOnly: new Set(
+      visible
+        .filter((file) => file.status === "listed_only" && file.reason === "too_large")
         .map((file) => file.path),
     ),
     searchable: visible.filter((file) => file.status === "read").map((f) => f.path.split("/")),
@@ -79,7 +93,7 @@ function ranges(lines: string): [number, number][] {
   return lines.split(",").map((range) => range.split("-").map(Number) as [number, number]);
 }
 
-/** EXP-001 to EXP-005, in rule order; the first failure rejects the whole request. */
+/** EXP-001, EXP-006, then EXP-002 to EXP-005 (§1.8); the first failure rejects the request. */
 export function checkExpansionRequest(
   request: ExpansionRequest,
   index: ExpansionIndex,
@@ -88,6 +102,12 @@ export function checkExpansionRequest(
     const paths = request.entries.map((entry) => normalisePath(entry.path));
     const unreadable = paths.findIndex((path) => path === undefined || !index.readable.has(path));
     if (unreadable !== -1) return failure("EXP-001", `entry ${unreadable} is not a readable file`);
+
+    const unranged = request.entries.findIndex(
+      (entry, i) => entry.lines === undefined && index.rangesOnly.has(paths[i] as string),
+    );
+    if (unranged !== -1)
+      return failure("EXP-006", `entry ${unranged} is too large to read without line ranges`);
 
     const reversed = request.entries.findIndex(
       (entry) =>
@@ -149,7 +169,7 @@ export function expansionLimitCheck<C extends ExpansionContext>(): ItemCheck<Exp
   };
 }
 
-/** EXP-001 to EXP-005 as an item check (§3.3.2 step 9). */
+/** The static EXP rules as an item check (§3.3.2 step 9). */
 export function expansionRequestCheck<C extends ExpansionContext>(): ItemCheck<
   ExpansionRequest,
   C

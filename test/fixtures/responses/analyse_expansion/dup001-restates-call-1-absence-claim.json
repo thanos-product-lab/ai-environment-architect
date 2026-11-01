@@ -1,0 +1,46 @@
+{
+  "description": "A new absence claim on ./test/**/*.e2e.ts restates F-9's glob after normalisation, and is dropped.",
+  "section": "IMPL §3.3.3 (DUP-001 against call-1 absence claims)",
+  "context": "context-records.json",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [
+      {
+        "key": "a1",
+        "pathGlob": "./test/**/*.e2e.ts",
+        "reason": "No end-to-end tests were seen."
+      }
+    ],
+    "conflicts": [],
+    "revisions": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      {
+        "itemKey": "a1",
+        "stage": "cross_item",
+        "rule": "DUP-001",
+        "outcome": "rejected"
+      }
+    ],
+    "accepted": {
+      "findings": [],
+      "gaps": [],
+      "absenceClaims": [],
+      "conflicts": [],
+      "revisions": [],
+      "contentNotices": []
+    },
+    "correctedCitationRate": {
+      "state": "unknown",
+      "reason": "no_citations"
+    },
+    "citationsProposed": {
+      "state": "known",
+      "count": 0
+    }
+  }
+}

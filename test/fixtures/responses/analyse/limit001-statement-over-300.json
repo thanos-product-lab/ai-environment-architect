@@ -1,0 +1,55 @@
+{
+  "description": "A statement of 301 code points exceeds the 300 limit, so LIMIT-001 rejects the finding before its citations are checked.",
+  "section": "IMPL §3.3 (lengths in code points), §3.5 (LIMIT-001)",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "The guide says HTTP calls go through the shared client ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé.",
+        "mode": "descriptive",
+        "scope": {
+          "kind": "repository"
+        },
+        "citations": [
+          {
+            "item": "T2-001",
+            "lines": "4-4",
+            "quote": "HTTP calls go through the shared client in src/client.ts."
+          }
+        ]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      {
+        "itemKey": "f1",
+        "stage": "item",
+        "rule": "LIMIT-001",
+        "outcome": "rejected"
+      }
+    ],
+    "accepted": {
+      "findings": [],
+      "gaps": [],
+      "absenceClaims": [],
+      "conflicts": [],
+      "expansionRequests": [],
+      "contentNotices": []
+    },
+    "correctedCitationRate": {
+      "state": "unknown",
+      "reason": "no_citations"
+    },
+    "citationsProposed": {
+      "state": "known",
+      "count": 1
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "description": "A read without line ranges of a file listed only because it is too large is rejected: only a range read can see it.",
+  "section": "IMPL §1.8 (EXP-006)",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      {
+        "kind": "read",
+        "entries": [
+          {
+            "path": "src/big.ts"
+          }
+        ],
+        "reason": "See the rest of the file."
+      }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      {
+        "itemKey": "expansionRequests/0",
+        "stage": "item",
+        "rule": "EXP-006",
+        "outcome": "rejected"
+      }
+    ],
+    "accepted": {
+      "findings": [],
+      "gaps": [],
+      "absenceClaims": [],
+      "conflicts": [],
+      "expansionRequests": [],
+      "contentNotices": []
+    },
+    "correctedCitationRate": {
+      "state": "unknown",
+      "reason": "no_citations"
+    },
+    "citationsProposed": {
+      "state": "known",
+      "count": 0
+    }
+  }
+}

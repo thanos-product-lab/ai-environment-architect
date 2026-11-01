@@ -3,7 +3,10 @@ import type { IgnoreRules } from "../../src/core/snapshot/git.js";
 import type { SnapshotFile } from "../../src/core/snapshot/snapshot.js";
 import { createAliasTable } from "../../src/core/validation/aliases.js";
 import type { AnalyseContext } from "../../src/core/validation/analyse.js";
-import type { AnalyseExpansionContext } from "../../src/core/validation/analyse-expansion.js";
+import type {
+  AnalyseExpansionContext,
+  CallOneFinding,
+} from "../../src/core/validation/analyse-expansion.js";
 import type { Basis, CitableItem, SentRun } from "../../src/core/validation/citations.js";
 import type { AliasedFinding } from "../../src/core/validation/conflicts.js";
 import { coverageIndex } from "../../src/core/validation/coverage.js";
@@ -23,6 +26,8 @@ export interface FixtureFile {
   readonly kind?: string;
   readonly target?: string;
   readonly rule?: string;
+  /** For `listed_only`: `too_large`, `contains_nul` or `not_utf8`. */
+  readonly reason?: string;
 }
 
 export interface FixtureItem {
@@ -50,8 +55,8 @@ export interface FixtureContext {
   readonly knownFacts?: readonly FixtureFinding[];
   readonly blocks?: number;
   readonly maxExpansionRequests?: number;
-  /** analyse_expansion: call-1 model findings. generate_questions: input findings. */
-  readonly findings?: readonly (FixtureFinding | FixtureQuestionFinding)[];
+  /** analyse_expansion: call-1 records after the known facts. generate_questions: input findings. */
+  readonly findings?: readonly (FixtureCallOneFinding | FixtureQuestionFinding)[];
   readonly conflicts?: readonly {
     readonly alias: string;
     readonly members: readonly string[];
@@ -59,6 +64,22 @@ export interface FixtureContext {
   }[];
   readonly questionBudget?: number;
 }
+
+/** A call-1 record: a claim unless `kind` says otherwise, produced by the model by default. */
+export type FixtureCallOneFinding =
+  | (FixtureFinding & {
+      readonly kind?: "claim";
+      readonly producedBy?: "deterministic" | "model";
+    })
+  | {
+      readonly alias: string;
+      readonly kind: "gap";
+      readonly producedBy?: "deterministic" | "model";
+      readonly statement: string;
+      readonly gapType: GapType;
+      readonly relatedPaths: readonly string[];
+    }
+  | { readonly alias: string; readonly kind: "absenceClaim"; readonly pathGlob: string };
 
 export interface FixtureQuestionFinding {
   readonly alias: string;
@@ -86,7 +107,11 @@ function snapshotFiles(list: readonly FixtureFile[]): SnapshotFile[] {
 const SNAPSHOT_HASH = "sha256:5a";
 const CHANGED_HASH = "sha256:c4";
 
-function base(fixture: FixtureContext, reversed: boolean, findings: readonly FixtureFinding[]) {
+function base(
+  fixture: FixtureContext,
+  reversed: boolean,
+  findings: readonly { readonly alias: string }[],
+) {
   const files = order(snapshotFiles(fixture.files), reversed);
   const items = order(fixture.items ?? [], reversed);
   const knownFacts: AliasedFinding[] = (fixture.knownFacts ?? []).map(aliased);
@@ -172,9 +197,33 @@ export function analyseExpansionContext(
   fixture: FixtureContext,
   reversed = false,
 ): AnalyseExpansionContext {
-  const prior = (fixture.findings ?? []) as readonly FixtureFinding[];
-  const { files, knownFacts, citable, coverage, factIds } = base(fixture, reversed, prior);
+  const prior = (fixture.findings ?? []) as readonly FixtureCallOneFinding[];
+  const { files, citable, coverage, factIds } = base(fixture, reversed, prior);
   const conflicts = fixture.conflicts ?? [];
+  const callOne = (f: FixtureCallOneFinding): CallOneFinding => {
+    if (f.kind === "absenceClaim")
+      return { alias: f.alias, kind: "absenceClaim", producedBy: "model", pathGlob: f.pathGlob };
+    if (f.kind === "gap")
+      return {
+        alias: f.alias,
+        kind: "gap",
+        producedBy: f.producedBy ?? "model",
+        statement: f.statement,
+        gapType: f.gapType,
+        relatedPaths: f.relatedPaths,
+      };
+    return {
+      alias: f.alias,
+      kind: "claim",
+      producedBy: f.producedBy ?? "model",
+      statement: f.statement,
+      scope: f.scope,
+      paths: f.evidencePaths,
+    };
+  };
+  const facts = (fixture.knownFacts ?? []).map((fact) =>
+    callOne({ ...fact, producedBy: "deterministic" }),
+  );
   return {
     aliases: createAliasTable("analyse_expansion", {
       items: (fixture.items ?? []).map((item) => item.alias),
@@ -185,12 +234,13 @@ export function analyseExpansionContext(
     items: citable,
     anchorable: anchorablePaths(files.map((file) => file.path)),
     coverage,
-    knownFacts,
-    priorFindings: prior.map(aliased),
-    priorConflicts: conflicts.map((conflict) => ({
-      alias: conflict.alias,
-      members: conflict.members,
-    })),
+    callOne: {
+      findings: [...facts, ...prior.map(callOne)],
+      conflicts: conflicts.map((conflict) => ({
+        alias: conflict.alias,
+        members: conflict.members,
+      })),
+    },
   };
 }
 

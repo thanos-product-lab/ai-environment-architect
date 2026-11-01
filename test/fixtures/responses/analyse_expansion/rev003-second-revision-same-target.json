@@ -23,11 +23,12 @@
   "expect": {
     "status": "validated",
     "events": [
-      { "itemKey": "F-6", "stage": "cross_item", "rule": "REV-003", "outcome": "rejected" }
+      { "itemKey": "revisions/1", "stage": "cross_item", "rule": "REV-003", "outcome": "rejected" }
     ],
-    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": ["F-6"], "contentNotices": [] },
+    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": ["revisions/0"], "contentNotices": [] },
     "acceptedRevisions": [{ "index": 0, "target": "F-6", "action": "withdraw" }],
-    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 1 },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "checked": 1 },
+    "citationsProposed": { "state": "known", "count": 1 },
     "conflictOutcomes": []
   }
 }

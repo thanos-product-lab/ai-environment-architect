@@ -16,7 +16,7 @@
   "expect": {
     "status": "validated",
     "events": [
-      { "itemKey": "F-3", "stage": "item", "rule": "ALIAS-003", "outcome": "rejected" }
+      { "itemKey": "revisions/0", "stage": "item", "rule": "ALIAS-003", "outcome": "rejected" }
     ],
     "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": ["c1"], "revisions": [], "contentNotices": [] },
     "acceptedConflictMembers": { "c1": ["F-3", "F-5"] },

@@ -85,9 +85,12 @@ const intentCheck: ItemCheck<Question, QuestionContext> = (value, context) => {
     : reject("Q-001", "resolves only documented, uncontested findings");
 };
 
-/** 1: a conflict; 2: a command or ownership gap; 3: another gap; 4: an observed convention. */
+/**
+ * 1: an unresolved conflict; 2: a command or ownership gap; 3: another gap; 4: an observed
+ * convention. A resolved conflict holds no open intent, so it doesn't rank a question.
+ */
 export function questionClass(resolves: readonly string[], input: QuestionInput): 1 | 2 | 3 | 4 {
-  if (resolves.some((alias) => input.conflicts.has(alias))) return 1;
+  if (resolves.some((alias) => input.conflicts.get(alias)?.status === "unresolved")) return 1;
   const gaps = resolves.flatMap((alias) => {
     const finding = input.findings.get(alias);
     return finding?.kind === "gap" ? [finding.gapType] : [];
@@ -154,6 +157,7 @@ export interface QuestionsValidation {
   readonly presented: readonly Accepted<Question>[];
   /** The rest, in ranked order: recorded `unreached` with reason `budget` (DM §8.1). */
   readonly unreached: readonly Accepted<Question>[];
+  readonly unreachedReason: "budget";
 }
 
 export function validateGenerateQuestions(
@@ -161,8 +165,14 @@ export function validateGenerateQuestions(
   context: QuestionContext,
 ): QuestionsValidation {
   const result = validateResponse(generateQuestionsValidator, text, context);
-  if (result.status !== "validated") return { result, presented: [], unreached: [] };
+  if (result.status !== "validated")
+    return { result, presented: [], unreached: [], unreachedReason: "budget" };
   const ranked = rank((result.accepted as AcceptedItems<Items>).questions, context.questions);
   const budget = context.questions.budget;
-  return { result, presented: ranked.slice(0, budget), unreached: ranked.slice(budget) };
+  return {
+    result,
+    presented: ranked.slice(0, budget),
+    unreached: ranked.slice(budget),
+    unreachedReason: "budget",
+  };
 }

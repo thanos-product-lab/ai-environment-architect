@@ -1,0 +1,49 @@
+{
+  "description": "A new gap restating F-7, a gap code produced, is dropped: code's records can't be revised, so they are always passed forward.",
+  "section": "IMPL §3.3.3 (DUP-001 against call-1 gaps; REV-002)",
+  "context": "context-records.json",
+  "response": {
+    "findings": [],
+    "gaps": [
+      {
+        "key": "g1",
+        "statement": "A known fact from `package.json` was withheld because it matched the secret scan.",
+        "gapType": "other",
+        "relatedPaths": [
+          "package.json"
+        ]
+      }
+    ],
+    "absenceClaims": [],
+    "conflicts": [],
+    "revisions": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      {
+        "itemKey": "g1",
+        "stage": "cross_item",
+        "rule": "DUP-001",
+        "outcome": "rejected"
+      }
+    ],
+    "accepted": {
+      "findings": [],
+      "gaps": [],
+      "absenceClaims": [],
+      "conflicts": [],
+      "revisions": [],
+      "contentNotices": []
+    },
+    "correctedCitationRate": {
+      "state": "unknown",
+      "reason": "no_citations"
+    },
+    "citationsProposed": {
+      "state": "known",
+      "count": 0
+    }
+  }
+}

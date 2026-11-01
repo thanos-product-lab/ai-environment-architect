@@ -17,6 +17,8 @@ const files: SnapshotFile[] = [
   { path: "src/b.ts", status: "read", size: 1, hash: "sha256:3" },
   { path: "docs/big.md", status: "listed_only", size: 1, hash: "sha256:4", reason: "too_large" },
   { path: "x.log", status: "ignored", kind: "file", size: 1, hash: "sha256:5" },
+  { path: "data.txt", status: "listed_only", size: 1, hash: "sha256:8", reason: "not_utf8" },
+  { path: "blob.txt", status: "listed_only", size: 1, hash: "sha256:9", reason: "contains_nul" },
   { path: "node_modules", status: "excluded", kind: "directory", rule: "node_modules" },
   { path: "vendor", status: "symlink", target: "../shared" },
   { path: "broken.ts", status: "unreadable", kind: "file", reason: "permission_denied" },
@@ -124,6 +126,26 @@ describe("line counts (IMPL §1.11)", () => {
     expect(() =>
       expansionIndex({ files, scopeRoots: ["."], sent: disagreeing, maxRequests: 5 }),
     ).toThrow(/README.md/);
+  });
+});
+
+describe("listed_only reads (IMPL §1.8)", () => {
+  it("EXP-001 rejects a file that isn't valid UTF-8 or holds a NUL byte, even by range", () => {
+    expect(rule(read({ path: "data.txt", lines: "1-5" }))).toBe("EXP-001");
+    expect(rule(read({ path: "blob.txt" }))).toBe("EXP-001");
+  });
+
+  it("EXP-006 rejects a whole-file read of a file too large to excerpt", () => {
+    expect(rule(read({ path: "docs/big.md" }))).toBe("EXP-006");
+  });
+
+  it("EXP-006 accepts a range read of a file too large to excerpt", () => {
+    expect(rule(read({ path: "docs/big.md", lines: "1-40" }))).toBeNull();
+  });
+
+  it("EXP-006 is checked after EXP-001, before EXP-002", () => {
+    expect(rule(read({ path: "docs/big.md" }, { path: "x.log" }))).toBe("EXP-001");
+    expect(rule(read({ path: "src/a.ts", lines: "9-3" }, { path: "docs/big.md" }))).toBe("EXP-006");
   });
 });
 

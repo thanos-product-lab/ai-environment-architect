@@ -32,9 +32,10 @@
     "events": [
       { "itemKey": "f2", "stage": "cross_item", "rule": "DUP-001", "outcome": "rejected" }
     ],
-    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": ["F-3"], "contentNotices": [] },
+    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": ["revisions/0"], "contentNotices": [] },
     "acceptedRevisions": [{ "index": 0, "target": "F-3", "action": "replace", "replacement": "f1" }],
-    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 2 },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "checked": 2 },
+    "citationsProposed": { "state": "known", "count": 2 },
     "conflictOutcomes": []
   }
 }

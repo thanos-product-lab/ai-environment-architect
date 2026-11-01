@@ -14,10 +14,10 @@
   "expect": {
     "status": "validated",
     "events": [],
-    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": ["F-3"], "contentNotices": [] },
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": ["revisions/0"], "contentNotices": [] },
     "correctedCitationRate": { "state": "unknown", "reason": "no_citations" },
     "conflictOutcomes": [
-      { "alias": "C-1", "status": "withdrawn", "reason": "member withdrawn" }
+      { "alias": "C-1", "status": "withdrawn", "withdrawnReason": "member withdrawn" }
     ]
   }
 }

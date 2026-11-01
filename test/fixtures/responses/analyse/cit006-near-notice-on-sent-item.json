@@ -1,0 +1,41 @@
+{
+  "description": "A notice on lines the item actually sent is accepted; only an item with no sent lines fails CIT-006.",
+  "section": "IMPL §3.3.2 step 10 (CIT-006)",
+  "nearMissOf": "cit006-notice-outline-only.json",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [],
+    "contentNotices": [
+      {
+        "item": "T2-001",
+        "lines": "6-6",
+        "description": "Text instructs the reader to ignore earlier rules."
+      }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": {
+      "findings": [],
+      "gaps": [],
+      "absenceClaims": [],
+      "conflicts": [],
+      "expansionRequests": [],
+      "contentNotices": [
+        "contentNotices/0"
+      ]
+    },
+    "correctedCitationRate": {
+      "state": "unknown",
+      "reason": "no_citations"
+    },
+    "citationsProposed": {
+      "state": "known",
+      "count": 0
+    }
+  }
+}

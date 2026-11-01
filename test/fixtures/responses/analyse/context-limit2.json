@@ -8,7 +8,7 @@
     { "path": "logs", "status": "ignored", "kind": "directory" },
     { "path": "node_modules", "status": "excluded", "kind": "directory", "rule": "node_modules" },
     { "path": "package.json", "status": "read" },
-    { "path": "src/big.ts", "status": "listed_only" },
+    { "path": "src/big.ts", "status": "listed_only", "reason": "too_large" },
     { "path": "src/client.ts", "status": "read" },
     { "path": "src/secret-{{aws-access-key-id}}.ts", "status": "read" },
     { "path": "src/server.ts", "status": "read" },

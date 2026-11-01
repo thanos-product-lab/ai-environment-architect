@@ -24,10 +24,11 @@
     "events": [
       { "itemKey": "f1/citations/0", "stage": "item", "rule": "CIT-004", "outcome": "rejected" },
       { "itemKey": "f1", "stage": "item", "rule": "CIT-008", "outcome": "rejected" },
-      { "itemKey": "F-3", "stage": "cross_item", "rule": "REV-001", "outcome": "rejected" }
+      { "itemKey": "revisions/0", "stage": "cross_item", "rule": "REV-001", "outcome": "rejected" }
     ],
     "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": [], "contentNotices": [] },
-    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 1 },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "checked": 1 },
+    "citationsProposed": { "state": "known", "count": 1 },
     "conflictOutcomes": []
   }
 }

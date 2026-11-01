@@ -26,7 +26,8 @@
     ],
     "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": ["c1"], "revisions": [], "contentNotices": [] },
     "acceptedConflictMembers": { "c1": ["F-4", "F-5"] },
-    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 1 },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "checked": 1 },
+    "citationsProposed": { "state": "known", "count": 1 },
     "conflictOutcomes": []
   }
 }

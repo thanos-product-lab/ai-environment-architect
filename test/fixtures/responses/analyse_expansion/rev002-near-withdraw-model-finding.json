@@ -15,7 +15,7 @@
   "expect": {
     "status": "validated",
     "events": [],
-    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": ["F-6"], "contentNotices": [] },
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": ["revisions/0"], "contentNotices": [] },
     "correctedCitationRate": { "state": "unknown", "reason": "no_citations" },
     "conflictOutcomes": []
   }

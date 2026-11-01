@@ -40,6 +40,7 @@
       { "itemKey": "c1", "stage": "cross_item", "rule": "SUP-005", "outcome": "rejected" }
     ],
     "accepted": { "findings": ["f1", "f3"], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
-    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 3 }
+    "correctedCitationRate": { "state": "known", "corrected": 0, "checked": 3 },
+    "citationsProposed": { "state": "known", "count": 3 }
   }
 }

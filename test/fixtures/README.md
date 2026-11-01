@@ -61,16 +61,16 @@ Each call directory has a shared `context.json`. A case may name another context
 
 `analyse/context.json`:
 
-- `files`: the snapshot's entries, with `status` (`read`, `listed_only`, `ignored`, `excluded`, `symlink`, `unreadable`), and `kind`, `rule` or `target` where the status has one. Directories that only contain entries (`src`, `docs`, `test`) are implied.
+- `files`: the snapshot's entries, with `status` (`read`, `listed_only`, `ignored`, `excluded`, `symlink`, `unreadable`), and `kind`, `rule`, `target` or `reason` where the status has one. A `listed_only` entry states its `reason` (`too_large`, `contains_nul`, `not_utf8`), because `EXP-001` and `EXP-006` depend on it. Directories that only contain entries (`src`, `docs`, `test`) are implied.
 - `userExclusions`: exclusion patterns that are user rules; `ignoreRules`: `{ "state": "applied" }` or not; `scopeRoots`: the snapshot's scope roots.
 - `items`: the context items, each with its `alias`, `path`, `basis`, `totalLines`, `sent` (runs of consecutive sent lines, `first` being the first line's number and `lines` the file's text exactly; `[]` is an outline-only item) and `changed` (`true` means the file's current hash differs from the snapshot's, for `CIT-002`).
 - `knownFacts`: the known facts sent, with their `F` aliases, statements, scopes and evidence paths.
 - `blocks`: how many destination aliases (`B-1` to `B-n`) the table holds.
 - `maxExpansionRequests`: the session setting.
 
-The other `analyse` contexts are `context-limit2.json` (`maxExpansionRequests` 2), `context-scope-src.json` (scope root `src`, with a root `package.json` listed outside it) and `context-long.json` (a 42-line item for `CIT-010`).
+The other `analyse` contexts are `context-limit2.json` (`maxExpansionRequests` 2), `context-scope-src.json` (scope root `src`, with a root `package.json` listed outside it), `context-long.json` (a 42-line item for `CIT-010`) and `context-unreadable-content.json` (`listed_only` files that aren't UTF-8 or hold a NUL byte).
 
-`analyse_expansion/context.json` has the same fields, with expansion items `E-1` (lines 7–12 of `src/client.ts`) and `E-2` (lines 1–3 of the outline-only `src/util.ts`), plus `findings` (the call-1 model findings `F-2` to `F-6`, with their evidence paths; the known fact `F-1` stays in `knownFacts`) and `conflicts` (the call-1 conflicts `C-1` to `C-3` with their members).
+`analyse_expansion/context.json` has the same fields, with expansion items `E-1` (lines 7–12 of `src/client.ts`) and `E-2` (lines 1–3 of the outline-only `src/util.ts`), plus `findings` (the call-1 records `F-2` to `F-6`, with their evidence paths; the known fact `F-1` stays in `knownFacts`). A record is a model claim unless it says otherwise: `kind` may be `gap` (with `statement`, `gapType` and `relatedPaths`) or `absenceClaim` (with `pathGlob`), and `producedBy` may be `deterministic`; together they are the call's required call-1 records (IMPL §3.3.3) and `conflicts` (the call-1 conflicts `C-1` to `C-3` with their members).
 
 `generate_questions/context.json` has `files`, `userExclusions` and `ignoreRules` for `SCOPE-001`; `findings`, each with `alias`, `kind` (`claim` or `gap`), `basis` (a set; a gap's may be `[]`) and, for gaps, `gapType`; `conflicts` with members and `status` (`unresolved` or `resolved`); `blocks`; and `questionBudget`.
 
@@ -87,13 +87,13 @@ Every other file is one case:
 - `expect`:
   - `status`: `validated` or `schema_failed`;
   - `events`: the complete, ordered event list of IMPL §3.5 (`itemKey`, `stage`, `rule`, `outcome`, and `original` where a correction records one); `[]` when there are none. `detail` is not compared, except that `detailExcludes`, when present, lists text no detail may contain;
-  - `accepted`: per collection, the items accepted, in response order, named as `itemKey` names them: the local key, the alias target for a revision (such as `F-3`), or `<collection>/<index>` for an item with no key (expansion requests, content notices);
+  - `accepted`: per collection, the items accepted, in response order, named as `itemKey` names them: the local key, or `<collection>/<index>` for an item with no key of its own (expansion requests, content notices, revisions);
   - `acceptedConflictMembers`: optional, the members of an accepted conflict after redirection and after carrying through revisions;
   - `acceptedRevisions`: optional, which revision was kept when two name the same target (`index` in `revisions`), and for a replacement, the item it resolves to after duplicate redirection;
-  - `correctedCitationRate` (`analyse`, `analyse_expansion`): `{ "state": "known", "corrected", "proposed" }`, or `{ "state": "unknown", "reason": "no_citations" | "schema_failed" }`;
-  - `conflictOutcomes` (`analyse_expansion`): the call-1 conflicts whose status changes because of carried members, in alias order, with `status` and `reason` (`member withdrawn` or `sources not distinct`). A call-1 conflict withdrawn or replaced by a revision is listed in `accepted.revisions`, not here;
+  - `correctedCitationRate` (`analyse`, `analyse_expansion`): `{ "state": "known", "corrected", "checked" }`, where `checked` counts the citations that reached the citation check, or `{ "state": "unknown", "reason": "no_citations" | "schema_failed" }`; `citationsProposed`: `{ "state": "known", "count" }`, every citation in the response;
+  - `conflictOutcomes` (`analyse_expansion`): the call-1 conflicts whose status changes because of carried members, in alias order, with `status` and `withdrawnReason` (`member withdrawn` or `sources not distinct`); `revisedConflicts`, optional, the call-1 conflicts revised with new members, `{ "alias", "status": "revised", "members" }`. A call-1 conflict withdrawn or replaced by a revision is listed in `accepted.revisions`, not here;
   - `presented` and `unreached` (`generate_questions`): question keys in ranked order.
 
 Files are named `<rule>-<description>.json` after the rule that must reject them, and near misses `<rule>-near-<description>.json`. Cases about the corrected-citation rate start with `rate-`, cases about call-1 conflict outcomes with `outcome-`, cases about content notices that must be accepted with `notice-near-`, and cases about question ranking with `ranking-`.
 
-`test/call-fixtures.test.ts` runs every case twice, with the context's inputs listed in two orders, and requires the same result. It compares only the withdrawn entries of `conflictOutcomes`; a call-1 conflict kept with a replacement member is covered by the unit tests in `src/core/validation/analyse-expansion.test.ts`.
+`test/call-fixtures.test.ts` runs every case twice, with the context's inputs listed in two orders, and requires the same result. `conflictOutcomes` is compared with the withdrawn outcomes, and `revisedConflicts`, when present, with the revised ones.

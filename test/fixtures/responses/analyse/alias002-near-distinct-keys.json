@@ -1,0 +1,71 @@
+{
+  "description": "The same two findings with the keys f1 and f2 are both accepted.",
+  "section": "IMPL §3.2.1 (ALIAS-002)",
+  "nearMissOf": "alias002-key-defined-twice.json",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "The guide says HTTP calls go through the shared client.",
+        "mode": "descriptive",
+        "scope": {
+          "kind": "repository"
+        },
+        "citations": [
+          {
+            "item": "T2-001",
+            "lines": "4-4",
+            "quote": "HTTP calls go through the shared client in src/client.ts."
+          }
+        ]
+      },
+      {
+        "key": "f2",
+        "statement": "Some code in the client module calls fetch directly.",
+        "mode": "descriptive",
+        "scope": {
+          "kind": "paths",
+          "paths": [
+            "src/client.ts"
+          ]
+        },
+        "citations": [
+          {
+            "item": "T5-001",
+            "lines": "4-4",
+            "quote": "const res = await fetch(url);"
+          }
+        ]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": {
+      "findings": [
+        "f1",
+        "f2"
+      ],
+      "gaps": [],
+      "absenceClaims": [],
+      "conflicts": [],
+      "expansionRequests": [],
+      "contentNotices": []
+    },
+    "correctedCitationRate": {
+      "state": "known",
+      "corrected": 0,
+      "checked": 2
+    },
+    "citationsProposed": {
+      "state": "known",
+      "count": 2
+    }
+  }
+}

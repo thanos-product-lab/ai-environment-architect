@@ -1,0 +1,52 @@
+{
+  "description": "A statement of exactly 300 code points, mostly two-byte characters, is at the limit and accepted.",
+  "section": "IMPL §3.3 (lengths in code points), §3.5 (LIMIT-001)",
+  "nearMissOf": "limit001-statement-over-300.json",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "The guide says HTTP calls go through the shared client éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé.",
+        "mode": "descriptive",
+        "scope": {
+          "kind": "repository"
+        },
+        "citations": [
+          {
+            "item": "T2-001",
+            "lines": "4-4",
+            "quote": "HTTP calls go through the shared client in src/client.ts."
+          }
+        ]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": {
+      "findings": [
+        "f1"
+      ],
+      "gaps": [],
+      "absenceClaims": [],
+      "conflicts": [],
+      "expansionRequests": [],
+      "contentNotices": []
+    },
+    "correctedCitationRate": {
+      "state": "known",
+      "corrected": 0,
+      "checked": 1
+    },
+    "citationsProposed": {
+      "state": "known",
+      "count": 1
+    }
+  }
+}

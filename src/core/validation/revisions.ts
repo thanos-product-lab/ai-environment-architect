@@ -18,8 +18,9 @@ import {
 import { hasDistinctSources } from "./support.js";
 
 // Revisions in `analyse_expansion` (IMPL §3.3.3): the model withdraws or replaces a call-1
-// finding or conflict. Known facts are code's, so the model can't revise them. Withdrawn and
-// replaced records are kept for history, and are no longer passed forward.
+// finding or conflict. Records code produced, known facts and deterministic gaps, are code's, so
+// the model can't revise them. Withdrawn and replaced records are kept for history, and are no
+// longer passed forward.
 
 export type Revision =
   | { readonly target: string; readonly action: "withdraw"; readonly reason: string }
@@ -32,7 +33,8 @@ export type Revision =
 
 export interface RevisionContext {
   readonly aliases: AliasTable;
-  readonly knownFacts: FindingSources["knownFacts"];
+  /** The `F` aliases of records produced by code (`producedBy: deterministic`). */
+  readonly deterministic: ReadonlySet<string>;
 }
 
 /** ALIAS-001 and ALIAS-003 on the target and the replacement, then REV-002. */
@@ -51,8 +53,8 @@ export function revisionCheck<C extends RevisionContext>(): ItemCheck<Revision, 
       });
       if (!replacement.ok) return reject(replacement.rule, replacement.detail);
     }
-    if (context.knownFacts.some((fact) => fact.alias === value.target))
-      return reject("REV-002", `${value.target} is a known fact`);
+    if (context.deterministic.has(value.target))
+      return reject("REV-002", `${value.target} was produced by code`);
     return accept(value);
   };
 }
@@ -140,10 +142,13 @@ export type ConflictOutcome =
   | {
       readonly alias: string;
       readonly status: "withdrawn";
-      readonly reason: "member withdrawn" | "sources not distinct";
+      readonly withdrawnReason: "member withdrawn" | "sources not distinct";
     }
-  /** Kept, with its members changed: one withdrawn, or one standing for its replacement. */
-  | { readonly alias: string; readonly status: "kept"; readonly members: readonly string[] };
+  /**
+   * A new conflict revision with these members supersedes the old one (DM §6.5): a member was
+   * withdrawn, or stands for its replacement.
+   */
+  | { readonly alias: string; readonly status: "revised"; readonly members: readonly string[] };
 
 /**
  * What the accepted revisions do to the call-1 conflicts no revision targets (§3.3.3), in the
@@ -163,13 +168,14 @@ export function priorConflictOutcomes<A extends RevisionItems>(
   return conflicts.flatMap((conflict): ConflictOutcome[] => {
     if (targeted.has(conflict.alias)) return [];
     if (!conflict.members.some((member) => carry.has(member))) return [];
+    // Any change to the member set runs CONF-001, then SUP-005, on the new set (§3.3.3).
     const resolved = resolveMembers(conflict.members, findings, aliases, new Map(), carry);
     if (resolved.length < 2)
-      return [{ alias: conflict.alias, status: "withdrawn", reason: "member withdrawn" }];
-    // SUP-005 is checked again when a replacement inherits a member (§3.3.3).
-    const replaced = conflict.members.some((member) => typeof carry.get(member) === "string");
-    if (replaced && !hasDistinctSources(resolved.map((member) => member.paths)))
-      return [{ alias: conflict.alias, status: "withdrawn", reason: "sources not distinct" }];
-    return [{ alias: conflict.alias, status: "kept", members: resolved.map((m) => m.member) }];
+      return [{ alias: conflict.alias, status: "withdrawn", withdrawnReason: "member withdrawn" }];
+    if (!hasDistinctSources(resolved.map((member) => member.paths)))
+      return [
+        { alias: conflict.alias, status: "withdrawn", withdrawnReason: "sources not distinct" },
+      ];
+    return [{ alias: conflict.alias, status: "revised", members: resolved.map((m) => m.member) }];
   });
 }

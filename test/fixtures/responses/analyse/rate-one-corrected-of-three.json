@@ -33,6 +33,7 @@
       { "itemKey": "f1/citations/1", "stage": "item", "rule": "CIT-R01", "outcome": "corrected", "original": { "originalLines": "2-2", "correctedLines": "5-5" } }
     ],
     "accepted": { "findings": ["f1", "f2"], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
-    "correctedCitationRate": { "state": "known", "corrected": 1, "proposed": 3 }
+    "correctedCitationRate": { "state": "known", "corrected": 1, "checked": 3 },
+    "citationsProposed": { "state": "known", "count": 3 }
   }
 }

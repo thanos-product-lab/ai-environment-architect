@@ -1,0 +1,49 @@
+{
+  "description": "A new gap with F-8's statement (spacing aside), gap type and related path (./ aside) is dropped as a duplicate of the call-1 gap.",
+  "section": "IMPL §3.3.3 (DUP-001 against call-1 gaps)",
+  "context": "context-records.json",
+  "response": {
+    "findings": [],
+    "gaps": [
+      {
+        "key": "g1",
+        "statement": "No command for starting  the server is documented.",
+        "gapType": "no_command",
+        "relatedPaths": [
+          "./docs/guide.md"
+        ]
+      }
+    ],
+    "absenceClaims": [],
+    "conflicts": [],
+    "revisions": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      {
+        "itemKey": "g1",
+        "stage": "cross_item",
+        "rule": "DUP-001",
+        "outcome": "rejected"
+      }
+    ],
+    "accepted": {
+      "findings": [],
+      "gaps": [],
+      "absenceClaims": [],
+      "conflicts": [],
+      "revisions": [],
+      "contentNotices": []
+    },
+    "correctedCitationRate": {
+      "state": "unknown",
+      "reason": "no_citations"
+    },
+    "citationsProposed": {
+      "state": "known",
+      "count": 0
+    }
+  }
+}

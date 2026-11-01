@@ -1,0 +1,46 @@
+{
+  "description": "The model withdraws F-7, a gap code produced; REV-002 rejects the revision.",
+  "section": "IMPL §3.3.3 (REV-002 covers every record code produced)",
+  "context": "context-records.json",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "revisions": [
+      {
+        "target": "F-7",
+        "action": "withdraw",
+        "reason": "The expansion shows the facts."
+      }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      {
+        "itemKey": "revisions/0",
+        "stage": "item",
+        "rule": "REV-002",
+        "outcome": "rejected"
+      }
+    ],
+    "accepted": {
+      "findings": [],
+      "gaps": [],
+      "absenceClaims": [],
+      "conflicts": [],
+      "revisions": [],
+      "contentNotices": []
+    },
+    "correctedCitationRate": {
+      "state": "unknown",
+      "reason": "no_citations"
+    },
+    "citationsProposed": {
+      "state": "known",
+      "count": 0
+    }
+  }
+}

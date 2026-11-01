@@ -4,7 +4,6 @@ import { type AliasKind, resolveReference } from "./aliases.js";
 import { basisDerivation } from "./basis.js";
 import { type Basis, type CitationContext, citationCheck, type Evidence } from "./citations.js";
 import {
-  type AliasedFinding,
   aliasPaths,
   type Carry,
   conflictChecks,
@@ -19,7 +18,13 @@ import {
   gapCheck,
   scopeCheck,
 } from "./coverage.js";
-import { claimIdentity, duplicateCheck, findingIdentity, gapIdentity } from "./duplicates.js";
+import {
+  claimIdentity,
+  duplicateCheck,
+  findingIdentity,
+  gapIdentity,
+  type PriorIdentity,
+} from "./duplicates.js";
 import {
   type ExpansionContext,
   type ExpansionRequest,
@@ -92,43 +97,53 @@ export function memberAliasCheck<C extends CitationContext>(
 
 type DuplicateItems = { findings: Finding; gaps: Gap; absenceClaims: AbsenceClaim };
 
+/** Records outside the response that new items may restate, by identity (§3.3.3). */
+export interface PriorDuplicates {
+  readonly findings: readonly PriorIdentity[];
+  readonly gaps: readonly PriorIdentity[];
+  readonly absenceClaims: readonly PriorIdentity[];
+}
+
 /**
  * DUP-002, then DUP-001 for findings, gaps and absence claims (step 7). `prior` gives the call-1
- * findings a new finding may restate, in `analyse_expansion`.
+ * records new items may restate, in `analyse_expansion`.
  */
 export function duplicateChecks<A extends DuplicateItems, C extends FindingSources>(
-  prior?: (context: C, surviving: AcceptedItems<A>) => readonly AliasedFinding[],
+  prior?: (context: C, surviving: AcceptedItems<A>) => PriorDuplicates,
 ): CrossItemCheck<A, C>[] {
   const ofFinding = (finding: Finding) => findingIdentity(finding.statement, finding.scope);
-  const asPrior = (findings: readonly AliasedFinding[]) =>
-    findings.map((f) => ({ alias: f.alias, identity: findingIdentity(f.statement, f.scope) }));
+  const priorOf =
+    (collection: keyof PriorDuplicates) => (context: C, surviving: AcceptedItems<A>) =>
+      prior === undefined ? [] : prior(context, surviving)[collection];
   return [
     duplicateCheck<A, C, "findings">({
       collection: "findings",
       rule: "DUP-002",
       identity: ofFinding,
-      prior: (context) => asPrior(context.knownFacts),
+      prior: (context) =>
+        context.knownFacts.map((fact) => ({
+          alias: fact.alias,
+          identity: findingIdentity(fact.statement, fact.scope),
+        })),
       withinResponse: false,
     }),
     duplicateCheck<A, C, "findings">({
       collection: "findings",
       rule: "DUP-001",
       identity: ofFinding,
-      ...(prior === undefined
-        ? {}
-        : {
-            prior: (context: C, surviving: AcceptedItems<A>) => asPrior(prior(context, surviving)),
-          }),
+      prior: priorOf("findings"),
     }),
     duplicateCheck<A, C, "gaps">({
       collection: "gaps",
       rule: "DUP-001",
       identity: (gap) => gapIdentity(gap.statement, gap.gapType, gap.relatedPaths),
+      prior: priorOf("gaps"),
     }),
     duplicateCheck<A, C, "absenceClaims">({
       collection: "absenceClaims",
       rule: "DUP-001",
       identity: (claim) => claimIdentity(claim.pathGlob),
+      prior: priorOf("absenceClaims"),
     }),
   ];
 }
@@ -185,26 +200,55 @@ export const analyseValidator: CallValidator<Response, AnalyseContext, AnalyseIt
 };
 
 /**
- * `CIT-R01` events over the citations proposed in the call, across all its findings (§3.2.2).
- * Unknown is never zero: a schema failure or a call without citations has no rate.
+ * `CIT-R01` events over the citations that reached the citation check, across all the call's
+ * findings (§3.2.2). Unknown is never zero: a schema failure, or a call where no citation reached
+ * the check, has no rate.
  */
 export type CorrectedCitationRate =
   | {
       readonly state: "known";
       readonly corrected: number;
-      readonly proposed: number;
+      readonly checked: number;
       readonly rate: number;
     }
   | { readonly state: "unknown"; readonly reason: "schema_failed" | "no_citations" };
 
+/** The citations proposed in the call, across all its findings, recorded apart from the rate. */
+export type CitationsProposed =
+  | { readonly state: "known"; readonly count: number }
+  | { readonly state: "unknown"; readonly reason: "schema_failed" };
+
+type CitedResponse = {
+  readonly findings: readonly { readonly key: string; readonly citations: unknown[] }[];
+};
+
+/** The rules that reject a finding before its citations are checked (§3.5 item stage). */
+const BEFORE_CITATIONS: ReadonlySet<string> = new Set(["ALIAS-002", "LIMIT-001"]);
+
 export function correctedCitationRate(
-  result: ValidationResult<unknown, { readonly findings: readonly { citations: unknown[] }[] }>,
+  result: ValidationResult<unknown, CitedResponse>,
 ): CorrectedCitationRate {
   if (result.status !== "validated") return { state: "unknown", reason: "schema_failed" };
-  const proposed = result.response.findings.reduce((sum, f) => sum + f.citations.length, 0);
-  if (proposed === 0) return { state: "unknown", reason: "no_citations" };
+  // A finding key always matches its pattern after the schema stage, so events name it by key.
+  const stopped = new Set(
+    result.events
+      .filter((event) => event.stage === "item" && BEFORE_CITATIONS.has(event.rule))
+      .map((event) => event.itemKey),
+  );
+  const checked = result.response.findings
+    .filter((finding) => !stopped.has(finding.key))
+    .reduce((sum, finding) => sum + finding.citations.length, 0);
+  if (checked === 0) return { state: "unknown", reason: "no_citations" };
   const corrected = result.events.filter((event) => event.rule === "CIT-R01").length;
-  return { state: "known", corrected, proposed, rate: corrected / proposed };
+  return { state: "known", corrected, checked, rate: corrected / checked };
+}
+
+export function citationsProposed(
+  result: ValidationResult<unknown, CitedResponse>,
+): CitationsProposed {
+  if (result.status !== "validated") return { state: "unknown", reason: "schema_failed" };
+  const count = result.response.findings.reduce((sum, f) => sum + f.citations.length, 0);
+  return { state: "known", count };
 }
 
 /** Each accepted conflict's members after redirection and revisions, by conflict key. */
@@ -229,6 +273,7 @@ export function conflictMembers<A extends { findings: Finding; conflicts: Confli
 export interface AnalyseValidation {
   readonly result: ValidationResult<AnalyseItems, Response>;
   readonly correctedCitationRate: CorrectedCitationRate;
+  readonly citationsProposed: CitationsProposed;
   readonly conflictMembers: ReadonlyMap<string, readonly string[]>;
 }
 
@@ -237,6 +282,7 @@ export function validateAnalyse(text: string, context: AnalyseContext): AnalyseV
   return {
     result,
     correctedCitationRate: correctedCitationRate(result),
+    citationsProposed: citationsProposed(result),
     conflictMembers:
       result.status === "validated"
         ? conflictMembers(result.accepted, result.redirects, context)

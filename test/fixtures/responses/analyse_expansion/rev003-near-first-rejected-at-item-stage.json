@@ -18,9 +18,9 @@
   "expect": {
     "status": "validated",
     "events": [
-      { "itemKey": "F-6", "stage": "item", "rule": "ALIAS-003", "outcome": "rejected" }
+      { "itemKey": "revisions/0", "stage": "item", "rule": "ALIAS-003", "outcome": "rejected" }
     ],
-    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": ["c1"], "revisions": ["F-6"], "contentNotices": [] },
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": ["c1"], "revisions": ["revisions/1"], "contentNotices": [] },
     "acceptedRevisions": [{ "index": 1, "target": "F-6", "action": "withdraw" }],
     "acceptedConflictMembers": { "c1": ["F-3", "F-5"] },
     "correctedCitationRate": { "state": "unknown", "reason": "no_citations" },

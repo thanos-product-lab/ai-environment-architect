@@ -1,0 +1,42 @@
+{
+  "description": "Withdrawing F-8, a gap the model produced in call 1, is accepted.",
+  "section": "IMPL §3.3.3 (REV-002)",
+  "context": "context-records.json",
+  "nearMissOf": "rev002-withdraw-deterministic-gap.json",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "revisions": [
+      {
+        "target": "F-8",
+        "action": "withdraw",
+        "reason": "The guide's later section names the command."
+      }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": {
+      "findings": [],
+      "gaps": [],
+      "absenceClaims": [],
+      "conflicts": [],
+      "revisions": [
+        "revisions/0"
+      ],
+      "contentNotices": []
+    },
+    "correctedCitationRate": {
+      "state": "unknown",
+      "reason": "no_citations"
+    },
+    "citationsProposed": {
+      "state": "known",
+      "count": 0
+    }
+  }
+}

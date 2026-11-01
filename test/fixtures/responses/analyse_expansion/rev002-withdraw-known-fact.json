@@ -14,7 +14,7 @@
   "expect": {
     "status": "validated",
     "events": [
-      { "itemKey": "F-1", "stage": "item", "rule": "REV-002", "outcome": "rejected" }
+      { "itemKey": "revisions/0", "stage": "item", "rule": "REV-002", "outcome": "rejected" }
     ],
     "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": [], "contentNotices": [] },
     "correctedCitationRate": { "state": "unknown", "reason": "no_citations" },

@@ -25,9 +25,10 @@
   "expect": {
     "status": "validated",
     "events": [],
-    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": ["c1"], "revisions": ["C-2"], "contentNotices": [] },
+    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": ["c1"], "revisions": ["revisions/0"], "contentNotices": [] },
     "acceptedConflictMembers": { "c1": ["F-4", "f1"] },
-    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 1 },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "checked": 1 },
+    "citationsProposed": { "state": "known", "count": 1 },
     "conflictOutcomes": []
   }
 }

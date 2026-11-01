@@ -33,6 +33,7 @@
     ],
     "accepted": { "findings": ["f2"], "gaps": [], "absenceClaims": [], "conflicts": ["c1"], "expansionRequests": [], "contentNotices": [] },
     "acceptedConflictMembers": { "c1": ["F-1", "f2"] },
-    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 2 }
+    "correctedCitationRate": { "state": "known", "corrected": 0, "checked": 2 },
+    "citationsProposed": { "state": "known", "count": 2 }
   }
 }

@@ -291,9 +291,40 @@ describe("corrected-citation rate (IMPL §3.2.2)", () => {
     expect(outcome.correctedCitationRate).toEqual({
       state: "known",
       corrected: 1,
-      proposed: 3,
+      checked: 3,
       rate: 1 / 3,
     });
+  });
+
+  it("counts only citations that reached the citation check, and proposed ones apart", () => {
+    const tooMany = {
+      ...docFinding("f1"),
+      citations: Array.from({ length: 7 }, () => docFinding("f1").citations[0]),
+    };
+    const twice = [docFinding("f2"), docFinding("f2", "Another statement about the guide.")];
+    const outcome = run({ findings: [tooMany, ...twice, codeFinding("f3")] });
+    expect(events(outcome)).toEqual([
+      ["f1", "item", "LIMIT-001"],
+      ["f2", "item", "ALIAS-002"],
+      ["f2", "item", "ALIAS-002"],
+    ]);
+    expect(outcome.correctedCitationRate).toEqual({
+      state: "known",
+      corrected: 0,
+      checked: 1,
+      rate: 0,
+    });
+    expect(outcome.citationsProposed).toEqual({ state: "known", count: 10 });
+  });
+
+  it("is unknown with no_citations when no citation reached the check", () => {
+    const tooMany = {
+      ...docFinding("f1"),
+      citations: Array.from({ length: 7 }, () => docFinding("f1").citations[0]),
+    };
+    const outcome = run({ findings: [tooMany] });
+    expect(outcome.correctedCitationRate).toEqual({ state: "unknown", reason: "no_citations" });
+    expect(outcome.citationsProposed).toEqual({ state: "known", count: 7 });
   });
 
   it("is unknown with no_citations when no finding was proposed", () => {
@@ -306,6 +337,7 @@ describe("corrected-citation rate (IMPL §3.2.2)", () => {
   it("is unknown with schema_failed when the response fails the schema", () => {
     const outcome = validateAnalyse("{", analyseContext(fixture));
     expect(outcome.correctedCitationRate).toEqual({ state: "unknown", reason: "schema_failed" });
+    expect(outcome.citationsProposed).toEqual({ state: "unknown", reason: "schema_failed" });
   });
 });
 

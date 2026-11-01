@@ -1,0 +1,73 @@
+{
+  "description": "The same conflict naming F-4, a call-1 claim citing another file, is accepted.",
+  "section": "IMPL §3.3.3 (conflict members are claims)",
+  "context": "context-records.json",
+  "nearMissOf": "alias003-member-names-call-1-gap.json",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "Some client helpers post JSON with fetch.",
+        "mode": "descriptive",
+        "scope": {
+          "kind": "paths",
+          "paths": [
+            "src/client.ts"
+          ]
+        },
+        "citations": [
+          {
+            "item": "E-1",
+            "lines": "8-8",
+            "quote": "return fetch(url, { method: \"POST\", body: JSON.stringify(body) });"
+          }
+        ]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [
+      {
+        "key": "c1",
+        "description": "The client and the server handle responses differently.",
+        "findings": [
+          "f1",
+          "F-4"
+        ]
+      }
+    ],
+    "revisions": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": {
+      "findings": [
+        "f1"
+      ],
+      "gaps": [],
+      "absenceClaims": [],
+      "conflicts": [
+        "c1"
+      ],
+      "revisions": [],
+      "contentNotices": []
+    },
+    "correctedCitationRate": {
+      "state": "known",
+      "corrected": 0,
+      "checked": 1
+    },
+    "citationsProposed": {
+      "state": "known",
+      "count": 1
+    },
+    "acceptedConflictMembers": {
+      "c1": [
+        "f1",
+        "F-4"
+      ]
+    }
+  }
+}

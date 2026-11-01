@@ -1,0 +1,50 @@
+{
+  "description": "A file listed only because it holds a NUL byte is never readable; EXP-001 rejects it before EXP-006 would.",
+  "section": "IMPL §1.8 (EXP-001, EXP-006 order)",
+  "context": "context-unreadable-content.json",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      {
+        "kind": "read",
+        "entries": [
+          {
+            "path": "assets/blob.txt"
+          }
+        ],
+        "reason": "See the rest of the file."
+      }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      {
+        "itemKey": "expansionRequests/0",
+        "stage": "item",
+        "rule": "EXP-001",
+        "outcome": "rejected"
+      }
+    ],
+    "accepted": {
+      "findings": [],
+      "gaps": [],
+      "absenceClaims": [],
+      "conflicts": [],
+      "expansionRequests": [],
+      "contentNotices": []
+    },
+    "correctedCitationRate": {
+      "state": "unknown",
+      "reason": "no_citations"
+    },
+    "citationsProposed": {
+      "state": "known",
+      "count": 0
+    }
+  }
+}

@@ -41,6 +41,7 @@
     ],
     "accepted": { "findings": ["f1", "f3"], "gaps": [], "absenceClaims": [], "conflicts": ["c1"], "expansionRequests": [], "contentNotices": [] },
     "acceptedConflictMembers": { "c1": ["f1", "f3"] },
-    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 3 }
+    "correctedCitationRate": { "state": "known", "corrected": 0, "checked": 3 },
+    "citationsProposed": { "state": "known", "count": 3 }
   }
 }

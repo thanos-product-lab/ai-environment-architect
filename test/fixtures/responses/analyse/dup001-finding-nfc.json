@@ -30,6 +30,7 @@
       { "itemKey": "f2", "stage": "cross_item", "rule": "DUP-001", "outcome": "rejected" }
     ],
     "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
-    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 2 }
+    "correctedCitationRate": { "state": "known", "corrected": 0, "checked": 2 },
+    "citationsProposed": { "state": "known", "count": 2 }
   }
 }

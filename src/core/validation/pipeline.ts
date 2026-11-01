@@ -9,7 +9,7 @@ import { comparePaths } from "../paths.js";
  * Increases with any change to what is accepted, thresholds and word lists included, and with a
  * runtime whose Unicode version changes CIT-007's or SUP-002's character classes.
  */
-export const VALIDATOR_VERSION = "validate/0.9.0";
+export const VALIDATOR_VERSION = "validate/0.10.0";
 
 /** The rule IDs this version applies. A test pins this list to `VALIDATOR_VERSION`. */
 export const RULE_IDS = [
@@ -54,6 +54,7 @@ export const RULE_IDS = [
   "REV-002",
   "REV-003",
   "Q-001",
+  "EXP-006",
 ] as const;
 
 export type ValidationStage = "schema" | "item" | "cross_item";
@@ -136,8 +137,8 @@ export interface CollectionSpec<R, V, C> {
 }
 
 /**
- * A local key the item defines (`f1`), an alias it acts on (`F-3` for a revision), or its
- * position (`contentNotices/0`). A local key or alias that isn't well formed came from the model
+ * A local key the item defines (`f1`), an alias it acts on, or its position
+ * (`contentNotices/0`, `revisions/2`) for an item with no key of its own. A local key or alias that isn't well formed came from the model
  * unchecked, so the item is named by position instead, and a bad key defines nothing.
  */
 export type ItemKey =

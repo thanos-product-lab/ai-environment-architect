@@ -119,6 +119,21 @@ describe("ranking (IMPL §3.3.4)", () => {
     expect(result.unreached).toEqual([]);
   });
 
+  it("ranks a question about a resolved conflict by its other aliases, not first", () => {
+    const result = run([q(["C-2", "F-2"]), q(["F-3"]), q(["C-1"])], 10);
+    expect(result.events).toEqual([]);
+    expect(result.presented).toEqual(["q3", "q2", "q1"]);
+  });
+
+  it("records every unreached question with reason budget", () => {
+    const outcome = validateGenerateQuestions(
+      JSON.stringify({ questions: [q(["F-2"]), q(["F-3"])] }),
+      context(1),
+    );
+    expect(outcome.unreachedReason).toBe("budget");
+    expect(outcome.unreached.map((item) => item.key)).toEqual(["q1"]);
+  });
+
   it("keeps the model's order within a class, and places a question in its first class", () => {
     const result = run([q(["F-4"]), q(["F-2", "C-1"]), q(["F-3", "F-4"]), q(["C-1", "F-3"])], 10);
     expect(result.presented).toEqual(["q2", "q4", "q3", "q1"]);

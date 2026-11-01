@@ -29,6 +29,7 @@
     "status": "validated",
     "events": [],
     "accepted": { "findings": ["f1", "f2"], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
-    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 2 }
+    "correctedCitationRate": { "state": "known", "corrected": 0, "checked": 2 },
+    "citationsProposed": { "state": "known", "count": 2 }
   }
 }

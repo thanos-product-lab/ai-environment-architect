@@ -1,0 +1,48 @@
+{
+  "description": "A question resolving a resolved conflict and an observed convention ranks as an observed convention, after a gap question.",
+  "section": "IMPL §3.3.4 (ranking class 1: unresolved conflicts only)",
+  "response": {
+    "questions": [
+      {
+        "key": "q1",
+        "prompt": "Is direct fetch acceptable?",
+        "reason": "The evidence does not settle it.",
+        "resolves": [
+          "C-2",
+          "F-3"
+        ],
+        "scope": {
+          "kind": "repository"
+        },
+        "options": []
+      },
+      {
+        "key": "q2",
+        "prompt": "Where should retries be described?",
+        "reason": "The evidence does not settle it.",
+        "resolves": [
+          "F-5"
+        ],
+        "scope": {
+          "kind": "repository"
+        },
+        "options": []
+      }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": {
+      "questions": [
+        "q1",
+        "q2"
+      ]
+    },
+    "presented": [
+      "q2",
+      "q1"
+    ],
+    "unreached": []
+  }
+}
