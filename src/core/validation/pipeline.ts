@@ -204,6 +204,18 @@ export interface ValidationCounts {
   readonly rejectionsByRule: readonly { readonly rule: string; readonly count: number }[];
 }
 
+/** An item the item or cross-item stage rejected, for its failed record (IMPL §4.4.3). */
+export interface RejectedItem {
+  readonly collection: string;
+  /** Position in the response's collection; the response holds the item as written. */
+  readonly index: number;
+  /** As its validation events name it. */
+  readonly key: string;
+  readonly stage: "item" | "cross_item";
+  /** The rule that rejected it. An item stops at its first rejection, so there is one. */
+  readonly rule: string;
+}
+
 export type ValidationResult<A, R = unknown> =
   | {
       readonly status: "schema_failed";
@@ -220,6 +232,8 @@ export type ValidationResult<A, R = unknown> =
       readonly accepted: AcceptedItems<A>;
       /** Each dropped duplicate's key, mapped to the key or alias of the item kept. */
       readonly redirects: ReadonlyMap<string, string>;
+      /** Every rejected item, item stage first, each stage in event order. */
+      readonly rejected: readonly RejectedItem[];
       readonly events: readonly ValidationEvent[];
       readonly counts: ValidationCounts;
     };
@@ -279,17 +293,28 @@ export function validateResponse<R, C, A>(
 
   // Item stage: each item on its own, in response order, ALIAS-002 first.
   const survivors = new Map<string, Accepted<unknown>[]>();
+  const rejected: RejectedItem[] = [];
+  const recordRejection = (
+    collection: string,
+    index: number,
+    key: string,
+    stage: RejectedItem["stage"],
+    rule: string,
+  ) => {
+    rejected.push({ collection, index, key, stage, rule });
+  };
   for (const { name, spec, items } of proposed) {
     const kept: Accepted<unknown>[] = [];
     for (const item of items) {
       if (item.defines && (definitions.get(item.key) ?? 0) > 1) {
         events.push(rejection(item.key, "item", "ALIAS-002", "local key defined more than once"));
+        recordRejection(name, item.index, item.key, "item", "ALIAS-002");
         continue;
       }
       let value = item.value;
       let corrected = false;
       let relabelled = false;
-      let rejected = false;
+      let dropped = false;
       for (const check of spec.checks) {
         const result = check(value, context, scope, item.index);
         for (const event of result.events) {
@@ -307,12 +332,13 @@ export function validateResponse<R, C, A>(
         }
         if (result.kind === "reject") {
           events.push(rejection(item.key, "item", result.rule, result.detail));
-          rejected = true;
+          recordRejection(name, item.index, item.key, "item", result.rule);
+          dropped = true;
           break;
         }
         value = result.value;
       }
-      if (!rejected) kept.push({ key: item.key, index: item.index, value, corrected, relabelled });
+      if (!dropped) kept.push({ key: item.key, index: item.index, value, corrected, relabelled });
     }
     survivors.set(name, kept);
   }
@@ -338,6 +364,7 @@ export function validateResponse<R, C, A>(
       list.splice(at, 1);
       if (mergedInto !== undefined) redirects.set(item.key, mergedInto);
       events.push(rejection(item.key, "cross_item", rule, detail));
+      recordRejection(collection, index, item.key, "cross_item", rule);
     }
   }
 
@@ -349,6 +376,7 @@ export function validateResponse<R, C, A>(
     response,
     accepted,
     redirects,
+    rejected,
     events,
     counts: {
       proposed: {

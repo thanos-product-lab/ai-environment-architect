@@ -96,7 +96,7 @@ function snapshotFiles(list: readonly FixtureFile[]): SnapshotFile[] {
     (file) =>
       ({
         size: 1,
-        hash: "sha256:00",
+        hash: `sha256:${"0".repeat(64)}`,
         rule: "fixture",
         reason: "io_error",
         ...file,
@@ -104,8 +104,8 @@ function snapshotFiles(list: readonly FixtureFile[]): SnapshotFile[] {
   );
 }
 
-const SNAPSHOT_HASH = "sha256:5a";
-const CHANGED_HASH = "sha256:c4";
+const SNAPSHOT_HASH = `sha256:${"5a".repeat(32)}` as const;
+const CHANGED_HASH = `sha256:${"c4".repeat(32)}` as const;
 
 function base(
   fixture: FixtureContext,

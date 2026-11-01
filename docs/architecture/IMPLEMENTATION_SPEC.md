@@ -2,8 +2,17 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 1 November 2026  
-**Version:** 0.31  
+**Version:** 0.32  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.31
+
+- **IDs (§4.4.1).** An ID is a prefix, `_` and an opaque suffix from the injected `IdSource`, not necessarily a ULID: order comes from `seq`, never from IDs.
+- **Who revised a record (§4.4.1, §4.5).** A revision appended by a model call records that call in `revisedBy`; `producedBy` stays the call that created the lineage. `revisedBy` is never repeated from the revision before ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) v0.21).
+- **References (§4.4.1).** The alias table's `F` and `C` targets are record IDs: the revisions sent. A new row in the references table, so load check 4 covers them.
+- **Content notices (§4.4.1).** The record's fields: `snapshotId`, `modelCallId`, the `item` alias, and the `path`, `fileHash`, `lineStart` and `lineEnd` code resolves it to, with the `description`.
+- **Failed records (§3.5, §4.4.3).** `rejectedBy` holds the one rule that rejected the item: an item stops at its first rejection. Failed sub-items, such as citations, are in the validation events and in `proposed` ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) v0.21).
+- **Unentered directories (§4.5).** An `absence_check` lists the shown directories in path order, then the withheld ones in hash order, so a hash's place says nothing about the hidden name.
 
 ### Changes from v0.30
 
@@ -1751,7 +1760,7 @@ For every call:
 2. **Schema:** structured-output parse and Zod validation, with unknown fields rejected.
 3. **Items:** the per-call sequence above, starting with the item's own limits: a string longer than its maximum, or an array inside the item outside its size, rejects the item (`LIMIT-001`), with a detail naming the field and the limit, never the value. Each item is validated independently. An item that fails one rule is dropped, and later rules are not run on it. A rule may instead correct an item (`CIT-R01`) or relabel it (`GAP-002`); the item continues with the changed value. A citation is a sub-item: a rejected citation drops only itself (§3.2.2), a finding is dropped when no citation is left, and an accepted finding records how many of its citations were dropped ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.3).
 4. **Cross-item:** duplicates, conflicts, revisions, question ranking limits, held-back entries, regeneration coverage. These run only on items that passed the item stage, and may reject some of them.
-5. **Persist:** accepted records, with `producedBy` pointing at the model call, and one record for every item rejected at the item or cross-item stage, with its text as written and the IDs of the rules that rejected it (§4.4.3).
+5. **Persist:** accepted records, with `producedBy` pointing at the model call, and one record for every item rejected at the item or cross-item stage, with its text as written and the ID of the rule that rejected it (§4.4.3).
 
 Every rejection or correction is recorded on the model call:
 
@@ -1974,9 +1983,11 @@ The example leaves out most record fields.
 
 #### 4.4.1 IDs, revisions and references
 
-**Two kinds of ID.** Every record has its own **record ID**, `id`. A record that can change has a **lineage ID** as well, such as `findingId`, shared by all its revisions, and a `revision` number: 1, 2, 3… within the lineage. Both kinds come from the injected `IdSource` (`src/core/ports.ts`): a prefix, `_`, and a ULID. Code assigns every ID; the model never does (§3.2.1).
+**Two kinds of ID.** Every record has its own **record ID**, `id`. A record that can change has a **lineage ID** as well, such as `findingId`, shared by all its revisions, and a `revision` number: 1, 2, 3… within the lineage. Both kinds come from the injected `IdSource` (`src/core/ports.ts`): a prefix, `_`, and an opaque suffix of letters, digits and `-`. Nothing reads order from an ID; `seq` gives the order. Code assigns every ID; the model never does (§3.2.1).
 
 **Revising.** A change to a lineage appends its next revision. That revision repeats every field of the one before, changes what changed, and lists the one before in `supersedes`, by record ID. The one exception is a recommendation revision that fails validation, which supersedes nothing (below). A **replacement** starts a new lineage, with revision 1, whose `supersedes` also lists the current revision of every lineage it replaces; one replacement may stand for several (§3.3.3).
+
+**Who revised it.** `producedBy` names what created the lineage, and every revision repeats it. A revision appended by a model call, such as an `analyse_expansion` withdrawal or a conflict whose members changed, also records that call's lineage ID in `revisedBy`. A revision the developer causes names its decision instead, as `resolvingDecisionId` does. `revisedBy` is never repeated from the revision before, and never set on a first revision.
 
 **Current.** A revision is current when no other record supersedes it and its status is a current one (the table's last column). So a lineage has at most one current revision, and a withdrawn or replaced one has none. Immutable records and records with status `failed_validation` (§4.4.3) supersede nothing and are never superseded.
 
@@ -1989,6 +2000,8 @@ The example leaves out most record fields.
 | A recommendation revision's `support` | Each entry is typed: a finding by lineage ID, so `REC-001` sees its current state; a decision or evidence by record ID, so a superseded decision makes the recommendation affected (DM §12) |
 | A reference's `supportingFindingId` and `evidenceId` (DM §9.1) | The finding by lineage ID; the evidence by record ID |
 | An artifact revision's `attribution` (DM §9.4) | Recommendation revisions by record ID |
+| `revisedBy` | A model call by lineage ID |
+| A model call's alias table (§3.2.1): the target of each `F`, `C`, `Q`, `D` and `R` alias | Record IDs: the exact revisions sent. Code maps one to its lineage through the record |
 
 The lineage of `session_state` and `generation_config` is the session itself, so they have no lineage field: their revisions are numbered and chained within the session. Decisions have no lineage: a correction is a new decision that supersedes the old one (DM §8.2), so a decision is always referred to by its record ID. A recommendation revision's record ID is DM §9.1's `revisionId`.
 
@@ -1997,7 +2010,7 @@ The lineage of `session_state` and `generation_config` is the session itself, so
 | `session_state` | the session | `st_` | A revision per change of stage, status or outcome, with `reason` when it isn't a normal step: `interrupted`, `budget_reached` (with the purpose of the call left unsent), `stage_skipped`. Carries `productVersion` | the latest |
 | `generation_config` | the session | `gc_` | The settings of DM §5 `generationConfig` and §1.14, with their `settingsHash`. Raising a budget (§2.12) appends a revision with a reason | the latest |
 | `snapshot` | — | `snap_` | Immutable. A refresh appends a new snapshot (DM §6.1). The destination's bytes are in `content/`; its Guidance Blocks are stored | the latest is active |
-| `content_notice` | — | `cn_` | Immutable. One per valid notice (§3.3.2 step 10), with `snapshotId` and `modelCallId` | those of the active snapshot |
+| `content_notice` | — | `cn_` | Immutable. One per valid notice (§3.3.2 step 10), with `snapshotId`, `modelCallId`, the `item` alias, the `path`, `fileHash`, `lineStart` and `lineEnd` code resolves it to, and the `description` | those of the active snapshot |
 | `evidence` | — | `ev_` | Immutable. Created for accepted findings only (§4.4.3); `absence_check` evidence for each accepted absence claim (§4.5) | — |
 | `finding` | `findingId` (`fnd_`) | `fndr_` | Withdrawal: a revision with status `withdrawn` and `withdrawnReason`. Replacement: a new lineage (§4.5) | `active`, of the active snapshot, and not corrected (§4.5) |
 | `conflict` | `conflictId` (`conf_`) | `confr_` | §4.5. Carries `snapshotId` | `unresolved` or `resolved`, of the active snapshot, with every member finding current |
@@ -2052,7 +2065,7 @@ Records with status `failed_validation`, and `failed_item` records, are left out
 The Evaluation Requirements ask to "preserve the complete findings and recommendations, including rejected ones". So every item the validation pipeline rejects at the item or cross-item stage (§3.5) becomes a record, as well as the validation events it produced. The status is `failed_validation`, not "rejected", because a selection and a review can also be `rejected` (DM §9.2, §10).
 
 - **Which record.** An item from a collection with a record type of its own is stored as that type: findings, gaps and absence claims as `finding` (with the matching `kind`), conflicts as `conflict`, questions as `question`, and recommendations, additions and regeneration `revise` revisions as `recommendation_revision`. Items from every other collection (`analyse_expansion` revisions, expansion requests, content notices, held-back entries, regeneration `keep` and `drop` actions) are `failed_item` records, with their `collection`.
-- **Shape.** A failed record holds only the envelope, for a recommendation revision its lineage fields (below), and these fields: `status: "failed_validation"`; `producedBy`, the model call or `developer_edit`; `itemKey`, named as the item's validation events name it (§3.5); `rejectedBy`, the IDs of the rules that rejected it, without repeats, in event order; and `proposed`, the item exactly as written after the schema stage, with its aliases and local keys unresolved. Nothing in it is corrected or rewritten, and none of the type's other fields is filled in: a failed absence claim has no code-written statement, and a failed finding has no evidence or basis.
+- **Shape.** A failed record holds only the envelope, for a recommendation revision its lineage fields (below), and these fields: `status: "failed_validation"`; `producedBy`, the model call or `developer_edit`; `itemKey`, named as the item's validation events name it (§3.5); `rejectedBy`, a list holding the ID of the rule that rejected it, since an item stops at its first rejection (§3.5), whose events also hold its failed sub-items; and `proposed`, the item exactly as written after the schema stage, with its aliases and local keys unresolved. Nothing in it is corrected or rewritten, and none of the type's other fields is filled in: a failed absence claim has no code-written statement, and a failed finding has no evidence or basis.
 - **Lineage.** Only recommendation revisions keep one: a new `recommendationId` for a new recommendation, the existing one for a regeneration `revise` or a developer edit, so the history of one recommendation stays together. Other failed records have no lineage ID or revision.
 - **Evidence** is created only for accepted findings. Evidence code made while checking a finding that is later rejected, at the item or cross-item stage, is discarded; its citations stay in `proposed`.
 - **Failed citations of an accepted finding** are kept on that finding as `failedCitations`, each the citation as proposed with its `rejectedBy`, merged duplicates (`CIT-009`) included. `droppedCitations` stays their count (DM §6.3).
@@ -2067,12 +2080,12 @@ This settles the direction for conflict records that [`DOMAIN_MODEL.md`](DOMAIN_
 | Outcome | Records appended |
 |---|---|
 | `kept` | Nothing |
-| `revised` | The next revision of the same `conflictId`, with the new `findingIds` and status `unresolved`, superseding the old revision |
+| `revised` | The next revision of the same `conflictId`, with the new `findingIds`, status `unresolved` and `revisedBy`, superseding the old revision |
 | `replaced` | A new conflict lineage, from the replacement `c` key, superseding the current revision of every conflict it replaces |
-| `withdrawn` | The next revision of the same `conflictId`, with status `withdrawn` and its `withdrawnReason` |
+| `withdrawn` | The next revision of the same `conflictId`, with status `withdrawn`, its `withdrawnReason` and `revisedBy` |
 | resolved by a decision (§2.6) | The next revision, with status `resolved` and `resolvingDecisionId` |
 
-Findings follow the same pattern. A `withdraw` revision of an `F` target appends the finding's next revision, with status `withdrawn` and the reason `withdrawn_by_model`. A `replace` appends the replacement as a new finding lineage that supersedes the target's current revision. The withdrawn and replaced findings stay in the file and the export, with their status (§3.3.3: "kept for history").
+Findings follow the same pattern. A `withdraw` revision of an `F` target appends the finding's next revision, with status `withdrawn`, the reason `withdrawn_by_model` and `revisedBy`. A `replace` appends the replacement as a new finding lineage that supersedes the target's current revision. The withdrawn and replaced findings stay in the file and the export, with their status (§3.3.3: "kept for history").
 
 **Corrected findings.** A finding the developer marks wrong (§2.5, `w`) is not withdrawn. The correction is a `developer_correction` decision that names the finding in `findingId` ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §8.2). While a current decision names it, the finding is **corrected**:
 
@@ -2088,7 +2101,7 @@ If the correcting decision is superseded by one that no longer names the finding
 |---|---|
 | `snapshotId` | The snapshot whose file list was checked |
 | `pathGlob` | The glob after the path normalisation of §1.11 |
-| `unenteredDirectories` | The directories capture didn't enter that the glob could reach (§1.11), in path order; a withheld one by `pathHash` |
+| `unenteredDirectories` | The directories capture didn't enter that the glob could reach (§1.11): the shown ones in path order, then the withheld ones by `pathHash`, in hash order, so a hash's place says nothing about the name |
 | `basis` | `code_observation`, as for `entry` evidence (§3.2.4): both read the file list, which is an observation, not documentation |
 
 An `absence_check` has no path, file hash, lines or excerpt. It supports only the narrow statement it was made for (§1.11).

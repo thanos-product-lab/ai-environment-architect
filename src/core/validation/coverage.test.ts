@@ -542,10 +542,21 @@ describe("ABS-001 and ABS-002 (IMPL §1.11, §3.3.2 step 6)", () => {
         "`broken/` (unreadable), `node_modules/` (excluded), `src/generated/` (excluded), " +
         "`src/node_modules/` (excluded), `tmp/` (ignored), `vendor -> ../shared` (symbolic link) " +
         "and 1 withheld directory.",
+      // Shown names in path order, then the withheld one by hash, though `AKIA…` sorts first.
+      unenteredDirectories: [
+        { path: "broken" },
+        { path: "node_modules" },
+        { path: "src/generated" },
+        { path: "src/node_modules" },
+        { path: "tmp" },
+        { path: "vendor" },
+        { pathHash: pathHash(WITHHELD_DIR) },
+      ],
     });
     expect(checkAbsenceClaim("docs/*.rst", index)).toEqual({
       ok: true,
       statement: "No files matched `docs/*.rst` within the inspected scope.",
+      unenteredDirectories: [],
     });
   });
 
@@ -558,6 +569,7 @@ describe("ABS-001 and ABS-002 (IMPL §1.11, §3.3.2 step 6)", () => {
       ok: true,
       statement:
         "No files matched `**/*.ts` within the inspected scope. Not inspected: 1 withheld directory.",
+      unenteredDirectories: [{ pathHash: pathHash(WITHHELD_DIR) }],
     });
   });
 
@@ -583,6 +595,7 @@ describe("ABS-001 and ABS-002 (IMPL §1.11, §3.3.2 step 6)", () => {
       statement:
         "No files matched `docs/*.rst` within the inspected scope. " +
         "Ignore rules were not applied, so ignored files could not be identified.",
+      unenteredDirectories: [],
     });
   });
 
@@ -590,7 +603,11 @@ describe("ABS-001 and ABS-002 (IMPL §1.11, §3.3.2 step 6)", () => {
     const claim = { pathGlob: "docs/*.rst", reason: "Looked for reStructuredText." };
     expect(absenceClaimCheck()(claim, context, { localKeys: new Set() })).toEqual({
       kind: "accept",
-      value: { ...claim, statement: "No files matched `docs/*.rst` within the inspected scope." },
+      value: {
+        ...claim,
+        statement: "No files matched `docs/*.rst` within the inspected scope.",
+        unenteredDirectories: [],
+      },
       events: [],
     });
   });

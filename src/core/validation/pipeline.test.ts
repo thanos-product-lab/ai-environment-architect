@@ -556,6 +556,39 @@ describe("cross-item stage (IMPL §3.5)", () => {
     ]);
   });
 
+  it("lists every rejected item with the rule that rejected it, for its failed record (IMPL §4.4.3)", () => {
+    const result = run({
+      notes: [
+        n("n1", "drop", { citations: ["good", "bad", "bad"] }),
+        n("n2", "ok", { citations: ["bad"] }),
+        n("n3"),
+        n("n3"),
+      ],
+      links: [],
+      flags: [{ text: "bad" }],
+    });
+    if (result.status !== "validated") throw new Error(result.status);
+    expect(result.rejected).toEqual([
+      {
+        collection: "notes",
+        index: 1,
+        key: "n2",
+        stage: "item",
+        rule: "TEST-CITE-NONE",
+      },
+      { collection: "notes", index: 2, key: "n3", stage: "item", rule: "ALIAS-002" },
+      { collection: "notes", index: 3, key: "n3", stage: "item", rule: "ALIAS-002" },
+      { collection: "flags", index: 0, key: "flags/0", stage: "item", rule: "TEST-FLAG" },
+      {
+        collection: "notes",
+        index: 0,
+        key: "n1",
+        stage: "cross_item",
+        rule: "TEST-DROP",
+      },
+    ]);
+  });
+
   it("counts rejections by rule, sorted by rule ID", () => {
     const result = run({
       notes: [n("n1", ""), n("n2", "ok", { refs: ["F-9"] }), n("n3", "")],
@@ -621,6 +654,7 @@ describe("determinism (IMPL §3.8)", () => {
         expect(result.counts.proposed).toEqual({ state: "known", count: proposed });
         expect(result.counts.accepted).toBe(accepted);
         expect(accepted + rejectedItems).toBe(proposed);
+        expect(result.rejected).toHaveLength(rejectedItems);
       }),
     );
   });

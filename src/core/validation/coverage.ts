@@ -1,4 +1,4 @@
-import { isWithheldPath, pathHash, type RecordedPath } from "../context/secrets.js";
+import { isWithheldPath, pathHash, type RecordedPath, recordedPath } from "../context/secrets.js";
 import type { SelectionGap } from "../context/tiers.js";
 import { couldMatchBelow, matchSegments } from "../glob.js";
 import { comparePaths, normalisePath } from "../paths.js";
@@ -313,7 +313,14 @@ const IGNORE_RULES_NOT_APPLIED =
 export function checkAbsenceClaim(
   pathGlob: string,
   index: CoverageIndex,
-): { readonly ok: true; readonly statement: string } | CoverageFailure {
+):
+  | {
+      readonly ok: true;
+      readonly statement: string;
+      /** The unentered directories the glob could reach: shown ones in path order, then withheld ones by hash. */
+      readonly unenteredDirectories: readonly RecordedPath[];
+    }
+  | CoverageFailure {
   if (NOT_A_GLOB.test(pathGlob))
     return {
       ok: false,
@@ -366,7 +373,20 @@ export function checkAbsenceClaim(
     parts.push(`Not inspected: ${listing}.`);
   }
   if (index.ignoreRules.state === "not_applied") parts.push(IGNORE_RULES_NOT_APPLIED);
-  return { ok: true, statement: parts.join(" ") };
+  // Shown names in path order, then withheld ones in hash order, so a hash's place in the list
+  // says nothing about the name it stands for.
+  const unenteredDirectories = [
+    ...reached
+      .filter((directory) => !directory.withheld)
+      .sort((a, b) => comparePaths(a.path, b.path))
+      .map((directory) => recordedPath(directory.path)),
+    ...reached
+      .filter((directory) => directory.withheld)
+      .map((directory) => pathHash(directory.path))
+      .sort(comparePaths)
+      .map((hash) => ({ pathHash: hash })),
+  ];
+  return { ok: true, statement: parts.join(" "), unenteredDirectories };
 }
 
 function firstWildcard(pattern: readonly string[]): number {
@@ -414,13 +434,21 @@ export function gapCheck<
 
 /** ABS-003, ABS-001 and ABS-002 as an item check (IMPL §3.3.2 step 6). Sets the claim's statement. */
 export function absenceClaimCheck<
-  V extends { readonly pathGlob: string; readonly statement?: string },
+  V extends {
+    readonly pathGlob: string;
+    readonly statement?: string;
+    readonly unenteredDirectories?: readonly RecordedPath[];
+  },
   C extends CoverageContext,
 >(): ItemCheck<V, C> {
   return (value, context) => {
     const result = checkAbsenceClaim(value.pathGlob, context.coverage);
     return result.ok
-      ? accept({ ...value, statement: result.statement })
+      ? accept({
+          ...value,
+          statement: result.statement,
+          unenteredDirectories: result.unenteredDirectories,
+        })
       : reject(result.rule, result.detail);
   };
 }

@@ -2,7 +2,7 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 1 November 2026  
-**Version:** 0.20 — consolidated specification  
+**Version:** 0.21 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,13 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.20
+
+1. **Who revised a record (§6.3, §6.5).** Findings and conflicts gain `revisedBy`: the model call that appended a revision after the first. `producedBy` stays the call that created the record ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.4.1).
+2. **Failed items (§6.3, §9.1).** A failed item keeps the rule that rejected it: an item stops at its first rejection.
+3. **Unentered directories (§6.2).** Shown directories in path order, then withheld ones in hash order.
+4. **Generation config (§5).** Prompt and schema versions are recorded on each model call (§13.1), not in `generationConfig`.
 
 ### Changes from v0.19
 
@@ -163,7 +170,7 @@ One attempt to configure one repository.
 | `outputScope` | `["root CLAUDE.md"]` in the first slice |
 | `repository` | Identity and resolved local root |
 | `targetPath` | Fixed to root `CLAUDE.md` |
-| `generationConfig` | Requested model, prompt/template set version, output schema versions, generation budget (token and/or cost ceiling), question budget |
+| `generationConfig` | Requested model, context selection settings and their hash, generation budget (token and/or cost ceiling), question budget, `retainModelInputs`. The prompt and output schema versions are recorded on each model call (§13.1) |
 | `stage` | `inspect`, `clarify`, `recommend`, `review`, `apply`, `complete` |
 | `status` | `ready`, `running`, `awaiting_user`, `blocked`, `failed`, `completed`, `cancelled` |
 | `outcome` | `applied`, `no_change`, `failed`, `cancelled`, or unset while in progress |
@@ -229,7 +236,7 @@ A reference to specific captured content.
 | `id`, `snapshotId` | |
 | `kind` | `lines`; `entry` for evidence that a file exists; or `absence_check` for the file-list check behind an accepted absence claim. Only code creates `entry` and `absence_check` evidence |
 | `path`, `fileHash` | `lines` and `entry` only. Must match a `read` or `listed_only` entry in the snapshot |
-| `pathGlob`, `unenteredDirectories` | `absence_check` only: the glob after path normalisation, and the directories capture didn't enter that it could reach, withheld ones by hash |
+| `pathGlob`, `unenteredDirectories` | `absence_check` only: the glob after path normalisation, and the directories capture didn't enter that it could reach: shown ones in path order, then withheld ones by hash, in hash order |
 | `lineStart`, `lineEnd` | `lines` only. Validated at capture time |
 | `excerpt` | `lines` only. The cited lines: at most 40, provisionally, and never truncated, so a citation of a longer range is rejected ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.2, `CIT-010`) |
 | `basis` | `documentation`, `code_observation`, `existing_guidance` (§6.4). `entry` and `absence_check` evidence is always `code_observation`, because it only observes the file list ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.4) |
@@ -257,7 +264,8 @@ One claim about the repository, or one explicit unknown.
 | `droppedCitations`, `failedCitations` | Model-produced findings only: how many proposed citations failed validation or were merged into an earlier duplicate, and those citations as proposed, with the rules that rejected them ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.5). Shown in the findings view |
 | `coverage` | Gaps only, set by code: `inspected`, or `not_inspected` with what wasn't read: the entries the gap's related paths match that weren't sent in full (withheld ones by hash), and the directories capture didn't enter that count: those the paths name explicitly, and those they could reach that may hide project content (unreadable, symbolic links, user exclusions), withheld ones by hash ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.11, §3.3.2). The review shows a `not_inspected` gap as "not inspected", not "missing" |
 | `uncertainty` | Short explanation; no numeric confidence score |
-| `producedBy` | Model call ID, or `deterministic` |
+| `producedBy` | Model call ID, or `deterministic`: what created the finding, repeated on every revision |
+| `revisedBy?` | The model call that appended this revision, when one did; never on a first revision ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.4.1) |
 
 A **gap** records something the product looked for and could not establish, for example: "No test command could be determined for `services/api`", or "Ownership of `shared/` is not documented." A gap may:
 
@@ -267,7 +275,7 @@ A **gap** records something the product looked for and could not establish, for 
 
 A gap must never be filled by a model assumption.
 
-A finding with status `failed_validation` is an item the model proposed that validation rejected. It is kept with its text as written and the IDs of the rules that rejected it, so reviewers can assess errors. It is never current, never shown as a finding and never supports anything ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.4.3). A withdrawn or replaced finding is kept too, with its status.
+A finding with status `failed_validation` is an item the model proposed that validation rejected. It is kept with its text as written and the ID of the rule that rejected it, so reviewers can assess errors. It is never current, never shown as a finding and never supports anything ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.4.3). A withdrawn or replaced finding is kept too, with its status.
 
 Only findings of the active snapshot are current. A finding named by a current `developer_correction` decision is **corrected**: it is shown, marked as corrected, but is not current and supports nothing ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.5).
 
@@ -304,6 +312,7 @@ Links findings that appear inconsistent.
 | `withdrawnReason?` | Set when withdrawn: `withdrawn_by_model`, `member_withdrawn`, `members_merged` (one replacement now stands for several members) or `sources_not_distinct` ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.3.3) |
 | `revision`, `supersedes?` | The revision number within `conflictId`; and the revisions this one supersedes: the previous revision, for changed members, withdrawal or resolution; or, for a replacing conflict, the current revision of every conflict it replaces, since one replacement may stand for several |
 | `resolvingDecisionId?` | Set when resolved |
+| `producedBy`, `revisedBy?` | The model call that created the conflict, and the one that appended this revision, when one did |
 
 Example: architecture documentation requires the shared client, the existing `CLAUDE.md` says to use `fetch`, and some components bypass the client. The conflict records this without choosing a policy.
 
@@ -425,7 +434,7 @@ Deterministic validation runs on every revision:
 - the support satisfies the evidence rules;
 - the target block exists and its hash matches.
 
-A revision that fails validation is not shown for selection. It is recorded with status `failed_validation`, its text as written and the rules that rejected it ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.4.3).
+A revision that fails validation is not shown for selection. It is recorded with status `failed_validation`, its text as written and the rule that rejected it ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.4.3).
 
 These references are also the basis for later maintenance checks: stale paths and commands are detected by comparing stored references with a new snapshot.
 

@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import { analyse } from "../../schemas/analyse.js";
+import type { RecordedPath } from "../context/secrets.js";
 import { type AliasKind, resolveReference } from "./aliases.js";
 import { basisDerivation } from "./basis.js";
 import { type Basis, type CitationContext, citationCheck, type Evidence } from "./citations.js";
@@ -58,8 +59,11 @@ export type Finding = Response["findings"][number] & {
   readonly basis?: readonly Basis[];
 };
 export type Gap = Response["gaps"][number] & { readonly coverage?: GapCoverage };
-/** An absence claim, with the statement code wrote (§1.11). */
-export type AbsenceClaim = Response["absenceClaims"][number] & { readonly statement?: string };
+/** An absence claim, with the statement code wrote and the directories it reached (§1.11). */
+export type AbsenceClaim = Response["absenceClaims"][number] & {
+  readonly statement?: string;
+  readonly unenteredDirectories?: readonly RecordedPath[];
+};
 export type Conflict = Response["conflicts"][number];
 export type ContentNotice = Response["contentNotices"][number];
 
