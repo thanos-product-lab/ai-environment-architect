@@ -2,8 +2,13 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 1 November 2026  
-**Version:** 0.28  
+**Version:** 0.29  
 **Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
+
+### Changes from v0.28
+
+- **Withdrawn reasons (§3.3.3).** The values use underscores, as `members_merged` does: `withdrawn_by_model`, `member_withdrawn`, `members_merged` and `sources_not_distinct` ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) v0.18 §6.5). They will be stored on conflict records, so they are settled before persistence.
+- **Validator (§3.5).** `validatorVersion` is `validate/0.12.0`: the same response records the renamed reasons.
 
 ### Changes from v0.27
 
@@ -1559,10 +1564,10 @@ There is no `expansionRequests` field; one expansion round only.
 - Duplicates (`DUP-001`) also compare new items with the call-1 records still passed forward, those no revision that survived the item stage withdraws or replaces; records code produced can't be revised, so they are always passed forward, and known facts are left to `DUP-002`, which runs first: findings with call-1 claims, gaps with call-1 gaps, and absence claims with call-1 absence claims, by the identities of §3.3.2 step 7. A new item that restates one is dropped, and references to it are redirected to that `F` alias.
 - A second revision of the same target is rejected; the first is kept (`REV-003`, cross-item, after the duplicates).
 - A `replace` requires its replacement to pass validation; otherwise the original is kept and the revision rejected (`REV-001`, cross-item, last, after `SUP-005`). A replacement dropped as a duplicate of another new item counts as that item; one redirected to an `F` alias fails `REV-001`.
-- Withdrawn and replaced records are kept for history with their status, and are no longer passed forward. A call-1 conflict a surviving revision withdraws has the reason "withdrawn by the model" ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.5).
+- Withdrawn and replaced records are kept for history with their status, and are no longer passed forward. A call-1 conflict a surviving revision withdraws has the reason `withdrawn_by_model` ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.5).
 - Members are carried through the revisions that survived `REV-003`, for the new conflicts (before `CONF-001`) and for the call-1 conflicts no surviving revision withdraws or replaces: a withdrawn member is lost, and a replaced member's place goes to its replacement when that replacement is a surviving finding; otherwise the member is kept, since `REV-001` will keep the original.
-- Any change to a call-1 conflict's member set, a member lost or replaced, runs `CONF-001` and then `SUP-005` on the new set. Failing `CONF-001` withdraws the conflict with reason "member withdrawn" when a member was withdrawn, and `members_merged` when none was and one replacement now stands for several members; failing `SUP-005` withdraws it with reason "sources not distinct". A conflict that passes both is revised: a new conflict revision with the new members supersedes the old one ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.5).
-- Validation returns one outcome for every call-1 conflict, in alias order, the order in which the call-1 records must be given; a response that fails the schema accepts nothing, so every conflict is `kept`. The outcomes are: `kept` when nothing touches it; `revised`, with its new members; `replaced`, with the key of the new conflict that replaces it; or `withdrawn`, with its reason ("withdrawn by the model" for a surviving `withdraw` revision). These are outcomes for call-1 records, not rejections of the response, so they are returned with the result rather than as validation events. The records themselves are created with persistence (§4).
+- Any change to a call-1 conflict's member set, a member lost or replaced, runs `CONF-001` and then `SUP-005` on the new set. Failing `CONF-001` withdraws the conflict with reason `member_withdrawn` when a member was withdrawn, and `members_merged` when none was and one replacement now stands for several members; failing `SUP-005` withdraws it with reason `sources_not_distinct`. A conflict that passes both is revised: a new conflict revision with the new members supersedes the old one ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.5).
+- Validation returns one outcome for every call-1 conflict, in alias order, the order in which the call-1 records must be given; a response that fails the schema accepts nothing, so every conflict is `kept`. The outcomes are: `kept` when nothing touches it; `revised`, with its new members; `replaced`, with the key of the new conflict that replaces it; or `withdrawn`, with its reason (`withdrawn_by_model` for a surviving `withdraw` revision). These are outcomes for call-1 records, not rejections of the response, so they are returned with the result rather than as validation events. The records themselves are created with persistence (§4).
 
 #### 3.3.4 `generate_questions`
 
@@ -1748,7 +1753,7 @@ A schema failure rejects the whole response with one event per issue, in the ord
 
 No event repeats text from the response. An `itemKey` is a local key or alias only when it is well formed (a local key is one or two lowercase letters and a number, an alias as in §3.2.1); otherwise the item is named by its position, `<collection>/<index>`, and a malformed local key defines nothing. An item with no key of its own, such as an expansion request, a content notice or a revision, is always named by its position. A detail names only code-made values, such as an alias from the table, never an unknown value the model wrote. A rejected item keeps the events of its sub-items, such as each failed citation. Events are ordered by stage. In the item stage they follow the response's item order, collections in schema order, and within an item the rule order, except that a sub-item's events are in sub-item order, each sub-item's in rule order; `ALIAS-002` is checked first, for each item in turn. In the cross-item stage they follow the order in which the call's cross-item checks run (§3.3.2–§3.3.4), then item order.
 
-Each call also records counts: proposed, accepted, corrected and relabelled items, and rejections by rule. An item counts as corrected or relabelled if it was accepted with such an event. Rule IDs are stable across versions. The validator has its own version (`validatorVersion`, `validate/0.11.0` since the conflict outcomes of v0.28), recorded with every call, because changing a rule changes what is accepted even when the model output is identical. Any change to what is accepted increases it, changed thresholds and word lists included. A test pins the list of rule IDs to the version, together with the runtime's Unicode version (`process.versions.unicode`), because `CIT-007`'s and `SUP-002`'s character classes follow it.
+Each call also records counts: proposed, accepted, corrected and relabelled items, and rejections by rule. An item counts as corrected or relabelled if it was accepted with such an event. Rule IDs are stable across versions. The validator has its own version (`validatorVersion`, `validate/0.12.0` since the withdrawn reasons of v0.29), recorded with every call, because changing a rule changes what is accepted even when the model output is identical. Any change to what is accepted increases it, changed thresholds and word lists included. A test pins the list of rule IDs to the version, together with the runtime's Unicode version (`process.versions.unicode`), because `CIT-007`'s and `SUP-002`'s character classes follow it.
 
 ### 3.6 Retry and failure policy
 
@@ -1818,7 +1823,7 @@ A change to any prompt, schema, validator or detector requires the fixture suite
   - a revision of a known fact (`REV-002`), two revisions of one target (`REV-003`), a replacement that failed validation (`REV-001`), and a call-1 conflict that loses a member or whose replacement member shares its sources (`SUP-005` again);
   - a question tied only to documented, uncontested findings (`Q-001`), one tied to a documented finding in an unresolved conflict (accepted), duplicate `resolves` sets in another order (`DUP-003`), more valid questions than twice the budget (`LIMIT-002`) with the rest `unreached`, and a question resolving a resolved conflict, which doesn't rank first;
   - a call-1 conflict that loses one of three members and is revised, and a conflict member naming a call-1 gap (`ALIAS-003`);
-  - an outcome for every call-1 conflict: `kept`, `revised`, `replaced` (naming the kept conflict when the replacement was a duplicate), `withdrawn` by the model, `withdrawn` with `members_merged` when one replacement stands for both members, and every conflict `kept` after a schema failure.
+  - an outcome for every call-1 conflict: `kept`, `revised`, `replaced` (naming the kept conflict when the replacement was a duplicate), `withdrawn` with `withdrawn_by_model`, `withdrawn` with `members_merged` when one replacement stands for both members, and every conflict `kept` after a schema failure.
 
 **Evidence basis and known facts** (§3.2.4–§3.2.5), with no model involved:
 

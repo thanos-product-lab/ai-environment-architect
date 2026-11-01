@@ -2,7 +2,7 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 1 November 2026  
-**Version:** 0.17 — consolidated specification  
+**Version:** 0.18 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,10 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.17
+
+1. **Withdrawn reasons (§6.5).** Written with underscores, as `members_merged` and the §8.1 reasons are: `withdrawn_by_model`, `member_withdrawn`, `members_merged`, `sources_not_distinct`.
 
 ### Changes from v0.16
 
@@ -272,7 +276,7 @@ Links findings that appear inconsistent.
 | `findingIds` | At least two |
 | `description` | What disagrees |
 | `status` | `unresolved`, `resolved`, `withdrawn` |
-| `withdrawnReason?` | Set when withdrawn: `withdrawn by the model`, `member withdrawn`, `members_merged` (one replacement now stands for several members) or `sources not distinct` ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.3.3) |
+| `withdrawnReason?` | Set when withdrawn: `withdrawn_by_model`, `member_withdrawn`, `members_merged` (one replacement now stands for several members) or `sources_not_distinct` ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.3.3) |
 | `supersedesId?` | Set on a revision that supersedes an earlier one: changed members, withdrawal, or a replacing conflict |
 | `resolvingDecisionId?` | Set when resolved |
 
