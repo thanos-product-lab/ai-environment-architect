@@ -2,7 +2,7 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 1 November 2026  
-**Version:** 0.16 — consolidated specification  
+**Version:** 0.17 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,11 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.16
+
+1. **Withdrawn reasons (§6.5).** `members_merged`: a conflict that falls below two members only because one replacement stands for several of them.
+2. **Note for M4 (§6.5).** The direction for conflict records: every change is a new revision, the latest holds the current status, withdrawal is a revision with status `withdrawn`, and a replacement is a new conflict whose `supersedesId` points at the old one.
 
 ### Changes from v0.15
 
@@ -267,8 +272,8 @@ Links findings that appear inconsistent.
 | `findingIds` | At least two |
 | `description` | What disagrees |
 | `status` | `unresolved`, `resolved`, `withdrawn` |
-| `withdrawnReason?` | Set when withdrawn: `withdrawn by the model`, `member withdrawn` or `sources not distinct` ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.3.3) |
-| `supersedesId?` | Set on a revision whose members changed |
+| `withdrawnReason?` | Set when withdrawn: `withdrawn by the model`, `member withdrawn`, `members_merged` (one replacement now stands for several members) or `sources not distinct` ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.3.3) |
+| `supersedesId?` | Set on a revision that supersedes an earlier one: changed members, withdrawal, or a replacing conflict |
 | `resolvingDecisionId?` | Set when resolved |
 
 Example: architecture documentation requires the shared client, the existing `CLAUDE.md` says to use `fetch`, and some components bypass the client. The conflict records this without choosing a policy.
@@ -276,6 +281,8 @@ Example: architecture documentation requires the shared client, the existing `CL
 An unresolved conflict blocks only the recommendations whose content depends on its resolution. Resolving a conflict never removes its evidence.
 
 Records are never changed in place (§15). When the members of a conflict change, because a member finding is withdrawn or replaced, a new conflict revision with the new `findingIds` supersedes the old one, which is kept for history. A conflict left with fewer than two members, or whose members no longer have distinct sources, is withdrawn instead, with its reason. A withdrawn or superseded conflict is no longer passed to later calls and blocks nothing; only the latest revision of a conflict is current.
+
+> **Note for M4.** Direction for the conflict records, to be specified with persistence ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4): every change to a conflict is a new revision, and the latest revision holds the current status. A withdrawal is a revision with status `withdrawn` and its `withdrawnReason`. A replacement is a new conflict whose `supersedesId` points at the old one. The validation outcomes (`kept`, `revised`, `replaced`, `withdrawn`) map onto these: `kept` creates nothing.
 
 ## 7. Destination: Guidance Blocks
 
