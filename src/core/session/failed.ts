@@ -33,7 +33,7 @@ export function recordFailedItems(
       status: "failed_validation" as const,
       producedBy,
       itemKey: item.key,
-      rejectedBy: [item.rule],
+      rejectedBy: [item.rule] as [string],
       proposed: proposedItem(result.response, item),
     };
     if (target.type === "finding") log.append({ type: "finding", kind: target.kind, ...fields });
@@ -54,7 +54,8 @@ export function recordFailedRecommendationRevision(
     readonly recommendationId?: string;
     readonly producedBy: string;
     readonly itemKey: string;
-    readonly rejectedBy: readonly string[];
+    /** The one rule that rejected it (§4.4.3). */
+    readonly rule: string;
     readonly proposed: unknown;
   },
 ): RecordOf<"recommendation_revision"> {
@@ -63,7 +64,7 @@ export function recordFailedRecommendationRevision(
     status: "failed_validation" as const,
     producedBy: failed.producedBy,
     itemKey: failed.itemKey,
-    rejectedBy: [...new Set(failed.rejectedBy)],
+    rejectedBy: [failed.rule] as [string],
     proposed: json(failed.proposed),
   };
   if (failed.recommendationId === undefined) return log.start(fields);

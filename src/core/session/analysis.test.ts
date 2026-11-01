@@ -917,7 +917,7 @@ describe("round trip (IMPL §4.11)", () => {
     recordFailedRecommendationRevision(log, {
       producedBy: "call_0004",
       itemKey: "r1",
-      rejectedBy: ["SUP-003"],
+      rule: "SUP-003",
       proposed: { key: "r1" },
     });
     const types = new Set(log.records.map((r) => r.type));
@@ -956,5 +956,80 @@ describe("round trip (IMPL §4.11)", () => {
     const parsed = sessionFile.parse(JSON.parse(text));
     expect(parsed.records).toEqual(JSON.parse(JSON.stringify(log.records)));
     expect(serialiseSession(parsed)).toBe(text);
+  });
+});
+
+describe("acting on the revisions a call was sent (IMPL §4.4.1, §4.5)", () => {
+  it("a replacement starts a lineage with no revisedBy: producedBy already names the call", () => {
+    const { log, recording, run } = expansionCall();
+    const from = log.records.length;
+    recordAnalyseExpansion(
+      recording,
+      run({ findings: [apiFinding("f1")], revisions: [replace("F-3", "f1")] }),
+    );
+    const replacement = ofType(appended(log, from), "finding")[0];
+    expect(replacement).toMatchObject({ revision: 1, producedBy: "call_0002" });
+    expect(replacement).not.toHaveProperty("revisedBy");
+  });
+
+  it("refuses a withdrawal when the finding has been revised since the call was sent", () => {
+    const { log, recording, run, call1 } = expansionCall();
+    const validation = run({ revisions: [withdraw("F-4")] });
+    log.revise("finding", call1.findings.get("f3") as string, {
+      status: "withdrawn",
+      withdrawnReason: "withdrawn_by_model",
+      revisedBy: "call_0009",
+    });
+    const from = log.records.length;
+    expect(() => recordAnalyseExpansion(recording, validation)).toThrow(
+      /superseded since the call/,
+    );
+    // Nothing that call says is applied: the refusal comes before any record is appended.
+    expect(appended(log, from)).toEqual([]);
+  });
+
+  it("resolveConflict refuses a conflict that a later call replaced", () => {
+    const { log, recording, run, call1 } = expansionCall();
+    recordAnalyseExpansion(
+      recording,
+      run({
+        conflicts: [
+          {
+            key: "c1",
+            description: "The API module and the lookup disagree.",
+            findings: ["F-2", "F-3"],
+          },
+        ],
+        revisions: [replace("C-1", "c1")],
+      }),
+    );
+    const conflictId = call1.conflicts.get("c1") as string;
+    const decision = log.append({
+      type: "decision",
+      statement: "Use the shared client.",
+      scope: { kind: "repository" },
+      exceptions: [],
+      conflictId,
+      origin: "answered_question",
+      actor: "developer",
+      decidedAt: "2026-11-01T10:20:00.000Z",
+    });
+    expect(() => resolveConflict(log, conflictId, decision.id)).toThrow(/not unresolved/);
+  });
+});
+
+describe("acting on the revisions a call was sent, before anything is appended (IMPL §4.5)", () => {
+  it("refuses a conflict outcome whose conflict moved on, leaving the log unchanged", () => {
+    const { log, recording, run, call1 } = expansionCall();
+    const validation = run({ findings: [apiFinding("f1")], revisions: [replace("F-3", "f1")] });
+    log.revise("conflict", call1.conflicts.get("c2") as string, {
+      description: "Edited elsewhere.",
+      revisedBy: "call_0009",
+    });
+    const from = log.records.length;
+    expect(() => recordAnalyseExpansion(recording, validation)).toThrow(
+      /superseded since the call/,
+    );
+    expect(appended(log, from)).toEqual([]);
   });
 });

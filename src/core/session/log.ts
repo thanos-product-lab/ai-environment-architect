@@ -52,15 +52,30 @@ export type LineageStart<T extends Type> = DeepReadonly<
   >
 >;
 
+/** Fields every revision repeats unchanged: what the lineage is, and what created it. */
+const FIXED_ON_REVISION = ["producedBy", "kind", "snapshotId"] as const;
+
 /** What a revision changes. A field set to `undefined` is removed. */
 export type Changes<T extends Type> = Partial<
   DeepReadonly<
     DistributiveOmit<
       RecordOf<T>,
-      Envelope | "revision" | "supersedes" | (typeof LINEAGE_FIELDS)[number]
+      | Envelope
+      | "revision"
+      | "supersedes"
+      | (typeof LINEAGE_FIELDS)[number]
+      | (typeof FIXED_ON_REVISION)[number]
     >
   >
 >;
+
+/** The statuses a revision may have and still be current (§4.4.1, the table's last column). */
+const CURRENT_STATUSES: Partial<Record<Type, ReadonlySet<string>>> = {
+  finding: new Set(["active"]),
+  conflict: new Set(["unresolved", "resolved"]),
+  question: new Set(["open", "answered", "skipped", "unreached"]),
+  recommendation_revision: new Set(["valid"]),
+};
 
 /** A record of a lineage that isn't `failed_validation`, so it has its lineage ID. */
 export type Revised<T extends Type> = Exclude<
@@ -149,6 +164,7 @@ export class SessionLog {
     };
     for (const id of (candidate as { supersedes?: readonly string[] }).supersedes ?? [])
       this.#checkSupersedable(type, id);
+    this.#checkLineage(candidate as unknown as SessionRecord);
     const parsed = sessionRecord.safeParse(candidate);
     if (!parsed.success)
       throw new Error(
@@ -191,6 +207,8 @@ export class SessionLog {
     const last = all.at(-1);
     if (base === undefined || last === undefined)
       throw new Error(`no ${type} revision to revise in ${lineage}`);
+    for (const field of [...FIXED_ON_REVISION, ...LINEAGE_FIELDS, "type", "revision", "supersedes"])
+      if (field in changes) throw new Error(`a revision can't change ${field}`);
     const {
       id: _id,
       seq: _seq,
@@ -215,6 +233,32 @@ export class SessionLog {
     if (this.#superseded.has(id)) throw new Error(`${id} is already superseded`);
     if (lineageOf(target) === undefined && !SELF_SUPERSEDING.has(type))
       throw new Error(`${id} is immutable`);
+    const current = CURRENT_STATUSES[type];
+    const status = (target as { status?: string }).status;
+    if (current !== undefined && status !== undefined && !current.has(status))
+      throw new Error(`${id} is ${status}, so it isn't current and can't be superseded`);
+  }
+
+  /**
+   * A lineage's revisions are numbered 1, 2, 3… in order, and each one after the first that
+   * isn't `failed_validation` supersedes exactly the latest earlier one that isn't (§4.4.1).
+   */
+  #checkLineage(record: SessionRecord): void {
+    const lineage = lineageOf(record);
+    if (lineage === undefined) return;
+    const earlier = this.revisions(record.type, lineage);
+    const revision = (record as { revision?: number }).revision;
+    const expected = ((earlier.at(-1) as { revision?: number } | undefined)?.revision ?? 0) + 1;
+    if (revision !== expected)
+      throw new Error(`${record.type} ${lineage} needs revision ${expected}, not ${revision}`);
+    if (earlier.length === 0 || isFailed(record)) return;
+    const base = earlier.filter((r) => !isFailed(r)).at(-1);
+    const supersedes = (record as { supersedes?: readonly string[] }).supersedes ?? [];
+    const wanted = base === undefined ? [] : [base.id];
+    if (supersedes.join() !== wanted.join())
+      throw new Error(
+        `${record.type} ${lineage} revision ${revision} must supersede ${wanted.join() || "nothing"}`,
+      );
   }
 
   #index(record: SessionRecord): SessionRecord {

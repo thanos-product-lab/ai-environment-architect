@@ -9,7 +9,7 @@ const failed = (recommendationId?: string) => ({
   ...(recommendationId === undefined ? {} : { recommendationId }),
   producedBy: "call_0004",
   itemKey: "r1",
-  rejectedBy: ["REF-001", "REF-001", "SUP-003"],
+  rule: "SUP-003",
   proposed: { key: "r1", content: "Run `pnpm test`." },
 });
 
@@ -23,7 +23,7 @@ describe("failed recommendation revisions (IMPL §4.4.3)", () => {
       recommendationId: "rec_0001",
       revision: 1,
       status: "failed_validation",
-      rejectedBy: ["REF-001", "SUP-003"],
+      rejectedBy: ["SUP-003"],
       proposed: { key: "r1", content: "Run `pnpm test`." },
     });
     expect(record).not.toHaveProperty("supersedes");

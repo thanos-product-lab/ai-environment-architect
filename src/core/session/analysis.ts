@@ -127,6 +127,13 @@ export function recordAnalyseExpansion(
   const recorder = new Recorder(call, result);
   const { accepted, redirects } = result;
 
+  // Every call-1 record the response acts on must still be the revision it was sent, checked
+  // before anything is appended, so a refusal leaves the log as it was.
+  for (const { value } of accepted.revisions)
+    recorder.aliasRecord(value.target, value.target.startsWith("F-") ? "finding" : "conflict");
+  for (const outcome of validation.conflictOutcomes)
+    if (outcome.status !== "kept") recorder.aliasRecord(outcome.alias, "conflict");
+
   const replacedFindings = new Map<string, string[]>();
   const withdrawnFindings: string[] = [];
   for (const { value } of accepted.revisions) {
@@ -227,6 +234,11 @@ class Recorder {
     const record = this.#call.log.require(type, entry.target.recordId);
     if ((record as { status: string }).status === "failed_validation")
       throw new Error(`${alias} names a record that failed validation`);
+    // The call acted on the revision it was sent; if the lineage has moved on since, nothing it
+    // says about that revision can be applied (§4.4.1, alias targets).
+    const { id } = record as { readonly id: string };
+    if (this.#call.log.isSuperseded(id))
+      throw new Error(`${alias} names ${id}, which has been superseded since the call`);
     return record as Revised<T>;
   }
 

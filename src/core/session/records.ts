@@ -130,7 +130,8 @@ const revisioned = {
 const failedFields = {
   status: z.literal("failed_validation"),
   itemKey: nonEmpty,
-  rejectedBy: z.array(nonEmpty).min(1),
+  /** The one rule that rejected it: an item stops at its first rejection (§3.5). */
+  rejectedBy: z.tuple([nonEmpty]),
   proposed: z.json(),
 };
 
@@ -199,28 +200,33 @@ export const selectionSettings = z.strictObject({
   context: contextSettings,
 });
 
-export const generationConfigRecord = z.strictObject({
-  ...envelope("generation_config"),
-  ...revisioned,
-  /** Why a revision after the first was appended, such as raising the budget (§2.12). */
-  reason: nonEmpty.optional(),
-  settings: selectionSettings,
-  settingsHash: hash,
-  requestedModel: nonEmpty,
-  /** The generation budget: a token ceiling, a cost ceiling in USD, both or neither. */
-  budget: z.strictObject({
-    maxTokens: z.int().min(1).optional(),
-    maxCostUsd: z.number().positive().optional(),
-  }),
-  /** IMPL §1.8. Not part of `settingsHash`, which covers the initial context only. */
-  expansion: z.strictObject({
-    maxExpansionRequests: z.int().min(0).max(ANALYSE_COLLECTION_LIMITS.expansionRequests),
-    expansionBytes: count,
-    expansionEntryBytes: count,
-  }),
-  questionBudget: count,
-  retainModelInputs: z.boolean(),
-});
+export const generationConfigRecord = z
+  .strictObject({
+    ...envelope("generation_config"),
+    ...revisioned,
+    /** Why a revision after the first was appended, such as raising the budget (§2.12). */
+    reason: nonEmpty.optional(),
+    settings: selectionSettings,
+    settingsHash: hash,
+    requestedModel: nonEmpty,
+    /** The generation budget: a token ceiling, a cost ceiling in USD, both or neither. */
+    budget: z.strictObject({
+      maxTokens: z.int().min(1).optional(),
+      maxCostUsd: z.number().positive().optional(),
+    }),
+    /** IMPL §1.8. Not part of `settingsHash`, which covers the initial context only. */
+    expansion: z.strictObject({
+      maxExpansionRequests: z.int().min(0).max(ANALYSE_COLLECTION_LIMITS.expansionRequests),
+      expansionBytes: count,
+      expansionEntryBytes: count,
+    }),
+    questionBudget: count,
+    retainModelInputs: z.boolean(),
+  })
+  .refine((r) => r.revision === 1 || r.reason !== undefined, {
+    message: "a revision after the first gives its reason",
+    path: ["reason"],
+  });
 
 // --- Snapshot (DM §6.1, §7) ------------------------------------------------------------------
 
@@ -592,6 +598,9 @@ const conflictRevision = z
   .refine(revisedLater, revisedMessage)
   .refine((r) => (r.status === "resolved") === (r.resolvingDecisionId !== undefined), {
     message: "resolvingDecisionId is set exactly when resolved",
+  })
+  .refine((r) => r.resolvingDecisionId === undefined || r.revisedBy === undefined, {
+    message: "a revision the developer causes names its decision, not revisedBy",
   });
 
 const failedConflict = z.strictObject({
