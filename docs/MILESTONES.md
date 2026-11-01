@@ -95,13 +95,16 @@ The token check (IMPL §1.10) waits for M6, because it needs the provider's toke
 **Goal:** sessions that survive interruption and can be trusted when reloaded.
 
 - [x] **Write IMPL §4, persistence and export,** from DM §14–§15 and the Evaluation Requirements. Review it before coding.
-- [ ] Session records, stages, statuses and outcomes (DM §5).
-- [ ] Storage, atomic writes, lock file, schema version and reference checks on load. `/implement-spec DM 15`
-- [ ] Questions, decisions and supersession (DM §8).
-- [ ] Model-call and effort-interval records (DM §13), with unknown never stored as zero.
-- [ ] Retained inputs policy. `/implement-spec IMPL 1.12`
+- [ ] Record types, IDs and lineage: the session file, every record type with its revisions and references, items that failed validation, and the conflict and finding records of the `analyse_expansion` outcomes, with `absence_check` evidence (IMPL §4.3–§4.5; DM §5, §6, §8). `/implement-spec IMPL 4.4`
+- [ ] Load checks and schema versions, with no migrations before v0.1.0. `/implement-spec IMPL 4.9`
+- [ ] Atomic storage and the lock: the storage directory and its refusal inside the target repository, content-addressed files, whole-file atomic writes, the lock and stale locks, and the data-notice state (IMPL §4.2, §4.7). `/implement-spec IMPL 4.7`
+- [ ] Derived current state: current records, corrected findings, the active snapshot and artifact revision, usable approval, and completeness. `/implement-spec IMPL 4.4.2`
+- [ ] Model-call and effort records with interruption: the `started` and ended revisions, retries as separate calls, the budget with unknown costs, and effort as a lower bound. `/implement-spec IMPL 4.6`
+- [ ] Retained inputs and responses, and `purge-inputs`. `/implement-spec IMPL 4.8`
 
-**Done when:** a session can be interrupted after any step and reloaded unchanged, a corrupted or newer-version session is rejected clearly, and a second process cannot open a locked session.
+The export (IMPL §4.10) is specified here and built in M8.
+
+**Done when:** a session can be interrupted after any step and reloaded unchanged, a corrupted, older-format or newer-format session is rejected clearly, and a second process cannot open a locked session.
 
 ## M5 · Recommendations, assembly, review and apply
 
@@ -175,3 +178,4 @@ Maintenance checks for stale paths and commands; scoped rule files; a local web 
 - **21 October 2026:** M3 reordered: the pipeline and schemas come first, so each rule is built on parsed output, and evidence basis and known facts are one step. Before it started, IMPL §3 and §1.11 were reconciled with M1 and M2 (IMPL v0.14, DM v0.9).
 - **24 October 2026:** schemas moved to `src/schemas/` (IMPL v0.16). M6 notes that the adapter sends the generated schema unchanged, and that the package ships `prompts/` and loads it relative to its install location.
 - **1 November 2026:** M3's fixture step covers the rules of the first three calls only. Fixtures for the `recommend` and regeneration rules and the reference detector move to M5, where those rules are built. M3 is done: every rule of the first three calls has a rejecting fixture and an accepted near miss, and the IMPL §3.8 property tests pass, with a whole-call determinism property added.
+- **1 November 2026:** M4 started. IMPL §4 is written (IMPL v0.31, DM v0.20), and the M4 steps now follow its subsections in dependency order, each naming its `/implement-spec` argument. The export stays specified only and is built in M8.
