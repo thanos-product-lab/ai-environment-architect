@@ -23,7 +23,7 @@ The order is set by dependencies. Deterministic parts come first and are tested 
 | M1 | Snapshot and destination parsing | No | Done |
 | M2 | Context selection and "What we read" | No | Done |
 | M3 | Validation core | No (recorded responses) | Done |
-| M4 | Sessions and persistence | No | Not started |
+| M4 | Sessions and persistence | No | In progress |
 | M5 | Recommendations, assembly, review and apply | No (recorded responses) | Not started |
 | M6 | Claude adapter and model calls | Yes | Not started |
 | M7 | Interactive CLI | Yes | Not started |
@@ -94,7 +94,7 @@ The token check (IMPL §1.10) waits for M6, because it needs the provider's toke
 
 **Goal:** sessions that survive interruption and can be trusted when reloaded.
 
-- [ ] **Write IMPL §4, persistence and export,** from DM §14–§15 and the Evaluation Requirements. Review it before coding.
+- [x] **Write IMPL §4, persistence and export,** from DM §14–§15 and the Evaluation Requirements. Review it before coding.
 - [ ] Session records, stages, statuses and outcomes (DM §5).
 - [ ] Storage, atomic writes, lock file, schema version and reference checks on load. `/implement-spec DM 15`
 - [ ] Questions, decisions and supersession (DM §8).

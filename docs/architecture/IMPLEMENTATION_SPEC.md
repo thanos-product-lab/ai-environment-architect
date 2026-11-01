@@ -2,8 +2,19 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 1 November 2026  
-**Version:** 0.30  
-**Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
+**Version:** 0.31  
+**Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.30
+
+- **Persistence and export (§4, new).** The storage directory, never inside the target repository; the session file; record and lineage IDs, revisions, superseding and which references name which; every record type and how it changes; derived state, completeness and current records; items that failed validation, kept with status `failed_validation`; conflict and finding revisions and corrected findings; `absence_check` evidence; model-call revisions, interrupted calls and the budget with unknown costs; effort as a lower bound; atomic writes and the lock; retained exchanges; schema versions, with no migrations before v0.1.0, and load checks; the export, with its mapping to the Evaluation Requirements and to completed, partial or failed ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) v0.20).
+- **Basis of file-list evidence (§3.2.4).** `absence_check` evidence is `code_observation`, as `entry` evidence is.
+- **Retained responses (§1.12).** Response bodies are retained with request bodies, under `retainModelInputs`, for replay only. `purge-inputs` and `delete` remove both (§2.2). The manifest example's retained input is `.json` (§1.13).
+- **Failed items persisted (§3.5).** Every item rejected at the item or cross-item stage becomes a record with status `failed_validation`, its text as written and its rule IDs (§4.4.3). Validation events still hold no response text.
+- **Current support (§3.3.5, §3.3.6).** `REC-001` also refuses support that the developer corrected or that belongs to an earlier snapshot, and a corrected finding puts its recommendations in the regeneration affected set.
+- **Content notices (§3.3.2).** Recorded as their own records referring to the snapshot, not on the snapshot.
+- **Session errors (§2.12).** Separate rows for a session saved by a newer version and one saved in an older format.
+- **Export command (§2.2).** `--out <dir>`, which refuses a path inside the repository.
 
 ### Changes from v0.29
 
@@ -272,7 +283,7 @@ Section 2, CLI interaction, is new.
 1. Context selection
 2. CLI interaction
 3. Model calls and schemas
-4. Persistence and export *(not yet written)*
+4. Persistence and export
 
 ---
 
@@ -737,15 +748,15 @@ An accepted absence claim records a narrow fact about one pattern. It can suppor
 
 Hashes identify content but cannot recreate it. To make a session replayable, the exact inputs are retained under an explicit policy:
 
-- **`retainModelInputs`** (default `true`): the exact rendered request body of every model call is stored in the session directory as a content-addressed file, referenced from the model-call record. This content has already been sent to the provider; retaining it locally adds no new exposure beyond local storage.
-- Retained inputs are **never included in exports by default**. Including them is an explicit export option.
-- Retained inputs are deleted when the session is deleted, and can be purged separately while keeping the rest of the session. The CLI shows the policy at first run and in session status.
+- **`retainModelInputs`** (default `true`): the exact rendered request body of every model call is stored in the session directory as a content-addressed file, referenced from the model-call record. This content has already been sent to the provider; retaining it locally adds no new exposure beyond local storage. The exact response body is retained the same way, under the same setting, for replay only (§4.8).
+- Retained inputs and responses are **never included in exports by default**. Including them is an explicit export option.
+- Retained inputs and responses are deleted when the session is deleted, and can be purged separately while keeping the rest of the session. The CLI shows the policy at first run and in session status.
 - With retention on, a session is **replayable**: every request can be re-sent exactly, even if repository files have since changed.
 - With retention off, replay requires the original files at the recorded hashes. Any mismatch is reported, and replay stops.
 
 The initial context is **reproducible** from the snapshot, settings and model. A session that used expansion is **replayable** but not reproducible, because the expansion requests were model output.
 
-*Domain model note:* this adds a retained-input reference to the Model Call record ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §13.1) and a retention rule to persistence (§15). The snapshot itself still stores no full source content.
+*Domain model note:* this adds retained-input and retained-response references to the Model Call record ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §13.1) and a retention rule to persistence (§15). The snapshot itself still stores no full source content.
 
 ### 1.13 Input manifest
 
@@ -760,7 +771,7 @@ Every model call records an input manifest ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md)
   "settingsHash": "sha256:…",
   "snapshotId": "snap_…",
   "contextHash": "sha256:…",
-  "retainedInputRef": "inputs/sha256-….txt",
+  "retainedInputRef": "inputs/sha256-….json",
   "budget": { "initialContextBytes": 310000, "usedBytes": 231020 },
   "knownFacts": { "capBytes": 10000, "usedBytes": 2610, "facts": 14, "leftOut": 0 },
   "tokenCheck": {
@@ -898,9 +909,9 @@ The command name is a placeholder: `<cli>`.
 | `<cli> resume [session-id]` | Continue a session (default: most recent for this repository) |
 | `<cli> status [session-id]` | Show stage, status, unresolved items, cost and effort so far |
 | `<cli> sessions` | List sessions, with repository, stage, outcome and last update |
-| `<cli> export <session-id> [--include-excerpts] [--include-inputs]` | Write the session export ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §14) |
-| `<cli> delete <session-id>` | Delete a session and its retained inputs, after confirmation |
-| `<cli> purge-inputs <session-id>` | Delete retained model inputs only |
+| `<cli> export <session-id> [--include-excerpts] [--include-inputs] [--out <dir>]` | Write the session export (§4.10, [`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §14) |
+| `<cli> delete <session-id>` | Delete a session and its retained inputs and responses, after confirmation |
+| `<cli> purge-inputs <session-id>` | Delete retained model inputs and responses only (§4.8) |
 | `<cli> inspect [path] [--list \| --json] [--debug]` | Show the "What we read" summary (§2.4) for the repository at `path` without starting a session. Nothing is sent or written |
 
 `status`, `sessions`, `export` and `inspect` support `--json`. Interactive steps require a TTY; run in a non-TTY environment, `init` and `resume` print an explanation and exit without changing anything.
@@ -1205,7 +1216,8 @@ Repository check: 3 files changed since inspection, none cited.
 | All output from a call fails validation | Retry offered once, then the stage can be skipped (no findings or recommendations from it) or the session saved. |
 | Generation budget reached | What was completed is kept; what remains is listed; the developer can raise the budget and continue, or proceed with what exists. |
 | Session locked by another process | Names the process ID, if available, and exits without changes. |
-| Unsupported session schema version | Names the version and the required CLI version. |
+| Session saved by a newer version | Names the session format, the version that wrote it, and the version to update to (§4.9). |
+| Session saved in an older format | Before v0.1.0, says older sessions aren't converted and tells the developer to start a new one with `init` (§4.9). |
 
 Messages state what happened, what was kept, and what the developer can do. They never print stack traces by default; `--debug` adds them.
 
@@ -1370,7 +1382,7 @@ Basis is derived by code from the tier the cited file belongs to (§1.5), whethe
 | Tier 2 (documentation) | `documentation` |
 | Tier 3, tier 5, or no tier | `code_observation` |
 
-The table applies to `lines` evidence. `entry` evidence (§3.2.5), which only shows that a file exists in the file list, is always `code_observation`, whatever tier the file belongs to: it says nothing about what a document or configuration file prescribes.
+The table applies to `lines` evidence. Evidence that only shows what the file list holds, `entry` evidence (§3.2.5) and `absence_check` evidence (§4.5), is always `code_observation`, whatever tier the file belongs to: it observes that a file exists, or that none matches, and says nothing about what a document or configuration file prescribes.
 
 An imported file that tier 2, 3 or 5 matches stays in that tier (§1.5), so `@package.json` is `code_observation`. A file that matches no tier's patterns and isn't imported, such as a changelog or a Markdown file under `src/`, is `code_observation`; an imported changelog is `existing_guidance`.
 
@@ -1530,7 +1542,7 @@ A `Citation`'s `quote` is at most 200 characters in the schema; its other quote 
 7. Duplicates, among the items that survived the item stage, in response order. A finding with the same normalised statement and the same scope as a known fact is dropped (`DUP-002`); otherwise one with the same normalised statement and scope as an earlier finding is dropped (`DUP-001`). A gap with the same normalised statement, `gapType` and set of normalised related paths as an earlier gap, and an absence claim with the same normalised glob as an earlier claim, are dropped (`DUP-001`). A **normalised statement** is the statement in Unicode NFC, with every run of `White_Space` replaced by one space and the ends trimmed; case is kept. Two scopes are the same when both are `repository`, or both hold the same set of paths after the path normalisation of §1.11, in any order. A reference to a dropped duplicate is redirected to the item kept: the earlier finding, or the known fact's `F` alias.
 8. Conflicts: after redirection, each member counts once; at least two members are findings that survived validation, or `F` aliases; otherwise the conflict is rejected (`CONF-001`). Then `SUP-005`, over the members after redirection.
 9. Expansion requests: the static checks of §1.8 (`LIMIT-002`, `EXP-001`, `EXP-006`, `EXP-002` to `EXP-005`). The byte budget and execution follow validation (§1.8).
-10. Content notices: the item alias is a `T` or `E` item in this call's input (`CIT-001`, or `ALIAS-003` for an alias of another kind or a local key the response defines), and the cited lines must be sent lines of the item (`CIT-006`, `CIT-003`; §3.2.2). Valid notices are recorded on the snapshot and shown in the findings view. They never change behaviour.
+10. Content notices: the item alias is a `T` or `E` item in this call's input (`CIT-001`, or `ALIAS-003` for an alias of another kind or a local key the response defines), and the cited lines must be sent lines of the item (`CIT-006`, `CIT-003`; §3.2.2). Valid notices are recorded as content-notice records that refer to the snapshot, which stays immutable (§4.4), and are shown in the findings view. They never change behaviour.
 
 Steps 7 and 8 are the cross-item stage (§3.5), in that order; the others are item checks. The corrected-citation rate (§3.2.2) is recorded with the result.
 
@@ -1573,7 +1585,7 @@ There is no `expansionRequests` field; one expansion round only.
 - Withdrawn and replaced records are kept for history with their status, and are no longer passed forward. A call-1 conflict a surviving revision withdraws has the reason `withdrawn_by_model` ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.5).
 - Members are carried through the revisions that survived `REV-003`, for the new conflicts (before `CONF-001`) and for the call-1 conflicts no surviving revision withdraws or replaces: a withdrawn member is lost, and a replaced member's place goes to its replacement when that replacement is a surviving finding; otherwise the member is kept, since `REV-001` will keep the original.
 - Any change to a call-1 conflict's member set, a member lost or replaced, runs `CONF-001` and then `SUP-005` on the new set. Failing `CONF-001` withdraws the conflict with reason `member_withdrawn` when a member was withdrawn, and `members_merged` when none was and one replacement now stands for several members; failing `SUP-005` withdraws it with reason `sources_not_distinct`. A conflict that passes both is revised: a new conflict revision with the new members supersedes the old one ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.5).
-- Validation returns one outcome for every call-1 conflict, in alias order, the order in which the call-1 records must be given; a response that fails the schema accepts nothing, so every conflict is `kept`. The outcomes are: `kept` when nothing touches it; `revised`, with its new members; `replaced`, with the key of the new conflict that replaces it; or `withdrawn`, with its reason (`withdrawn_by_model` for a surviving `withdraw` revision). These are outcomes for call-1 records, not rejections of the response, so they are returned with the result rather than as validation events. The records themselves are created with persistence (§4).
+- Validation returns one outcome for every call-1 conflict, in alias order, the order in which the call-1 records must be given; a response that fails the schema accepts nothing, so every conflict is `kept`. The outcomes are: `kept` when nothing touches it; `revised`, with its new members; `replaced`, with the key of the new conflict that replaces it; or `withdrawn`, with its reason (`withdrawn_by_model` for a surviving `withdraw` revision). These are outcomes for call-1 records, not rejections of the response, so they are returned with the result rather than as validation events. The records themselves are created with persistence (§4.5).
 
 #### 3.3.4 `generate_questions`
 
@@ -1655,7 +1667,7 @@ type RecommendOutput = {
 
 **Validation**, in order:
 
-1. Schema and aliases. All support must be current: not withdrawn, not superseded (`REC-001`).
+1. Schema and aliases. All support must be current: not withdrawn, not superseded, not corrected by the developer, and of the active snapshot (`REC-001`, §4.4.2, §4.5).
 2. **Operation and target.** `revise` and `remove` need a `block` target; `add` needs `after`, `section` or `newSection`; `remove` has no content (`REC-002`). Code attaches block IDs and hashes.
 3. **Content shape**, by parsing the content (`REC-003`):
    - `revise`: exactly one block, of the same type as the target block; for a `list_item`, with the same marker and indentation as the target ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §7);
@@ -1684,7 +1696,7 @@ Two recommendations targeting the same block are allowed in the output. Mutual e
 
 **When:** a decision is added, corrected or superseded after recommendations exist; or a refresh withdraws findings or changes blocks that recommendations depend on.
 
-**Affected set**, computed by code: current recommendations whose support includes a changed or superseded decision, or a withdrawn finding, or whose target block no longer matches its hash. Unaffected recommendations are not sent, and their selections are unchanged. An affected set larger than 30, the schema's `actions` ceiling, is split by code into calls of at most 30, in recommendation order; each call is validated on its own, and `REGEN-001` applies to the part each call was sent.
+**Affected set**, computed by code: current recommendations whose support includes a changed or superseded decision, or a withdrawn or corrected finding (§4.5), or whose target block no longer matches its hash. Unaffected recommendations are not sent, and their selections are unchanged. An affected set larger than 30, the schema's `actions` ceiling, is split by code into calls of at most 30, in recommendation order; each call is validated on its own, and `REGEN-001` applies to the part each call was sent.
 
 **Input:** everything `recommend` receives, plus the affected recommendations as `R-*` (target, content, support), plus a code-generated summary of what changed.
 
@@ -1739,7 +1751,7 @@ For every call:
 2. **Schema:** structured-output parse and Zod validation, with unknown fields rejected.
 3. **Items:** the per-call sequence above, starting with the item's own limits: a string longer than its maximum, or an array inside the item outside its size, rejects the item (`LIMIT-001`), with a detail naming the field and the limit, never the value. Each item is validated independently. An item that fails one rule is dropped, and later rules are not run on it. A rule may instead correct an item (`CIT-R01`) or relabel it (`GAP-002`); the item continues with the changed value. A citation is a sub-item: a rejected citation drops only itself (§3.2.2), a finding is dropped when no citation is left, and an accepted finding records how many of its citations were dropped ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.3).
 4. **Cross-item:** duplicates, conflicts, revisions, question ranking limits, held-back entries, regeneration coverage. These run only on items that passed the item stage, and may reject some of them.
-5. **Persist:** accepted records, with `producedBy` pointing at the model call.
+5. **Persist:** accepted records, with `producedBy` pointing at the model call, and one record for every item rejected at the item or cross-item stage, with its text as written and the IDs of the rules that rejected it (§4.4.3).
 
 Every rejection or correction is recorded on the model call:
 
@@ -1880,3 +1892,392 @@ A change to any prompt, schema, validator or detector requires the fixture suite
 - The justfile `private` test matches the word anywhere in an attribute line, so `[doc('private builds')]` hides a public recipe (§3.2.5).
 - Documentation outside the tier 2 locations, such as `documentation/` or `wiki/`, is `code_observation` (§3.2.4). This is conservative: it can't support a `prescriptive` finding. Watch how often it happens in the M6 live runs.
 - Whether a model-based support check is worth adding after the first slice. Adopt only if evaluation shows it reduces unsupported findings without excessive false rejections.
+
+---
+
+## 4. Persistence and export
+
+This section turns [`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §13–§15 and the [Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) §3–§4 into a file format, load rules and an export format. M4 builds §4.1–§4.9. M8 builds the export (§4.10).
+
+### 4.1 Principles
+
+- **One append-only log per session.** The session file is a header and an ordered list of immutable records. Nothing in a record changes after it is written. Changes are new records.
+- **Current state is derived.** "The current decisions", "the active snapshot" and similar are computed by pure functions over the records (§4.4.2). They are never stored, so they can't drift from the records.
+- **Code checks everything on load.** A file that fails a check is rejected and left untouched. Load never repairs.
+- **No source content beyond what DM §6.1 allows.** File hashes for everything, excerpts for cited evidence, the full bytes of the destination and of each artifact revision. Two additions hold text that came from source: the quotes the model wrote into items that failed validation (§4.4.3), and retained model exchanges, under an explicit policy (§4.8).
+- **Unknown is never zero.** Every measurement that can be missing is `{ "state": "known", "value": … }` or `{ "state": "unknown", "reason": … }` (`Known<T>`, §4.6), the shape the validation code already uses (§3.2.2). Active effort adds one more state, a lower bound (§4.6).
+- **Layout.** Pure logic (record types, Zod schemas, derivations, load checks, export projection) lives in `src/core/session/` and `src/core/export/`. File I/O, the lock and atomic rename live in `src/adapters/storage/`, behind a port, so core tests use an in-memory store.
+
+### 4.2 Storage location
+
+The storage directory is the XDG data directory, on both supported platforms (ADR 0002):
+
+1. `$AI_ENVIRONMENT_ARCHITECT_HOME`, if set: the one override;
+2. otherwise `$XDG_DATA_HOME/ai-environment-architect`, if `XDG_DATA_HOME` is set to an absolute path (a relative one is ignored, as the XDG specification requires);
+3. otherwise `~/.local/share/ai-environment-architect`.
+
+- The CLI resolves it once at start and passes it to core as a path. Core never reads `process.env`. There is no command-line option for it.
+- Sessions and the data-notice state (§4.9) both live there.
+- **Never inside the target repository.** If the storage directory's real path is the repository root or inside it, by any route (the override, `XDG_DATA_HOME`, or a repository at the home directory), `init` and `resume` refuse before anything is read or written, and say which setting to change. There is no exception: nothing is written inside the target repository except by apply (DM §11.2). The snapshot exclusion for session storage (§1.4) stays as a second safeguard; with this refusal it never matches.
+
+```text
+<storage directory>/
+  notices.json                     data-notice confirmations (§4.9)
+  sessions/
+    <sessionId>/
+      session.json                 header and records (§4.3)
+      session.lock                 present while a process holds the session (§4.7)
+      content/sha256-<hex>         destination bytes and artifact revision content
+      inputs/sha256-<hex>.json     retained request bodies (§4.8)
+      responses/sha256-<hex>.json  retained response bodies, for replay (§4.8)
+      exports/<timestamp>/         exports written by default (§4.10)
+```
+
+Files under `content/`, `inputs/` and `responses/` are **content-addressed**: the name is the SHA-256 of the file's exact bytes. Identical content is stored once, and load can verify every file against its name.
+
+There is no index of sessions. `sessions`, and `resume` without an ID, load each session in turn, with the load checks (§4.9). A session that fails them is listed as unreadable, with the check that failed. That is fast enough for the first slice and leaves no second file to fall out of step.
+
+### 4.3 Session file
+
+`session.json` is UTF-8 JSON, written with object keys sorted bytewise (by their UTF-8 bytes, never by locale), two-space indentation, LF line endings and a final newline, so the same records always give the same bytes. The order of array elements is kept.
+
+```json
+{
+  "format": "ai-environment-architect/session",
+  "records": [
+    { "createdAt": "2026-11-01T10:15:00.000Z", "id": "st_01J…", "productVersion": "0.1.0", "revision": 1, "seq": 1, "stage": "inspect", "status": "running", "type": "session_state" },
+    { "createdAt": "2026-11-01T10:15:00.000Z", "id": "gc_01J…", "revision": 1, "seq": 2, "type": "generation_config" },
+    { "createdAt": "2026-11-01T10:15:02.000Z", "id": "snap_01J…", "seq": 3, "type": "snapshot" }
+  ],
+  "schemaVersion": 1,
+  "session": {
+    "adapter": "claude-code",
+    "createdAt": "2026-11-01T10:15:00.000Z",
+    "id": "ses_01J…",
+    "outputScope": ["root CLAUDE.md"],
+    "productVersion": "0.1.0",
+    "repository": { "name": "kutt", "root": "/Users/dev/kutt" },
+    "targetPath": "CLAUDE.md"
+  },
+  "writtenBy": "0.1.0"
+}
+```
+
+The example leaves out most record fields.
+
+- **Header.** The fields of DM §5 that never change. `writtenBy` is the product version that last wrote the file; `session.productVersion` is the version that created it.
+- **`repository.root`** is the real path of the resolved root (§2.3, symbolic links resolved). It is the session's repository identity: `resume` without an ID picks the most recent session whose root matches the current one, compared bytewise. A moved repository needs the session ID.
+- **Records** share an envelope: `type`, `id`, `seq` and `createdAt`. `seq` starts at 1 and increases by one per record, so the order doesn't depend on the clock. `createdAt` comes from the injected clock, in ISO 8601 UTC with milliseconds.
+- **Bytes** are never inlined. The destination and artifact content are referenced by `contentRef` (`content/sha256-<hex>`).
+
+### 4.4 Records
+
+#### 4.4.1 IDs, revisions and references
+
+**Two kinds of ID.** Every record has its own **record ID**, `id`. A record that can change has a **lineage ID** as well, such as `findingId`, shared by all its revisions, and a `revision` number: 1, 2, 3… within the lineage. Both kinds come from the injected `IdSource` (`src/core/ports.ts`): a prefix, `_`, and a ULID. Code assigns every ID; the model never does (§3.2.1).
+
+**Revising.** A change to a lineage appends its next revision. That revision repeats every field of the one before, changes what changed, and lists the one before in `supersedes`, by record ID. The one exception is a recommendation revision that fails validation, which supersedes nothing (below). A **replacement** starts a new lineage, with revision 1, whose `supersedes` also lists the current revision of every lineage it replaces; one replacement may stand for several (§3.3.3).
+
+**Current.** A revision is current when no other record supersedes it and its status is a current one (the table's last column). So a lineage has at most one current revision, and a withdrawn or replaced one has none. Immutable records and records with status `failed_validation` (§4.4.3) supersede nothing and are never superseded.
+
+**References.** A reference names a **lineage ID** when it means "this thing, in whatever state it is now", and a **record ID** when it means "exactly this version":
+
+| Field | Names |
+|---|---|
+| `findingIds`, `findingId`, `conflictIds`, `conflictId`, `gapIds`, `questionId`, `recommendationId`, `blockedBy`, `modelCallId`, `retryOf`, `producedBy` (a model call) | Lineage IDs |
+| `supersedes`, `snapshotId`, `evidenceIds`, `decisionIds`, `resolvingDecisionId`, `revisionId`, `selectedRevisionIds`, `artifactRevisionId`, `reviewId` | Record IDs |
+| A recommendation revision's `support` | Each entry is typed: a finding by lineage ID, so `REC-001` sees its current state; a decision or evidence by record ID, so a superseded decision makes the recommendation affected (DM §12) |
+| A reference's `supportingFindingId` and `evidenceId` (DM §9.1) | The finding by lineage ID; the evidence by record ID |
+| An artifact revision's `attribution` (DM §9.4) | Recommendation revisions by record ID |
+
+The lineage of `session_state` and `generation_config` is the session itself, so they have no lineage field: their revisions are numbered and chained within the session. Decisions have no lineage: a correction is a new decision that supersedes the old one (DM §8.2), so a decision is always referred to by its record ID. A recommendation revision's record ID is DM §9.1's `revisionId`.
+
+| Record (`type`) | Lineage ID (prefix) | Record ID prefix | How it changes | Current status |
+|---|---|---|---|---|
+| `session_state` | the session | `st_` | A revision per change of stage, status or outcome, with `reason` when it isn't a normal step: `interrupted`, `budget_reached` (with the purpose of the call left unsent), `stage_skipped`. Carries `productVersion` | the latest |
+| `generation_config` | the session | `gc_` | The settings of DM §5 `generationConfig` and §1.14, with their `settingsHash`. Raising a budget (§2.12) appends a revision with a reason | the latest |
+| `snapshot` | — | `snap_` | Immutable. A refresh appends a new snapshot (DM §6.1). The destination's bytes are in `content/`; its Guidance Blocks are stored | the latest is active |
+| `content_notice` | — | `cn_` | Immutable. One per valid notice (§3.3.2 step 10), with `snapshotId` and `modelCallId` | those of the active snapshot |
+| `evidence` | — | `ev_` | Immutable. Created for accepted findings only (§4.4.3); `absence_check` evidence for each accepted absence claim (§4.5) | — |
+| `finding` | `findingId` (`fnd_`) | `fndr_` | Withdrawal: a revision with status `withdrawn` and `withdrawnReason`. Replacement: a new lineage (§4.5) | `active`, of the active snapshot, and not corrected (§4.5) |
+| `conflict` | `conflictId` (`conf_`) | `confr_` | §4.5. Carries `snapshotId` | `unresolved` or `resolved`, of the active snapshot, with every member finding current |
+| `question` | `questionId` (`q_`) | `qr_` | `open` → `answered`, `skipped` or `unreached`. A skipped question answered later gets another revision | `open`, `answered`, `skipped`, `unreached`, while at least one finding, gap or conflict it resolves is current |
+| `decision` | — | `dec_` | A correction is a new decision whose `supersedes` names the old one (DM §8.2) | not superseded |
+| `recommendation_revision` | `recommendationId` (`rec_`) | `rrev_` | DM §9.1. A new revision per regeneration `revise` or developer edit. Invalidation: a revision with status `invalidated` and `invalidatedReason` (below) | `valid` |
+| `held_back` | — | `hb_` | Immutable. One per accepted `heldBack` entry (§3.3.5), with its `topic`, `blockedBy` and `modelCallId` | §4.4.2 |
+| `no_change_reason` | — | `ncr_` | Immutable. An accepted `noChangeReason` (§3.3.5, `REC-009`), with its `modelCallId` | §4.4.2 |
+| `selection` | — | `sel_` | Immutable. DM §9.2. A new selection per change, naming its `recommendationId` and `revisionId` | the latest per `recommendationId` |
+| `artifact_revision` | — | `art_` | Immutable. Content in `content/` | §4.4.2 |
+| `review` | — | `revw_` | Immutable. DM §10 | — |
+| `apply_attempt` | `applyAttemptId` (`apply_`) | `applyr_` | `started` is written, and synced, before the temporary file (DM §11.2 step 4). Each later state is a new revision, recovery included | the latest |
+| `model_call` | `modelCallId` (`call_`) | `callr_` | `started` before the request is sent; then `completed`, `failed` or `interrupted` (§4.6) | the latest |
+| `effort_interval` | `effortIntervalId` (`eff_`) | `effr_` | `open` when a prompt is shown; `closed` when it is answered (§4.6) | the latest |
+| `effort_correction` | — | `effc_` | The developer's corrected total, with a reason (§2.13); a later one supersedes it | not superseded |
+| `failed_item` | — | `fail_` | Immutable. An item that failed validation, from a collection with no record type of its own (§4.4.3) | never |
+| `inputs_purged` | — | `pur_` | Immutable. Written by `purge-inputs` (§4.8) | — |
+
+**Recommendation statuses.** `valid`, `failed_validation` (§4.4.3), or `invalidated` with one of these reasons:
+
+| `invalidatedReason` | When |
+|---|---|
+| `revalidation_failed` | A regeneration `keep` whose revision fails revalidation (§3.3.6) |
+| `not_reconsidered` | An affected recommendation the regeneration response left out (`REGEN-001`) |
+| `dropped_by_model` | A regeneration `drop` |
+| `target_changed` | A refresh changed or removed its target block, and it couldn't be re-anchored (DM §12) |
+
+An `invalidated` revision supersedes the valid one before it. A `failed_validation` revision supersedes nothing, so a failed regeneration `revise` or developer edit leaves the earlier valid revision current.
+
+#### 4.4.2 Derived state
+
+These are pure functions over the records, in `src/core/session/`. DM §5's "active references" are these functions, not stored fields.
+
+- **Stage, status, outcome:** the latest `session_state`. The outcome is `applied`, `no_change`, `failed` or `cancelled`, or unset while the session is in progress (DM §5).
+- **Completeness:** `complete`, or `incomplete` with every reason that holds, in this order:
+  - `budget_reached`: the generation budget stopped a call (§3.6, §2.12) and that call is still unsent. It holds when, after the last `session_state` with reason `budget_reached`, no model call with the purpose it names was started. Raising the budget and sending the call clears it;
+  - `stage_skipped`: a `session_state` has the reason `stage_skipped`, written when the developer skips a stage whose output all failed validation (§2.12);
+  - `questions_unreached`: a current question has status `unreached`, for either reason (DM §8.1). A question about findings that are no longer current, for example after a refresh, doesn't count.
+
+  Completeness is separate from the outcome: an `applied` session can be `incomplete`. It is derived, never stored, and can be computed at any point.
+- **Active snapshot:** the latest `snapshot`.
+- **Current findings, conflicts, questions, decisions and recommendations:** the current revisions, as in §4.4.1. Findings and conflicts from an earlier snapshot are not current, so a refresh leaves only the new snapshot's (DM §12). A conflict is current only while all its member findings are, so a conflict with a corrected or earlier-snapshot member is neither aliased nor sent; a question is current only while at least one finding, gap or conflict it resolves is current. These follow from the records, and no record is written for them.
+- **Current held-back entries and no-change reason:** those of the latest completed `recommend` call, plus those of every later completed `regenerate_recommendations` call. How regeneration replaces earlier held-back entries is settled in M5 (§4.12).
+- **Current selections:** the latest `selection` per `recommendationId`.
+- **Active artifact revision:** the latest `artifact_revision`, if its `snapshotId` is the active snapshot, its `selectedRevisionIds` equal the current accepted selections, and its `decisionIds` are all current. Otherwise there is none, and the review screen says the proposal is out of date (DM §12).
+- **Usable approval:** an `approved` review of the active artifact revision whose `contentHash` equals the revision's `proposedHash` (DM §10). Freshness (DM §11.1) is checked at apply, not here.
+
+Records with status `failed_validation`, and `failed_item` records, are left out of every set above. They are never current, never given an alias, never sent to a later call, never support anything and are never shown as findings (§2.12).
+
+#### 4.4.3 Items that failed validation
+
+The Evaluation Requirements ask to "preserve the complete findings and recommendations, including rejected ones". So every item the validation pipeline rejects at the item or cross-item stage (§3.5) becomes a record, as well as the validation events it produced. The status is `failed_validation`, not "rejected", because a selection and a review can also be `rejected` (DM §9.2, §10).
+
+- **Which record.** An item from a collection with a record type of its own is stored as that type: findings, gaps and absence claims as `finding` (with the matching `kind`), conflicts as `conflict`, questions as `question`, and recommendations, additions and regeneration `revise` revisions as `recommendation_revision`. Items from every other collection (`analyse_expansion` revisions, expansion requests, content notices, held-back entries, regeneration `keep` and `drop` actions) are `failed_item` records, with their `collection`.
+- **Shape.** A failed record holds only the envelope, for a recommendation revision its lineage fields (below), and these fields: `status: "failed_validation"`; `producedBy`, the model call or `developer_edit`; `itemKey`, named as the item's validation events name it (§3.5); `rejectedBy`, the IDs of the rules that rejected it, without repeats, in event order; and `proposed`, the item exactly as written after the schema stage, with its aliases and local keys unresolved. Nothing in it is corrected or rewritten, and none of the type's other fields is filled in: a failed absence claim has no code-written statement, and a failed finding has no evidence or basis.
+- **Lineage.** Only recommendation revisions keep one: a new `recommendationId` for a new recommendation, the existing one for a regeneration `revise` or a developer edit, so the history of one recommendation stays together. Other failed records have no lineage ID or revision.
+- **Evidence** is created only for accepted findings. Evidence code made while checking a finding that is later rejected, at the item or cross-item stage, is discarded; its citations stay in `proposed`.
+- **Failed citations of an accepted finding** are kept on that finding as `failedCitations`, each the citation as proposed with its `rejectedBy`, merged duplicates (`CIT-009`) included. `droppedCitations` stays their count (DM §6.3).
+- **A response that fails the schema** has no items, so it creates no failed records: only its `SCHEMA` events, with the proposed count unknown (§3.5). Its text is kept only in the retained response, for replay (§4.8).
+- **Validation events still hold no response text** (§3.5). The text lives only in the failed records, so it can be controlled in one place.
+- **Quoted source.** A failed item's citations may quote repository content. In the export these quotes follow the excerpt option (§4.10): without `--include-excerpts`, each `quote` is replaced by its `quoteHash`.
+
+### 4.5 Conflicts, findings and the `analyse_expansion` outcomes
+
+This settles the direction for conflict records that [`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.5 gave M4, and the records §3.3.3 leaves to persistence. Each outcome of §3.3.3 maps onto records like this:
+
+| Outcome | Records appended |
+|---|---|
+| `kept` | Nothing |
+| `revised` | The next revision of the same `conflictId`, with the new `findingIds` and status `unresolved`, superseding the old revision |
+| `replaced` | A new conflict lineage, from the replacement `c` key, superseding the current revision of every conflict it replaces |
+| `withdrawn` | The next revision of the same `conflictId`, with status `withdrawn` and its `withdrawnReason` |
+| resolved by a decision (§2.6) | The next revision, with status `resolved` and `resolvingDecisionId` |
+
+Findings follow the same pattern. A `withdraw` revision of an `F` target appends the finding's next revision, with status `withdrawn` and the reason `withdrawn_by_model`. A `replace` appends the replacement as a new finding lineage that supersedes the target's current revision. The withdrawn and replaced findings stay in the file and the export, with their status (§3.3.3: "kept for history").
+
+**Corrected findings.** A finding the developer marks wrong (§2.5, `w`) is not withdrawn. The correction is a `developer_correction` decision that names the finding in `findingId` ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §8.2). While a current decision names it, the finding is **corrected**:
+
+- it is not current, so it gets no alias, isn't sent to later calls and can't be cited as support (`REC-001`, §3.3.5);
+- the findings view still shows it, marked "corrected by you" (§2.5);
+- a recommendation whose support includes it is in the regeneration affected set (§3.3.6).
+
+If the correcting decision is superseded by one that no longer names the finding, the finding is current again, and the change propagates as any decision change does (DM §12).
+
+**Absence claims** are stored as findings with `kind: "absence"` and the code-generated statement (§1.11). Every finding that isn't a gap has evidence, so an accepted absence claim has one evidence record of kind `absence_check`, created by code:
+
+| Field | Notes |
+|---|---|
+| `snapshotId` | The snapshot whose file list was checked |
+| `pathGlob` | The glob after the path normalisation of §1.11 |
+| `unenteredDirectories` | The directories capture didn't enter that the glob could reach (§1.11), in path order; a withheld one by `pathHash` |
+| `basis` | `code_observation`, as for `entry` evidence (§3.2.4): both read the file list, which is an observation, not documentation |
+
+An `absence_check` has no path, file hash, lines or excerpt. It supports only the narrow statement it was made for (§1.11).
+
+**Known facts** are findings with `producedBy: "deterministic"` and entry or line evidence (§3.2.5).
+
+### 4.6 Model calls and effort
+
+**Model call.** Every request sent is its own call, with its own `modelCallId`, because each one can cost money: a transport retry of the identical request, the schema retry with its message, and the fresh retry after every item was rejected (§3.6, §2.12). `attempt` counts the sends for one step, from 1, and `retryOf` names the previous attempt's `modelCallId`.
+
+The `started` revision is written before the request is sent:
+
+```ts
+type Known<T> = { state: "known"; value: T } | { state: "unknown"; reason: string };
+
+type ModelCallStarted = {
+  type: "model_call"; id: string; seq: number; createdAt: string;
+  modelCallId: string; revision: 1; state: "started";
+  purpose: CallPurpose;
+  attempt: number; retryOf?: string;
+  requestedModel: string;
+  promptVersion: string; promptHash: Hash;
+  schemaVersion: string; schemaHash: Hash;
+  validatorVersion: string; detectorVersion: string;
+  inputManifest: InputManifest;          // §1.13
+  retainedInputRef: string | null;       // §4.8
+  aliases: AliasTable;                   // §3.2.1
+  budget: CallBudget;
+  estimatedCost: Known<number>;          // the §3.6 check before sending, in USD
+  startedAt: string;
+};
+```
+
+The next revision repeats those fields, supersedes the `started` revision, and adds the result:
+
+```ts
+type ModelCallEnded = Omit<ModelCallStarted, "revision" | "state"> & {
+  revision: 2; supersedes: [string];
+  state: "completed" | "failed" | "interrupted";
+  returnedModel: Known<string>;
+  retainedResponseRef: string | null;    // §4.8
+  usage: { input: Known<number>; output: Known<number>;
+           cacheRead: Known<number>; cacheWrite: Known<number> };
+  cost: Known<{ amount: number; currency: "USD"; basis: "reported" | "estimated" }>;
+  validationEvents: ValidationEvent[];   // §3.5
+  counts: { proposed: Known<number>; accepted: number; corrected: number;
+            relabelled: number; rejectedByRule: Record<string, number> };
+  correctedCitationRate?: CorrectedCitationRate;   // analyse, analyse_expansion (§3.2.2)
+  citationsProposed?: CitationsProposed;
+  questionOrder?: string[];              // the model's order, for ranking class 5 (§3.3.4)
+  error?: { kind: string; message: string };       // code-generated, no source content
+  endedAt: Known<string>;
+  durationMs: Known<number>;
+};
+```
+
+- **Interrupted.** A call still `started` when its session is resumed was interrupted. The process that holds the lock (§4.7) appends an `interrupted` revision, with `endedAt`, `durationMs`, `usage` and `cost` unknown for the reason `interrupted`. It may have been billed, so it is never counted as zero. Read-only commands, which take no lock, show such a call as in progress if the session is locked by a live process, and as interrupted otherwise, without writing anything.
+- **Budget with unknown costs.** For the §3.6 check, the spend so far is the sum of known costs plus, for each call whose cost is unknown, its `estimatedCost`. That estimate is used for the budget only, and is never reported as the call's cost. If an estimate is unknown too, the check can't be made, and the next call is not sent until the developer raises or confirms the budget (§2.12).
+- `costBasis: "unknown"` in DM §13.1 is `cost.state: "unknown"` here.
+
+**Effort intervals.** An `open` revision is written when a prompt that waits for the developer is shown, and a `closed` revision with `leftAt` when it is answered (§2.13). An interval still `open` when its session is resumed was interrupted: the process holding the lock closes it with `leftAt` unknown, reason `interrupted`. Read-only commands treat it as they treat calls (above).
+
+**Active effort** is the sum of the closed intervals. When any interval was interrupted, it is reported as `{ "state": "lower_bound", "value": …, "interruptedIntervals": n }`. This is the one exception to the rule for totals (§4.10): effort the developer certainly spent is a real lower bound, not an unknown. An `effort_correction` holds the developer's corrected total and reason; the export reports both values (§2.13).
+
+### 4.7 Atomic writes and the lock
+
+**Writing.** Every change appends records in memory and writes the whole file:
+
+1. Write any new `content/`, `inputs/` or `responses/` files first, each to a temporary file in the same directory, synced and renamed into place. A file that already exists is not rewritten.
+2. Serialise `session.json` (§4.3) to `session.json.tmp-<random>` in the session directory, sync it, rename it over `session.json`, and sync the directory.
+3. Only then report the change as saved.
+
+A crash therefore leaves either the old file or the new one, never a mix. Content files without a referring record may be left behind; they are harmless and are removed with the session. The random part of the temporary name comes from the storage adapter, not core.
+
+**When to write.** After every record that matters for recovery: each `session_state`, each `model_call` revision, each `apply_attempt` revision, each developer action (answer, skip, decision, selection, edit, review, acknowledgement) and each effort revision. The developer never loses an answer to a crash.
+
+**Lock.** A process that changes a session (`init`, `resume`, `delete`, `purge-inputs`) first creates `session.lock` exclusively (`O_CREAT | O_EXCL`), holding `{ pid, hostname, startedAt, productVersion }`. It removes the lock on exit, including on `SIGINT` and `SIGTERM`.
+
+- If the lock exists, the process exits without changes and names the process ID and host (§2.12).
+- A lock is **stale** when its host is this machine and its process is not running. The CLI says so and offers to remove it, defaulting to no. A lock from another host is never removed automatically.
+- Read-only commands (`status`, `sessions`, `export`) take no lock. They read `session.json`, which atomic rename keeps whole.
+
+As DM §11.2 says, the lock can't stop other editors from changing `CLAUDE.md`; apply's hash re-check does that.
+
+### 4.8 Retained model exchanges
+
+This implements §1.12, which covers responses as well as requests.
+
+- With `retainModelInputs` on (default), the exact request body of every model call is stored as `inputs/sha256-<hex>.json` and referenced by `retainedInputRef` on the call and in its input manifest (§1.13). The exact response body is stored as `responses/sha256-<hex>.json`, referenced by `retainedResponseRef`.
+- Retained responses are for replay only. Nothing reads them to build records, the export or the review: items that failed validation have their own records (§4.4.3).
+- Retained exchanges are never in an export unless `--include-inputs` is given.
+- `purge-inputs` deletes `inputs/` and `responses/` and appends an `inputs_purged` record. Load then allows those references to point at missing files. `delete` removes the whole session directory.
+- With retention off, both references are `null`, and replay needs the original files at their recorded hashes (§1.12).
+
+### 4.9 Schema versions and load validation
+
+**Versions.** `schemaVersion` is an integer, 1 for now. Any change to a record type, field or derived rule that an older reader would misread increases it.
+
+- **Until v0.1.0 there are no migrations.** A session saved with an **older** format is refused: "This session was saved in session format 1 by version 0.0.3. This version reads only format 2, and doesn't convert older sessions before v0.1.0. Start a new session with `<cli> init`." Nothing is written, and the old session stays on disk until the developer deletes it. From v0.1.0 on, each format change needs a migration, specified with the change.
+- A session saved with a **newer** format is refused too: "This session was saved in session format 2 by version 0.3.0. This CLI reads format 1. Update to 0.3.0 or later." (§2.12).
+
+**Load checks**, in order. The first failure rejects the session with a message naming the check and the record, and the file is left untouched:
+
+1. `format` and `schemaVersion` (above).
+2. The Zod schema for the whole file. Unknown fields are rejected, as in §3.3.
+3. Envelope: record IDs unique; lineage IDs never used as record IDs; `seq` is 1, 2, 3… in file order; each lineage's revisions are numbered 1, 2, 3… in `seq` order; each revision after the first supersedes the latest earlier revision of its lineage that isn't `failed_validation`, and a `failed_validation` revision supersedes nothing.
+4. References (§4.4.1): every record ID a record names belongs to a record of the right type with a lower `seq`; every lineage ID it names belongs to a lineage of the right type whose first revision has a lower `seq`. This covers every field in the references table. A record that isn't `failed_validation` never refers to one that is.
+5. Superseding: a record supersedes only records of its own type, each at most once; failed and immutable records are never superseded, except decisions and effort corrections by their own type.
+6. Evidence: every accepted finding that isn't a gap has evidence; an `absence` finding's is one `absence_check`, and a `claim`'s are `lines` or `entry`.
+7. Content: every `contentRef` exists and its bytes hash to its name; the destination's Guidance Block hashes match its bytes; each artifact revision's `proposedHash` matches its content. Every `retainedInputRef` and `retainedResponseRef` exists and matches, unless an `inputs_purged` record comes after the call.
+8. State: at most one `session_state` has an outcome, and it is the last one; every `apply_attempt` names an `approved` review of its artifact revision whose `contentHash` equals the revision's `proposedHash`.
+
+A session that passes is loaded as a list of typed records. On resume, the process holding the lock then runs the interrupted-work rules, in this order: apply recovery (DM §11.2), interrupted model calls and effort intervals (§4.6), and a `session_state` with the reason `interrupted` if the last state was `running`.
+
+**Data notice.** `notices.json`, in the storage directory (§4.2), records each repository root whose data notice (§2.3) was confirmed, with the notice's version and the time. A changed notice text increases its version and is shown again. Two processes writing it at once can lose one confirmation; the cost is that the notice is shown once more.
+
+### 4.10 Export
+
+`<cli> export <session-id> [--include-excerpts] [--include-inputs] [--out <dir>] [--json]` writes a directory. By default it is `sessions/<id>/exports/<timestamp>/`, in the storage directory, which is never inside the repository (§4.2). `--out` refuses any path inside the session's repository root.
+
+```text
+export.json            the record below
+diff/final.diff        unified diff from the original to the final content, if any
+files/original/CLAUDE.md          the destination as captured, if present
+files/artifact-<n>/CLAUDE.md      each artifact revision's content
+inputs/, responses/    only with --include-inputs
+```
+
+- `export.json` has `exportFormat: "ai-environment-architect/export"`, `exportVersion: 1`, the session's `schemaVersion`, `generatedAt` from the injected clock, and the options used.
+- `contentState` is `applied` if the latest apply attempt succeeded, `approved` if there is a usable approval, `proposed` if there is an active artifact revision, and `none` otherwise. Every artifact revision in the export carries its own state too (DM §14).
+- **Excerpts are off by default.** Without `--include-excerpts`, each evidence item keeps its path, file hash, line range and an `excerptHash`, which is enough to locate the evidence in the snapshot (Evaluation Requirements §3, "source identity"). The quotes in failed items and failed citations follow the same option: without it, each `quote` is replaced by its `quoteHash` (§4.4.3). The rest of a failed item's model-written text is always included. The original and artifact `CLAUDE.md` files are always included: they are agent configuration, the product's input and output, not private source.
+- The export is a projection: the same session, options and `generatedAt` give the same bytes.
+- Before anything is written, the whole export passes the secret scan (§1.7), because it may leave the machine. A match stops the export and names the rule and file, never the text.
+
+**Mapping.** Each section of the Evaluation Requirements §4 is a top-level key of `export.json`:
+
+| Key | Evaluation Requirements §4 | Contents, from records |
+|---|---|---|
+| `identity` | Identity | Session ID, `createdAt`, `completedAt`, `productVersion` (creating and last writing), `adapter`, `outputScope` |
+| `inputs` | Inputs | Each snapshot: ID, `capturedAt`, `git` as recorded (unknown states with reasons), scope, exclusions, ignore rules, stability, file list with hashes; initial destination state and hash, with its Guidance Blocks; each `generation_config`; for each call, the requested and returned model, prompt, schema, validator and detector versions and hashes, budget, input manifest (§1.13) and alias table (§3.2.1) |
+| `reasoningEvidence` | Reasoning evidence | Findings of every kind and status, failed and corrected ones included, with uncertainty, basis, coverage, `droppedCitations` and `failedCitations`; evidence references (excerpts only if included), `absence_check` evidence included; conflicts with every revision; content notices; questions with every revision and status, with `unreachedReason`; decisions including superseded ones and corrections; `failed_item` records; validation events and counts per call |
+| `review` | Review | Every recommendation revision, with its status (`valid`, `failed_validation` with `rejectedBy`, `invalidated` with its reason), developer edits (`producedBy: developer_edit`); held-back entries and no-change reasons; selection history, `rejected` selections included; reviews |
+| `outputs` | Outputs | The final diff, artifact revisions with state, applied file list (the destination path and its hash after apply, or empty), the final configuration hash, and the unresolved gaps, conflicts and questions (open, skipped, unreached) |
+| `measurements` | Measurements | Elapsed time (created to completed, unknown while in progress); generation time, the sum of call durations; active effort with its method (`awaiting_user_intervals`), as a value or a lower bound (§4.6), and the correction; tokens and cost per call and in total, with `costBasis` |
+| `outcome` | Outcome | `evaluationStatus` (below), the session `outcome` and `completeness` with its reasons, final stage and status, apply attempts with every revision, and failure details from `error` fields |
+
+The alias tables and input manifests are what make a failed item's `proposed` readable: its aliases, such as `F-3` or `T5-007`, resolve through its call's table.
+
+**Outcome mapping.** The Evaluation Requirements ask for "completed, partial or failed". The session's outcome and completeness are kept separate (§4.4.2), and the export maps them to `evaluationStatus`, with `evaluationStatusReasons`:
+
+| Session outcome | Completeness | `evaluationStatus` | `evaluationStatusReasons` |
+|---|---|---|---|
+| `applied` or `no_change` | `complete` | `completed` | none |
+| `applied` or `no_change` | `incomplete` | `partial` | the completeness reasons |
+| `failed` | either | `failed` | `failed`, then any completeness reasons |
+| `cancelled` | either | `partial` | `cancelled`, then any completeness reasons |
+| unset (in progress) | either | `partial` | `in_progress`, then any completeness reasons |
+
+A `failed` session's failure details come from the `error` fields of its failed model calls and apply attempts, and are written so the developer can act on them (§2.12).
+
+**Totals and unknowns.** A total is known only when every part is known. Otherwise it is unknown, with the reason naming the parts that are unknown, plus the sum of the known parts labelled `knownPartsSum`. Missing values are never zero, in any field. Active effort is the one exception (§4.6).
+
+### 4.11 Verification
+
+- Every record type round-trips: write, load, and derive the same current state; the bytes are identical when nothing changed, and keys are in bytewise order.
+- A session interrupted after any write (simulated by stopping before each rename) loads as either the previous or the next state, never a mix, and resume continues from it.
+- Corrupted files are rejected with the check that failed: truncated JSON, an unknown field, a duplicate ID, a gap in `seq`, a revision that doesn't supersede the one before, a dangling record or lineage reference, a reference to a later record, a record superseded twice, a reference to a failed record, a missing or altered content file, a block hash that doesn't match, an outcome that isn't on the last state, an apply attempt without a matching approved review.
+- An older and a newer `schemaVersion` are each refused with their message; nothing is written.
+- Storage resolution: the override, then an absolute `XDG_DATA_HOME`, a relative one ignored, then the default; a storage directory inside the repository, by each route, is refused before anything is read or written.
+- `notices.json` holds one confirmation per repository root, and a higher notice version shows the notice again.
+- A second process can't open a locked session; a stale lock on this host is reported and removed only after confirmation; the lock is removed on normal exit, `SIGINT` and `SIGTERM`.
+- Current state: a withdrawn, replaced, corrected or earlier-snapshot finding is not current; a resolved conflict is current with status `resolved`; an invalidated recommendation has no current revision, and a failed revision leaves the earlier valid one current.
+- Each `analyse_expansion` outcome creates exactly the records of §4.5, and `kept` creates none. A finding withdrawal and replacement, and a conflict resolution, create theirs.
+- A developer correction removes the finding from aliases, later calls and support, and puts dependent recommendations in the affected set; superseding the correction restores it.
+- Every item rejected at the item or cross-item stage becomes exactly one failed record holding its text as written and its rule IDs, with no evidence created; a schema failure creates none. No failed record is ever current, aliased, sent or used as support.
+- Every accepted absence claim has one `absence_check` evidence record, and load rejects a non-gap finding without evidence.
+- Load rejects a recommendation whose `support`, reference or attribution names a missing finding lineage, decision, evidence or recommendation revision.
+- A conflict with a corrected or earlier-snapshot member is not current; a question whose targets are all not current is not current and doesn't count towards `questions_unreached`.
+- Completeness gives each reason in its case; `budget_reached` clears when the stopped call is later sent; an `applied` session can be `incomplete`.
+- A `started` model call and an `open` effort interval are made `interrupted` only by the process holding the lock, never count as zero, and give an effort lower bound; read-only commands write nothing.
+- The budget check counts an interrupted call's `estimatedCost`, and never reports it as cost.
+- With retention on, request and response files are written and referenced; with it off, both references are `null`. After `purge-inputs`, the session still loads, and the export says the exchanges were purged.
+- Derived state never reads a stored "current" field.
+- The export: each section contains its records, alias tables, input manifests and returned models included; `contentState` is right in the proposed, approved, applied and no-change cases; `evaluationStatus` follows every row of the outcome mapping; excerpts, failed items' quotes and exchanges appear only with their options; hashes match the session; unknown totals carry reasons; a seeded secret stops the export; `--out` inside the repository is refused.
+- Nothing in `src/core/session/` or `src/core/export/` reads the clock, randomness or the filesystem directly.
+
+### 4.12 Open points for this section
+
+- **`cancelled`.** No command produces the outcome `cancelled` yet: "Save and quit" leaves a session in progress, and `delete` removes it. Settle with the commands in M7, probably a `cancel` command.
+- **Held-back entries across regeneration.** Whether a `regenerate_recommendations` call's held-back entries replace earlier ones or add to them. Settle with regeneration in M5.
+- **Performance of whole-file writes.** Every write rewrites `session.json`. Snapshot file lists on the development repositories are under 230 entries, so this is cheap; a large repository may need snapshots in their own content-addressed files. Measure in M6.
+- **Repository identity.** A root path identifies a repository only on one machine, and not after a move. Enough for the first slice.

@@ -2,7 +2,7 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 1 November 2026  
-**Version:** 0.19 — consolidated specification  
+**Version:** 0.20 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,15 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.19
+
+1. **Session (§5).** The outcome is `applied`, `no_change`, `failed` or `cancelled`; `partial` is gone. `completeness` is separate: `complete`, or `incomplete` with the reasons `budget_reached` (only while the stopped call is still unsent), `stage_skipped` and `questions_unreached`. Stage, status, outcome and configuration change by appended records; completeness and the active references are derived.
+2. **Absence evidence (§6.2, §6.3).** Evidence gains the kind `absence_check`, always `code_observation`. Findings gain the kind `absence`, so every finding that isn't a gap has evidence.
+3. **Revisions (§6.3, §6.5, §8.1, §8.2, §9.1, §11.2, §13).** Findings, conflicts, questions, apply attempts, model calls and effort intervals have a stable lineage ID and numbered revisions; `supersedesId` becomes `supersedes`, a list. Conflicts carry their snapshot, and only findings and conflicts of the active snapshot are current. A decision can name the finding it corrects (`findingId`); a corrected finding is not current. The note for M4 in §6.5 is replaced by the rule it settled ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.5).
+4. **Items that failed validation (§6.3, §6.5, §8.1, §9.1).** Findings, conflicts, questions and recommendation revisions that fail validation are kept with status `failed_validation`, their text and their rules. Recommendation revisions have a status: `valid`, `failed_validation` or `invalidated` with a reason.
+5. **Model calls and effort (§13).** A model call has a state, an attempt number, an estimated cost and a retained-response reference, and no longer lists `outcome` and `validationErrors`. Interrupted calls and effort intervals are recorded by the process that resumes the session, with unknown values, never zero.
+6. **Export and persistence (§14, §15, §17, §18).** Items that failed validation and held-back entries are exported; excerpts and the quotes in failed items are off by default. Storage is the XDG data directory, with one override, and never inside the target repository; the data-notice state lives there; content files are content-addressed; responses are retained for replay. No migrations before v0.1.0. A verification line for failed items is added. "Export option defaults" is settled.
 
 ### Changes from v0.18
 
@@ -157,11 +166,14 @@ One attempt to configure one repository.
 | `generationConfig` | Requested model, prompt/template set version, output schema versions, generation budget (token and/or cost ceiling), question budget |
 | `stage` | `inspect`, `clarify`, `recommend`, `review`, `apply`, `complete` |
 | `status` | `ready`, `running`, `awaiting_user`, `blocked`, `failed`, `completed`, `cancelled` |
-| `outcome` | `applied`, `no_change`, `partial`, `failed`, `cancelled`, or unset while in progress |
+| `outcome` | `applied`, `no_change`, `failed`, `cancelled`, or unset while in progress |
+| `completeness` | `complete`, or `incomplete` with its reasons: `budget_reached`, `stage_skipped`, `questions_unreached`. Separate from the outcome: an applied session can be incomplete |
 | Active references | Active snapshot, current decisions, current selections, active artifact revision, review and apply-attempt references |
 | Timestamps | Created, updated, completed |
 
 Stage records where the developer is in the workflow. Status records whether work can proceed. A stored stage is never sufficient authorisation to write.
+
+Stage, status and outcome change by appending session state records, and `generationConfig` by appending configuration records. Completeness and the active references are derived from the records, never stored ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.4.2). Completeness counts `budget_reached` only while the call the budget stopped is still unsent.
 
 ## 6. Project understanding
 
@@ -215,11 +227,12 @@ A reference to specific captured content.
 | Field | Notes |
 |---|---|
 | `id`, `snapshotId` | |
-| `kind` | `lines`, or `entry` for evidence that a file exists, which only code creates |
-| `path`, `fileHash` | Must match a `read` or `listed_only` entry in the snapshot |
+| `kind` | `lines`; `entry` for evidence that a file exists; or `absence_check` for the file-list check behind an accepted absence claim. Only code creates `entry` and `absence_check` evidence |
+| `path`, `fileHash` | `lines` and `entry` only. Must match a `read` or `listed_only` entry in the snapshot |
+| `pathGlob`, `unenteredDirectories` | `absence_check` only: the glob after path normalisation, and the directories capture didn't enter that it could reach, withheld ones by hash |
 | `lineStart`, `lineEnd` | `lines` only. Validated at capture time |
 | `excerpt` | `lines` only. The cited lines: at most 40, provisionally, and never truncated, so a citation of a longer range is rejected ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.2, `CIT-010`) |
-| `basis` | `documentation`, `code_observation`, `existing_guidance` (§6.4). `entry` evidence is always `code_observation`, because it only observes the file list ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.4) |
+| `basis` | `documentation`, `code_observation`, `existing_guidance` (§6.4). `entry` and `absence_check` evidence is always `code_observation`, because it only observes the file list ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.4) |
 
 Evidence cited by the model must target lines sent in that call. Evidence created by code without a citation, for known facts ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.5), must come from content verified against the snapshot hash; its excerpt passes the secret scan like any text sent to the model.
 
@@ -231,14 +244,17 @@ One claim about the repository, or one explicit unknown.
 
 | Field | Notes |
 |---|---|
-| `id`, `snapshotId` | |
-| `kind` | `claim` or `gap` |
+| `id`, `findingId`, `snapshotId` | `id` names one revision; `findingId` is stable across revisions |
+| `kind` | `claim`, `gap`, or `absence` for an accepted absence claim, whose statement code writes ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.11) |
+| `status` | `active`, `withdrawn` or `failed_validation` |
+| `withdrawnReason?` | Set when withdrawn, for example `withdrawn_by_model` |
+| `revision`, `supersedes?` | The revision number within `findingId`; and the revisions this one supersedes: the previous revision, or, for a replacement, the current revision of every finding it stands for ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.4.1) |
 | `statement` | Plain language |
 | `mode` | `descriptive` ("tests live under `tests/`") or `prescriptive` ("docs require the generated client") |
 | `basis` | Derived from evidence: the set of its evidence's bases (`documentation`, `code_observation`, `existing_guidance`), so a mixed basis has more than one ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.4) |
 | `scope` | `repository` or an explicit list of paths |
-| `evidenceIds` | Required for `claim`; may be empty for `gap` |
-| `droppedCitations` | Model-produced findings only: how many proposed citations failed validation or were merged into an earlier duplicate ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.5). Shown in the findings view |
+| `evidenceIds` | Required for `claim` (`lines` or `entry` evidence) and `absence` (one `absence_check`); may be empty for `gap`. Every finding that isn't a gap has evidence |
+| `droppedCitations`, `failedCitations` | Model-produced findings only: how many proposed citations failed validation or were merged into an earlier duplicate, and those citations as proposed, with the rules that rejected them ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.5). Shown in the findings view |
 | `coverage` | Gaps only, set by code: `inspected`, or `not_inspected` with what wasn't read: the entries the gap's related paths match that weren't sent in full (withheld ones by hash), and the directories capture didn't enter that count: those the paths name explicitly, and those they could reach that may hide project content (unreadable, symbolic links, user exclusions), withheld ones by hash ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.11, §3.3.2). The review shows a `not_inspected` gap as "not inspected", not "missing" |
 | `uncertainty` | Short explanation; no numeric confidence score |
 | `producedBy` | Model call ID, or `deterministic` |
@@ -250,6 +266,10 @@ A **gap** records something the product looked for and could not establish, for 
 - block recommendations that would depend on the missing information.
 
 A gap must never be filled by a model assumption.
+
+A finding with status `failed_validation` is an item the model proposed that validation rejected. It is kept with its text as written and the IDs of the rules that rejected it, so reviewers can assess errors. It is never current, never shown as a finding and never supports anything ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.4.3). A withdrawn or replaced finding is kept too, with its status.
+
+Only findings of the active snapshot are current. A finding named by a current `developer_correction` decision is **corrected**: it is shown, marked as corrected, but is not current and supports nothing ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.5).
 
 Deterministic inspection produces findings directly where possible: manifest scripts, existing agent configuration files, documented commands. Those findings record `producedBy: deterministic`.
 
@@ -277,12 +297,12 @@ Links findings that appear inconsistent.
 
 | Field | Notes |
 |---|---|
-| `id` | |
+| `id`, `conflictId`, `snapshotId` | `id` names one revision; `conflictId` is stable across revisions. Only conflicts of the active snapshot are current |
 | `findingIds` | At least two |
 | `description` | What disagrees |
-| `status` | `unresolved`, `resolved`, `withdrawn` |
+| `status` | `unresolved`, `resolved`, `withdrawn`, or `failed_validation` for a proposed conflict that validation rejected |
 | `withdrawnReason?` | Set when withdrawn: `withdrawn_by_model`, `member_withdrawn`, `members_merged` (one replacement now stands for several members) or `sources_not_distinct` ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.3.3) |
-| `supersedesId?` | Set on a revision that supersedes an earlier one: changed members, withdrawal, or a replacing conflict |
+| `revision`, `supersedes?` | The revision number within `conflictId`; and the revisions this one supersedes: the previous revision, for changed members, withdrawal or resolution; or, for a replacing conflict, the current revision of every conflict it replaces, since one replacement may stand for several |
 | `resolvingDecisionId?` | Set when resolved |
 
 Example: architecture documentation requires the shared client, the existing `CLAUDE.md` says to use `fetch`, and some components bypass the client. The conflict records this without choosing a policy.
@@ -291,7 +311,7 @@ An unresolved conflict blocks only the recommendations whose content depends on 
 
 Records are never changed in place (§15). When the members of a conflict change, because a member finding is withdrawn or replaced, a new conflict revision with the new `findingIds` supersedes the old one, which is kept for history. A conflict left with fewer than two members, or whose members no longer have distinct sources, is withdrawn instead, with its reason. A withdrawn or superseded conflict is no longer passed to later calls and blocks nothing; only the latest revision of a conflict is current.
 
-> **Note for M4.** Direction for the conflict records, to be specified with persistence ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4): every change to a conflict is a new revision, and the latest revision holds the current status. A withdrawal is a revision with status `withdrawn` and its `withdrawnReason`. A replacement is a new conflict whose `supersedesId` points at the old one. The validation outcomes (`kept`, `revised`, `replaced`, `withdrawn`) map onto these: `kept` creates nothing.
+Every change to a conflict is a new revision of the same `conflictId`, and the current revision holds its status: a withdrawal is a revision with status `withdrawn` and its reason. A replacement is a new conflict whose `supersedes` names the conflicts it replaces. The validation outcomes map onto these, and `kept` creates nothing ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.5).
 
 ## 7. Destination: Guidance Blocks
 
@@ -340,12 +360,12 @@ Rules:
 
 | Field | Notes |
 |---|---|
-| `id` | |
+| `id`, `questionId`, `revision` | `id` names one revision; `questionId` is stable across status changes |
 | `prompt`, `reason` | Wording and why it is asked |
 | `findingIds`, `conflictIds`, `gapIds` | What it resolves |
 | `options?` | Suggested answers; always presented as suggestions |
 | `scope` | `repository` or explicit paths |
-| `status` | `open`, `answered`, `skipped`, `unreached` |
+| `status` | `open`, `answered`, `skipped`, `unreached`, or `failed_validation` for a proposed question that validation rejected, which is never presented |
 | `unreachedReason?` | Set when unreached: `session_ended` or `budget` |
 | `producedBy` | Model call ID |
 
@@ -360,10 +380,10 @@ Rules:
 | `id` | |
 | `statement` | The developer's confirmed intent, in their words or an explicitly accepted wording |
 | `scope`, `exceptions` | Scope as above; exceptions in plain language |
-| `questionId?`, `conflictId?` | What it answers |
+| `questionId?`, `conflictId?`, `findingId?` | What it answers. `findingId` is set on a `developer_correction` of a finding, which is then marked corrected and no longer supports recommendations |
 | `origin` | `answered_question`, `developer_correction` |
 | `actor`, `decidedAt` | |
-| `supersedesId?` | Corrections create a new decision |
+| `supersedes?` | Corrections create a new decision, which names the one it supersedes |
 
 Choosing a suggested option is a confirmation; the option itself was not one. A decision can establish new guidance that the code does not show; its origin records that, so it is not presented as a discovered fact.
 
@@ -371,7 +391,9 @@ Choosing a suggested option is a confirmation; the option itself was not one. A 
 
 ### 9.1 Recommendation Revision
 
-One understandable operation on the target file. Stable `recommendationId`, immutable `revisionId`.
+One understandable operation on the target file. Stable `recommendationId`, immutable `revisionId` (the revision's record ID, [`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.4.1).
+
+A revision's `status` is `valid`, `failed_validation`, or `invalidated` with a reason: `revalidation_failed`, `not_reconsidered`, `dropped_by_model` or `target_changed` ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.4.1).
 
 | Field | Notes |
 |---|---|
@@ -403,7 +425,7 @@ Deterministic validation runs on every revision:
 - the support satisfies the evidence rules;
 - the target block exists and its hash matches.
 
-A revision that fails validation is not shown for selection. The failure is recorded.
+A revision that fails validation is not shown for selection. It is recorded with status `failed_validation`, its text as written and the rules that rejected it ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.4.3).
 
 These references are also the basis for later maintenance checks: stale paths and commands are detected by comparing stored references with a new snapshot.
 
@@ -495,7 +517,7 @@ This keeps application safe without blocking a developer who is editing unrelate
 
 | Field | Notes |
 |---|---|
-| `id`, `artifactRevisionId`, `reviewId` | |
+| `id`, `applyAttemptId`, `artifactRevisionId`, `reviewId` | `id` names one revision; `applyAttemptId` is stable across states |
 | `expectedOriginal` | Hash or `absent` |
 | `intendedHash` | |
 | `freshness` | Result of §11.1, including acknowledged warnings |
@@ -542,21 +564,23 @@ In the first slice, invalidating the whole proposal is acceptable wherever the n
 
 | Field | Notes |
 |---|---|
-| `id`, `purpose` | `analyse`, `analyse_expansion`, `generate_questions`, `recommend`, `regenerate_recommendations` |
+| `id`, `modelCallId`, `purpose` | `id` names one revision; `modelCallId` is stable from start to end. Purpose: `analyse`, `analyse_expansion`, `generate_questions`, `recommend`, `regenerate_recommendations` |
 | `validatorVersion`, `detectorVersion` | Validation rules and reference detector in force ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.4–§3.5) |
 | `validationEvents` | Every rejection, correction and relabelling, with stable rule IDs; no source content |
 | `aliases` | The call's alias table: each alias and the record, item or block it stands for ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.1) |
 | `requestedModel`, `returnedModel?` | |
 | `promptVersion`, `schemaVersion`, `schemaHash` | `schemaHash` is the SHA-256 of the JSON Schema sent ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.7) |
 | `inputManifest` | Snapshot ID and hashes of included files and excerpts; excluded files listed; no source content |
-| `retainedInputRef?` | Content-addressed reference to the exact request body, when `retainModelInputs` is on ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.12) |
+| `state`, `attempt`, `retryOf?` | `started`, `completed`, `failed` or `interrupted`; each retry is its own call, linked to the previous attempt |
+| `retainedInputRef?`, `retainedResponseRef?` | Content-addressed references to the exact request and response bodies, for replay, when `retainModelInputs` is on ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.12) |
 | `budget` | Limits applied to this call |
 | `usage` | Input, output and cached tokens where available |
 | `cost?`, `costBasis` | `reported`, `estimated`, or `unknown`. Unknown is never recorded as zero |
-| `outcome`, `validationErrors` | |
-| timestamps, `durationMs` | |
+| `estimatedCost` | The estimate checked against the budget before sending; used for the budget when the cost is unknown, never reported as cost |
+| `counts` | Proposed (unknown after a schema failure), accepted, corrected, relabelled, and rejections by rule; for `analyse` and `analyse_expansion`, the corrected-citation rate and citations proposed ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.2, §3.5) |
+| `startedAt`, `endedAt`, `durationMs` | `endedAt` and `durationMs` are unknown, with a reason, for an interrupted call |
 
-Every model-produced record carries `producedBy`, linking each finding, question and recommendation revision to the prompt and schema version that created it. Calls stop when the session's generation budget is reached. The session then continues with whatever is validated, and records the reason.
+A call still `started` when its session is resumed was interrupted: the process holding the session lock records it so, with its end, usage and cost unknown, never zero ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.6). Every model-produced record carries `producedBy`, linking each finding, question and recommendation revision to the prompt and schema version that created it. Calls stop when the session's generation budget is reached. The session then continues with whatever is validated, and records the reason.
 
 ### 13.2 Effort Interval
 
@@ -564,8 +588,11 @@ Active developer effort is recorded separately from elapsed generation time.
 
 | Field | Notes |
 |---|---|
+| `id`, `effortIntervalId` | `id` names one revision; `effortIntervalId` is stable from open to closed |
 | `enteredAt`, `leftAt` | Period with status `awaiting_user` |
 | `stage` | Which stage the developer was working on |
+
+An interval is recorded as open when the prompt is shown and closed when it is answered. One still open when its session is resumed was interrupted: its end is unknown, and active effort is then reported as a lower bound with the number of interrupted intervals ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.6).
 
 Active effort is the sum of these intervals. This is an approximation: a developer may step away while the tool is waiting. The CLI allows a manual correction, recorded with a reason. The export states which method produced the number.
 
@@ -577,22 +604,22 @@ A versioned projection generated from session records. It is never edited direct
 |---|---|
 | Identity | Session ID, timestamps, `productVersion`, `adapter`, `outputScope` |
 | Inputs | Snapshot identity (git metadata as recorded, including `unknown` states and their reasons; file hashes, scope, exclusions), initial destination state and hash, `generationConfig`, prompt and schema versions |
-| Reasoning evidence | Findings (claims and gaps), evidence references and excerpts, conflicts, questions with every status, decisions including superseded ones |
-| Review | All recommendation revisions, including rejected and invalid ones; selection history; developer edits; reviews |
+| Reasoning evidence | Findings (claims, absence claims and gaps), evidence references and excerpts, conflicts, questions with every status, decisions including superseded ones, items that failed validation |
+| Review | All recommendation revisions, including those that failed validation or were invalidated; held-back entries; selection history, rejected selections included; developer edits; reviews |
 | Outputs | Final diff, artifact revisions, applied file list, final configuration hash, unresolved gaps, conflicts and questions |
 | Measurements | Elapsed time, active developer effort and its method, model usage and cost with `costBasis`, explicit reasons for missing values |
-| Outcome | Session `outcome`, apply attempts and failure details |
+| Outcome | Session `outcome` and `completeness`, mapped to completed, partial or failed; apply attempts and failure details |
 
-The export always states whether its artifact content is proposed, approved or applied. It contains no credentials and no source content beyond cited excerpts. Including excerpts is a visible export option, because they may be sensitive.
+The export always states whether its artifact content is proposed, approved or applied. It includes the findings, conflicts, questions and recommendation revisions that failed validation, with their text and rules. It contains no credentials and no source content beyond cited excerpts. Including excerpts, and the quotes in items that failed validation, is a visible export option, off by default, because they may be sensitive. The format and the mapping to the evaluation requirements are in [`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.10.
 
 ## 15. Persistence
 
-- Sessions live outside the repository, under the user's application data directory (for example `~/.config/ai-environment-architect/sessions/<id>/`). If a user configures a location inside the repository, it is added to the snapshot exclusions automatically.
-- Each session is one versioned JSON file, plus separate files for the destination's original bytes and each artifact revision's content.
+- Sessions live outside the repository, under the XDG data directory: `$XDG_DATA_HOME/ai-environment-architect/sessions/<id>/`, or `~/.local/share/ai-environment-architect/sessions/<id>/` when `XDG_DATA_HOME` isn't set. One product environment variable overrides the location. The data-notice state lives there too. A storage directory inside the target repository, by any route, is refused before anything is read or written ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.2).
+- Each session is one versioned JSON file of appended records, plus content-addressed files for the destination's original bytes and each artifact revision's content.
 - Writes use temporary files and atomic rename. A lock file prevents two CLI processes from opening one session.
-- Load validates the schema version and all internal references. Unsupported versions are rejected with a clear message.
+- Load validates the schema version and all internal references. Unsupported versions are rejected with a clear message. Until v0.1.0 there are no migrations: a session in an older format is refused, and the developer starts a new one ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.9).
 - Revisions are appended, never mutated. No event-sourcing framework is needed.
-- Exact model request bodies may be retained in the session directory under the `retainModelInputs` policy ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.12). They are excluded from exports by default, deleted with the session, and can be purged separately. The snapshot itself still stores no full source content.
+- Exact model request and response bodies may be retained in the session directory, for replay, under the `retainModelInputs` policy ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.12). They are excluded from exports by default, deleted with the session, and can be purged separately. The snapshot itself still stores no full source content.
 
 ## 16. Scenario walkthroughs
 
@@ -628,12 +655,13 @@ The export always states whether its artifact content is proposed, approved or a
 - An interrupted apply recovers without repeating the write.
 - `no_change` performs no write.
 - Unknown cost is never exported as zero.
+- Every model item that fails validation is kept with its text and rules, and never treated as current.
 - The export distinguishes proposed, approved and applied content, and its hashes match the session.
 
 ## 18. Remaining implementation choices
 
 - Default exclusion patterns and snapshot size limits.
-- Excerpt length limit and export option defaults.
+- Excerpt length limit.
 - Context selection for model calls: which files and excerpts are sent within the budget. It must be deterministic and recorded in each call's `inputManifest`.
 - CLI interaction for answering questions, editing recommendation wording and reviewing the diff.
 - Handling of unsupported encodings.

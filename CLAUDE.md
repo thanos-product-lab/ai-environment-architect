@@ -7,7 +7,7 @@ A TypeScript CLI that inspects a repository, asks the developer about intent the
 Read the relevant section before changing behaviour:
 
 - `docs/architecture/DOMAIN_MODEL.md` (DM): records, evidence rules (§6.4), assembly (§9.3), review and apply (§10–§11), export (§14)
-- `docs/architecture/IMPLEMENTATION_SPEC.md` (IMPL): context selection (§1), CLI screens (§2), model calls and validation (§3). §4 is not written yet.
+- `docs/architecture/IMPLEMENTATION_SPEC.md` (IMPL): context selection (§1), CLI screens (§2), model calls and validation (§3), persistence and export (§4).
 - `docs/product/EVALUATION_REQUIREMENTS.md`: what every session must record
 - `docs/decisions/`: architecture decision records
 
