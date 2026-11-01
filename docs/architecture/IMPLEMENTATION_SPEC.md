@@ -1,9 +1,19 @@
 # Implementation Specification
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 31 October 2026  
-**Version:** 0.26  
+**Date:** 1 November 2026  
+**Version:** 0.27  
 **Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
+
+### Changes from v0.26
+
+- **Ranking (§3.3.4).** Class 1 counts only unresolved conflicts. A question resolving only a resolved conflict and a qualifying finding ranks by the finding.
+- **Conflict member changes (§3.3.3).** Any change to a call-1 conflict's member set runs `CONF-001` and then `SUP-005`, not only a replacement. A conflict that passes is revised by a new conflict revision that supersedes the old one ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) v0.16 §6.5).
+- **Revision keys (§3.3.3, §3.5).** Revisions are named by position, `revisions/<n>`, so two revisions of one target can be told apart.
+- **Call-1 records (§3.3.3).** `analyse_expansion` validation takes every call-1 record as a required input, with its kind and `producedBy`, matching the alias table exactly. Records code produced are always passed forward, so `DUP-001` drops a new gap that restates a deterministic one. `DUP-001` compares new gaps and absence claims with call-1 ones too. A conflict member naming a gap or an absence claim fails `ALIAS-003`. `REV-002` covers every record code produced, deterministic gaps included. One replacement may stand for more than one target.
+- **`listed_only` reads (§1.6, §1.8, §1.15).** A file `listed_only` because it is too large needs explicit line ranges (`EXP-006`, new). One `listed_only` because it holds a NUL byte or isn't valid UTF-8 is never readable (`EXP-001`). The `[L]` legend and the passages on range reads say so.
+- **Corrected-citation rate (§3.2.2).** The denominator is the citations that reached the citation check; citations proposed are recorded as a separate count.
+- **Validator (§3.5).** `validatorVersion` is `validate/0.10.0`, for `EXP-006` and the changes above.
 
 ### Changes from v0.25
 
@@ -538,7 +548,7 @@ The example shows only the first two of lines 40–96; a real item lists every i
 - Depth limit `treeDepth` (default 4). A directory at the limit shows the number of files under it: every entry except directories.
 - Directories with more than `treeCollapseThreshold` entries (default 40) show their first `treeCollapseThreshold` entries in path order, then `… N more`.
 - Excluded directories appear once, with an `[excluded]` marker and no children, and wholly ignored directories once, with an `[ignored]` marker and no children (§1.4).
-- Each file has a marker: `[R]` fully included, `[E]` excerpt included, `[-]` readable but not selected (a plain `read` expansion can fetch it), `[L]` `listed_only` (only line ranges can be read), `[X]` excluded, `[I]` an ignored file (§1.4; not sent, and no expansion can read it), `[S]` blocked by secret scan, `[>]` symbolic link, shown with its target (`name -> target`), `[U]` unreadable (a directory too, with `/`).
+- Each file has a marker: `[R]` fully included, `[E]` excerpt included, `[-]` readable but not selected (a plain `read` expansion can fetch it), `[L]` `listed_only` (a file too large to excerpt can be read only by line range; one that holds a NUL byte or isn't valid UTF-8 can't be read at all, §1.8), `[X]` excluded, `[I]` an ignored file (§1.4; not sent, and no expansion can read it), `[S]` blocked by secret scan, `[>]` symbolic link, shown with its target (`name -> target`), `[U]` unreadable (a directory too, with `/`).
 
 **Format.** A header `<<<TREE depth=<d> files=<n>>>>`, one line per entry, and `<<<END TREE>>>`, each ending with a line break. `n` counts every entry except directories. Entries are indented two spaces per level, and siblings are in bytewise name order. A directory is its name and `/`; a file is its marker, a space and its name. A name containing a control character (C0, DEL, C1, U+2028 or U+2029) is written as a JSON string, and the delimiter escape applies to names and link targets. A name or link target that matches the secret scan is written `<withheld>` (§1.7).
 
@@ -615,14 +625,15 @@ The `analyse` call may return up to `maxExpansionRequests` (default 5) requests.
 | `read` | Up to 10 entries, each a path with optional line ranges (for example `apps/web/src/lib/api/client.ts:20-39,97-140`), plus a reason | Per-entry cap `expansionEntryBytes` (default 8,000) |
 | `search` | A literal string (no regular expressions in the first slice), an optional path glob, and a reason | At most 30 matches, 3 lines of context each |
 
-A `read` without line ranges returns the file excerpted by the rules in §1.6. A `read` with line ranges returns exactly those lines, which must be within the file. Line-range reads are the way to see omitted outline entries and `listed_only` files.
+A `read` without line ranges returns the file excerpted by the rules in §1.6. A `read` with line ranges returns exactly those lines, which must be within the file. Line-range reads are the way to see omitted outline entries and `listed_only` files that are too large to excerpt (`EXP-006`); a `listed_only` file that holds a NUL byte or isn't valid UTF-8 can't be read (`EXP-001`).
 
 Each request is validated deterministically. The static checks run with the `analyse` item validation (§3.3.2 step 9), in this order; the first failure rejects the whole request:
 
 | Rule | Check |
 |---|---|
 | `LIMIT-002` | The request is among the first `maxExpansionRequests` in response order. |
-| `EXP-001` | Every `read` path, after the path normalisation of §1.11, is a `read` or `listed_only` entry that is not withheld by name and not blocked by its content (§1.7). So it is in the snapshot, not excluded, not `ignored` (§1.4), not a symbolic link or unreadable, and not secret-blocked. The detail names the entry's position in the request, never the path. |
+| `EXP-001` | Every `read` path, after the path normalisation of §1.11, is a `read` entry, or a `listed_only` entry that is too large, that is not withheld by name and not blocked by its content (§1.7). A file `listed_only` because it holds a NUL byte or isn't valid UTF-8 is never readable, with or without ranges. So it is in the snapshot, not excluded, not `ignored` (§1.4), not a symbolic link or unreadable, and not secret-blocked. The detail names the entry's position in the request, never the path. |
+| `EXP-006` | A `listed_only` entry has explicit line ranges: a file too large to excerpt can be read only by range. |
 | `EXP-002` | Every requested line range starts at or before its end. |
 | `EXP-003` | The request adds something: a `read` entry with ranges asks for at least one line the initial context didn't send of that file, and a `read` entry without ranges names a file not sent in full (§1.11). A request whose every entry adds nothing is rejected. |
 | `EXP-004` | A search `glob`, when given, holds no backtick, whitespace, or control or format character (`Cc`, `Cf`), names something after the path normalisation of §1.11, lies under one of the snapshot's scope roots (its leading segments are the root's segments, written without wildcards, so `**/*.ts` is not under `src`; the root `.` covers everything), and matches at least one searchable file, a `read` entry that is not withheld or blocked by its content, directly or through a directory it matches, as in §1.11. |
@@ -823,7 +834,7 @@ All defaults are starting points. They are calibrated on the product-development
 - Tree markers match the final selection, including after token-check reductions.
 - The destination is included in full, or the session stops before any call with a stated reason, for each of the four causes in §1.5.
 - The secret scan runs on every outgoing request and blocks each rule's fixtures. The manifest never contains matched text.
-- Excluded, `ignored`, `listed_only` (except requested ranges) and secret-blocked content never appears in a request.
+- Excluded, `ignored`, `listed_only` (except requested ranges of a file too large to excerpt) and secret-blocked content never appears in a request.
 - Ignored files are recorded as `ignored` only when git lists them: never tracked files, the destination, excluded entries or links. Without git, the manifest says ignore rules were not applied, with the reason.
 - A wholly ignored directory is one entry that capture never lists or reads inside, unless an `includeIgnored` pattern could match there.
 - Git 2.38 to 2.43 reads an ordinary repository without `--no-lazy-fetch`, and refuses a partial clone.
@@ -1017,7 +1028,7 @@ Record this decision?
 ```
 
 - **Skip** leaves the question unresolved. The screen says so: "Recommendations that depend on this will be held back."
-- After the last question, or when the budget is reached, a summary lists recorded decisions and skipped questions. Unasked questions are recorded as `unreached`.
+- After the last question, or when the budget is reached, a summary lists recorded decisions and skipped questions. Questions not presented are recorded as `unreached`, with reason `budget` if they ranked beyond it (§3.3.4) and `session_ended` otherwise ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §8.1).
 
 ### 2.7 Recommendations
 
@@ -1306,7 +1317,7 @@ type Citation = {
 
 A rejected citation drops only itself (§3.5). A finding whose citations are all rejected is rejected with `CIT-008`, after the events of its citations.
 
-The corrected-citation rate is recorded per call, with the `analyse` and `analyse_expansion` item validation (§3.3.2–§3.3.3): the number of `CIT-R01` events divided by the number of citations proposed in the call, across all its findings. A corrected citation counts even if it is later merged as a duplicate or its finding is rejected; a citation whose correction would exceed 40 lines is a `CIT-010` rejection, not a correction. Merged duplicates are counted separately, as the `CIT-009` entry of the call's rejections by rule (§3.5). The rate is not the §3.5 `corrected` count, which counts accepted findings, not citations. Unknown is never zero: if the response failed the schema the rate is unknown with the reason `schema_failed`, and if no citations were proposed it is unknown with the reason `no_citations`. A rising rate is a signal to investigate the prompt or the rendering format.
+The corrected-citation rate is recorded per call, with the `analyse` and `analyse_expansion` item validation (§3.3.2–§3.3.3): the number of `CIT-R01` events divided by the number of citations that reached the citation check, across all the call's findings. A finding rejected before its citations are checked, by `ALIAS-002` or `LIMIT-001`, contributes none. The citations proposed in the call, across all its findings, are recorded as a separate count, unknown with the reason `schema_failed` when the response failed the schema. A corrected citation counts even if it is later merged as a duplicate or its finding is rejected; a citation whose correction would exceed 40 lines is a `CIT-010` rejection, not a correction. Merged duplicates are counted separately, as the `CIT-009` entry of the call's rejections by rule (§3.5). The rate is not the §3.5 `corrected` count, which counts accepted findings, not citations. Unknown is never zero: if the response failed the schema the rate is unknown with the reason `schema_failed`, and if no citation reached the check it is unknown with the reason `no_citations`. A rising rate is a signal to investigate the prompt or the rendering format.
 
 #### 3.2.3 Support checks
 
@@ -1501,7 +1512,7 @@ A `Citation`'s `quote` is at most 200 characters in the schema; its other quote 
 6. Absence claims: a glob holding a backtick, whitespace, a control or format character, or a `..` segment is rejected (`ABS-003`); then evaluated against the full file list (`ABS-001`, `ABS-002`), with code-generated wording (§1.11).
 7. Duplicates, among the items that survived the item stage, in response order. A finding with the same normalised statement and the same scope as a known fact is dropped (`DUP-002`); otherwise one with the same normalised statement and scope as an earlier finding is dropped (`DUP-001`). A gap with the same normalised statement, `gapType` and set of normalised related paths as an earlier gap, and an absence claim with the same normalised glob as an earlier claim, are dropped (`DUP-001`). A **normalised statement** is the statement in Unicode NFC, with every run of `White_Space` replaced by one space and the ends trimmed; case is kept. Two scopes are the same when both are `repository`, or both hold the same set of paths after the path normalisation of §1.11, in any order. A reference to a dropped duplicate is redirected to the item kept: the earlier finding, or the known fact's `F` alias.
 8. Conflicts: after redirection, each member counts once; at least two members are findings that survived validation, or `F` aliases; otherwise the conflict is rejected (`CONF-001`). Then `SUP-005`, over the members after redirection.
-9. Expansion requests: the static checks of §1.8 (`LIMIT-002`, `EXP-001` to `EXP-005`). The byte budget and execution follow validation (§1.8).
+9. Expansion requests: the static checks of §1.8 (`LIMIT-002`, `EXP-001`, `EXP-006`, `EXP-002` to `EXP-005`). The byte budget and execution follow validation (§1.8).
 10. Content notices: the item alias is a `T` or `E` item in this call's input (`CIT-001`, or `ALIAS-003` for an alias of another kind or a local key the response defines), and the cited lines must be sent lines of the item (`CIT-006`, `CIT-003`; §3.2.2). Valid notices are recorded on the snapshot and shown in the findings view. They never change behaviour.
 
 Steps 7 and 8 are the cross-item stage (§3.5), in that order; the others are item checks. The corrected-citation rate (§3.2.2) is recorded with the result.
@@ -1532,17 +1543,19 @@ type AnalyseExpansionOutput = {
 
 There is no `expansionRequests` field; one expansion round only.
 
-**Validation:** as for `analyse`, with these additions:
+**Validation:** as for `analyse`, with these additions. The call-1 records are a required input: every `F` record the call-1 validation accepted and every known fact, in alias order, each with its kind (claim, gap or absence claim) and `producedBy`; and every call-1 conflict with its members. Validation can't run without them, so the duplicate and revision rules never depend on what a caller chose to pass. The records must be exactly the `F` and `C` aliases of the call's table; a mismatch is a bug in the caller, and validation refuses to run.
 
 - Citations may target both `T*` and `E*` items.
-- Conflict members are `f` keys or `F` aliases. An `F` member's sources, for `SUP-005`, are the paths of its validated evidence.
-- A revision's `target` is an `F` or `C` alias. An `F` target is replaced only by an `f` key, and a `C` target only by a `c` key; a replacement of the other kind fails `ALIAS-003`.
-- Known facts (`producedBy: deterministic`) cannot be withdrawn or replaced by the model (`REV-002`, item stage).
-- Duplicates (`DUP-001`) also compare new findings with the call-1 findings still passed forward: those no revision that survived the item stage withdraws or replaces. A new finding that restates one is dropped, and references to it are redirected to that `F` alias.
+- Conflict members are `f` keys or `F` aliases of claims. An `F` alias of a gap or an absence claim fails `ALIAS-003`, because it has no evidence to compare. An `F` member's sources, for `SUP-005`, are the paths of its validated evidence.
+- A revision's `target` is an `F` or `C` alias. An `F` target is replaced only by an `f` key, and a `C` target only by a `c` key; a replacement of the other kind fails `ALIAS-003`. One replacement may stand for more than one target.
+- Records produced by code (`producedBy: deterministic`), known facts and deterministic gaps alike, cannot be withdrawn or replaced by the model (`REV-002`, item stage).
+- Revisions have no key of their own, so events and accepted lists name them by position, `revisions/<n>`.
+- Duplicates (`DUP-001`) also compare new items with the call-1 records still passed forward, those no revision that survived the item stage withdraws or replaces; records code produced can't be revised, so they are always passed forward, and known facts are left to `DUP-002`, which runs first: findings with call-1 claims, gaps with call-1 gaps, and absence claims with call-1 absence claims, by the identities of §3.3.2 step 7. A new item that restates one is dropped, and references to it are redirected to that `F` alias.
 - A second revision of the same target is rejected; the first is kept (`REV-003`, cross-item, after the duplicates).
 - A `replace` requires its replacement to pass validation; otherwise the original is kept and the revision rejected (`REV-001`, cross-item, last, after `SUP-005`). A replacement dropped as a duplicate of another new item counts as that item; one redirected to an `F` alias fails `REV-001`.
-- Withdrawn and replaced records are kept for history with their status, and are no longer passed forward.
-- Members are carried through the revisions that survived `REV-003`, for the new conflicts (before `CONF-001`) and for the call-1 conflicts no surviving revision withdraws or replaces: a withdrawn member is lost, and a replaced member's place goes to its replacement when that replacement is a surviving finding; otherwise the member is kept, since `REV-001` will keep the original. A call-1 conflict left with fewer than two distinct members is marked withdrawn with reason "member withdrawn". A call-1 conflict whose members changed by a replacement is checked against `SUP-005` again, and marked withdrawn with reason "sources not distinct" if it fails. A call-1 conflict that keeps two or more members after a change is returned as kept, with its new members. These are outcomes for call-1 records, not rejections of the response, so they are returned with the result rather than as validation events.
+- Withdrawn and replaced records are kept for history with their status, and are no longer passed forward. A call-1 conflict a surviving revision withdraws has the reason "withdrawn by the model" ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.5).
+- Members are carried through the revisions that survived `REV-003`, for the new conflicts (before `CONF-001`) and for the call-1 conflicts no surviving revision withdraws or replaces: a withdrawn member is lost, and a replaced member's place goes to its replacement when that replacement is a surviving finding; otherwise the member is kept, since `REV-001` will keep the original.
+- Any change to a call-1 conflict's member set, a member lost or replaced, runs `CONF-001` and then `SUP-005` on the new set. Failing `CONF-001` withdraws the conflict with reason "member withdrawn", and failing `SUP-005` with reason "sources not distinct". A conflict that passes both is revised: a new conflict revision with the new members supersedes the old one ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.5). These are outcomes for call-1 records, not rejections of the response, so they are returned with the result rather than as validation events. The records themselves are created with persistence (§4).
 
 #### 3.3.4 `generate_questions`
 
@@ -1575,7 +1588,7 @@ Every question accepts a typed answer and a skip; the schema doesn't model those
 
 **Ranking**, by code:
 
-1. questions that resolve a conflict;
+1. questions that resolve an unresolved conflict;
 2. questions that resolve a gap of type `no_command` or `undetermined_ownership`;
 3. questions that resolve other gaps;
 4. questions about observed conventions: every other valid question, which `Q-001` ties to a finding;
@@ -1726,9 +1739,9 @@ type ValidationEvent = {
 
 A schema failure rejects the whole response with one event per issue, in the order the schema reports them: `itemKey` is `$response`, `rule` is `SCHEMA`, and `detail` is the issue's path and code only, never the value received, because the model may have copied source text into it. A path segment that isn't a field name the schema defines, such as a record key, is written `<key>`. The proposed count is then unknown, with the reason `schema_failed`, never zero.
 
-No event repeats text from the response. An `itemKey` is a local key or alias only when it is well formed (a local key is one or two lowercase letters and a number, an alias as in §3.2.1); otherwise the item is named by its position, `<collection>/<index>`, and a malformed local key defines nothing. A detail names only code-made values, such as an alias from the table, never an unknown value the model wrote. A rejected item keeps the events of its sub-items, such as each failed citation. Events are ordered by stage. In the item stage they follow the response's item order, collections in schema order, and within an item the rule order, except that a sub-item's events are in sub-item order, each sub-item's in rule order; `ALIAS-002` is checked first, for each item in turn. In the cross-item stage they follow the order in which the call's cross-item checks run (§3.3.2–§3.3.4), then item order.
+No event repeats text from the response. An `itemKey` is a local key or alias only when it is well formed (a local key is one or two lowercase letters and a number, an alias as in §3.2.1); otherwise the item is named by its position, `<collection>/<index>`, and a malformed local key defines nothing. An item with no key of its own, such as an expansion request, a content notice or a revision, is always named by its position. A detail names only code-made values, such as an alias from the table, never an unknown value the model wrote. A rejected item keeps the events of its sub-items, such as each failed citation. Events are ordered by stage. In the item stage they follow the response's item order, collections in schema order, and within an item the rule order, except that a sub-item's events are in sub-item order, each sub-item's in rule order; `ALIAS-002` is checked first, for each item in turn. In the cross-item stage they follow the order in which the call's cross-item checks run (§3.3.2–§3.3.4), then item order.
 
-Each call also records counts: proposed, accepted, corrected and relabelled items, and rejections by rule. An item counts as corrected or relabelled if it was accepted with such an event. Rule IDs are stable across versions. The validator has its own version (`validatorVersion`, `validate/0.9.0` since the item validation of §3.3.2–§3.3.4 in v0.26), recorded with every call, because changing a rule changes what is accepted even when the model output is identical. Any change to what is accepted increases it, changed thresholds and word lists included. A test pins the list of rule IDs to the version, together with the runtime's Unicode version (`process.versions.unicode`), because `CIT-007`'s and `SUP-002`'s character classes follow it.
+Each call also records counts: proposed, accepted, corrected and relabelled items, and rejections by rule. An item counts as corrected or relabelled if it was accepted with such an event. Rule IDs are stable across versions. The validator has its own version (`validatorVersion`, `validate/0.10.0` since the changes of v0.27), recorded with every call, because changing a rule changes what is accepted even when the model output is identical. Any change to what is accepted increases it, changed thresholds and word lists included. A test pins the list of rule IDs to the version, together with the runtime's Unicode version (`process.versions.unicode`), because `CIT-007`'s and `SUP-002`'s character classes follow it.
 
 ### 3.6 Retry and failure policy
 
@@ -1793,10 +1806,11 @@ A change to any prompt, schema, validator or detector requires the fixture suite
   - `noChangeReason` alongside recommendations;
   - a regeneration response that omits an affected recommendation;
   - instructions embedded in repository content;
-  - an expansion request beyond `maxExpansionRequests` (`LIMIT-002`), on an excluded, ignored, withheld or unlisted path (`EXP-001`), with a reversed range (`EXP-002`), asking only for lines already sent (`EXP-003`), with a search glob outside the scope roots or matching no searchable file (`EXP-004`), and with a literal holding a line break (`EXP-005`);
+  - an expansion request beyond `maxExpansionRequests` (`LIMIT-002`), on an excluded, ignored, withheld or unlisted path, or a file that isn't valid UTF-8 (`EXP-001`), a whole-file read of a file too large to excerpt (`EXP-006`), with a reversed range (`EXP-002`), asking only for lines already sent (`EXP-003`), with a search glob outside the scope roots or matching no searchable file (`EXP-004`), and with a literal holding a line break (`EXP-005`);
   - a conflict whose members are a finding and its duplicate (`DUP-001`, then `CONF-001`), a duplicate gap and absence claim, and a restated known fact (`DUP-002`);
   - a revision of a known fact (`REV-002`), two revisions of one target (`REV-003`), a replacement that failed validation (`REV-001`), and a call-1 conflict that loses a member or whose replacement member shares its sources (`SUP-005` again);
-  - a question tied only to documented, uncontested findings (`Q-001`), one tied to a documented finding in an unresolved conflict (accepted), duplicate `resolves` sets in another order (`DUP-003`), and more valid questions than twice the budget (`LIMIT-002`) with the rest `unreached`.
+  - a question tied only to documented, uncontested findings (`Q-001`), one tied to a documented finding in an unresolved conflict (accepted), duplicate `resolves` sets in another order (`DUP-003`), more valid questions than twice the budget (`LIMIT-002`) with the rest `unreached`, and a question resolving a resolved conflict, which doesn't rank first;
+  - a call-1 conflict that loses one of three members and is revised, and a conflict member naming a call-1 gap (`ALIAS-003`).
 
 **Evidence basis and known facts** (§3.2.4–§3.2.5), with no model involved:
 

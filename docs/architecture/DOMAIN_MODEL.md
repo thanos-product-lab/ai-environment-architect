@@ -1,8 +1,8 @@
 # Domain Model
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 30 October 2026  
-**Version:** 0.15 — consolidated specification  
+**Date:** 1 November 2026  
+**Version:** 0.16 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,11 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.15
+
+1. **Conflict status (§6.5).** A conflict is `unresolved`, `resolved` or `withdrawn`, with `withdrawnReason` when withdrawn. A change to its members creates a new conflict revision that supersedes the old one; the old one is kept unchanged ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.3.3).
+2. **Unreached questions (§8.1).** `unreached` means not presented to the developer, with the reason `session_ended` or `budget`. Ranking puts unresolved conflicts first, not every conflict.
 
 ### Changes from v0.14
 
@@ -261,12 +266,16 @@ Links findings that appear inconsistent.
 | `id` | |
 | `findingIds` | At least two |
 | `description` | What disagrees |
-| `status` | `unresolved`, `resolved` |
+| `status` | `unresolved`, `resolved`, `withdrawn` |
+| `withdrawnReason?` | Set when withdrawn: `withdrawn by the model`, `member withdrawn` or `sources not distinct` ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.3.3) |
+| `supersedesId?` | Set on a revision whose members changed |
 | `resolvingDecisionId?` | Set when resolved |
 
 Example: architecture documentation requires the shared client, the existing `CLAUDE.md` says to use `fetch`, and some components bypass the client. The conflict records this without choosing a policy.
 
 An unresolved conflict blocks only the recommendations whose content depends on its resolution. Resolving a conflict never removes its evidence.
+
+Records are never changed in place (§15). When the members of a conflict change, because a member finding is withdrawn or replaced, a new conflict revision with the new `findingIds` supersedes the old one, which is kept for history. A conflict left with fewer than two members, or whose members no longer have distinct sources, is withdrawn instead, with its reason. A withdrawn or superseded conflict is no longer passed to later calls and blocks nothing; only the latest revision of a conflict is current.
 
 ## 7. Destination: Guidance Blocks
 
@@ -321,10 +330,11 @@ Rules:
 | `options?` | Suggested answers; always presented as suggestions |
 | `scope` | `repository` or explicit paths |
 | `status` | `open`, `answered`, `skipped`, `unreached` |
+| `unreachedReason?` | Set when unreached: `session_ended` or `budget` |
 | `producedBy` | Model call ID |
 
-- The session's question budget caps how many questions are asked (default: five). Questions are ranked deterministically: conflicts first, then gaps about commands or ownership, then other gaps, then observed conventions ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.3.4). Questions beyond the budget are recorded as `unreached` with reason `budget`.
-- `skipped` means the developer chose not to answer. `unreached` means the session ended before the question was presented. Both leave the matter unresolved, and both appear in the export.
+- The session's question budget caps how many questions are asked (default: five). Questions are ranked deterministically: unresolved conflicts first, then gaps about commands or ownership, then other gaps, then observed conventions ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.3.4). Questions beyond the budget are recorded as `unreached` with reason `budget`.
+- `skipped` means the developer chose not to answer. `unreached` means the question was not presented to the developer: the session ended first (`session_ended`), or it ranked beyond the budget (`budget`). Both leave the matter unresolved, and both appear in the export.
 - A skipped or unreached question never selects a default. Recommendations that depend on it are withheld; independent recommendations continue.
 
 ### 8.2 Decision
