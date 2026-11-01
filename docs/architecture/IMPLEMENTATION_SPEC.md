@@ -1,9 +1,21 @@
 # Implementation Specification
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 30 October 2026  
-**Version:** 0.25  
+**Date:** 31 October 2026  
+**Version:** 0.26  
 **Status:** Partial specification. Sections 1–3 are proposed. Section 4 is not yet written, so this document does not yet specify the whole implementation.
+
+### Changes from v0.25
+
+- **Static expansion checks (§1.8).** Stated as rules: `EXP-001` (each read path is a `read` or `listed_only` entry that is not withheld by name or blocked by its content, after the path normalisation of §1.11), `EXP-002` (a range starts after it ends), `EXP-003` (the request adds nothing the initial context didn't send), `EXP-004` (a search glob is well formed, under a scope root by its literal leading segments, and matches a searchable file directly or through a directory) and `EXP-005` (a search literal is line-safe text). The byte budget and execution stay with the expansion protocol.
+- **`LIMIT-002` (§1.8, §3.3.4, §3.5).** New rule for items beyond a session limit: expansion requests beyond `maxExpansionRequests`, in response order, and questions ranked beyond twice the question budget.
+- **Duplicates (§3.3.2).** A normalised statement is defined: NFC, every run of `White_Space` replaced by one space, trimmed, case kept. Two scopes are the same when both are `repository`, or both hold the same set of normalised paths. `DUP-001` extends to gaps (same statement, `gapType` and set of related paths) and absence claims (same normalised glob). `DUP-002` is a finding with a known fact's statement and scope.
+- **Duplicates before conflicts (§3.3.2).** The duplicate rules run before `CONF-001`, and a reference to a dropped duplicate is redirected to the item kept, so a conflict of `f1` and its duplicate `f2` has one member and fails `CONF-001`. Members count once each.
+- **Content notices (§3.3.2).** An unknown item fails `CIT-001`, as a citation does; an alias of another kind, or a local key, fails `ALIAS-003`. Step 2 leaves notice items to step 10.
+- **Revisions (§3.3.3).** An `F` target is replaced only by an `f` key and a `C` target only by a `c` key (`ALIAS-003`). A second revision of the same target is rejected (`REV-003`). A replacement takes the replaced finding's place in every conflict that listed it, and `SUP-005` is checked again on such a conflict. New findings are also compared with the call-1 findings still passed forward (`DUP-001`). The cross-item order is `DUP-002`, `DUP-001`, `REV-003`, `CONF-001`, `SUP-005`, `REV-001`.
+- **Questions (§3.3.4).** Validation runs first, then ranking of every valid question, then `LIMIT-002` beyond twice the budget, then the cut at the budget. A documented finding in an unresolved conflict is contested, so `Q-001` accepts it. A finding whose basis includes `documentation` is documented. `resolves` sets compare as sets.
+- **Event order (§3.5).** Cross-item events follow the order the call's checks run, which the call sections state, not the order of rule IDs.
+- **Validator (§3.5).** `validatorVersion` is `validate/0.9.0`, for `LIMIT-002`, `EXP-001` to `EXP-005`, `CONF-001`, `DUP-001` to `DUP-003`, `REV-001` to `REV-003` and `Q-001`.
 
 ### Changes from v0.24
 
@@ -605,14 +617,18 @@ The `analyse` call may return up to `maxExpansionRequests` (default 5) requests.
 
 A `read` without line ranges returns the file excerpted by the rules in §1.6. A `read` with line ranges returns exactly those lines, which must be within the file. Line-range reads are the way to see omitted outline entries and `listed_only` files.
 
-Each request is validated deterministically:
+Each request is validated deterministically. The static checks run with the `analyse` item validation (§3.3.2 step 9), in this order; the first failure rejects the whole request:
 
-- every path is in the snapshot, not excluded, not `ignored` (§1.4), and not secret-blocked;
-- requested ranges are not already fully included;
-- globs resolve only within scope;
-- the total expansion stays within `expansionBytes` (default 60,000).
+| Rule | Check |
+|---|---|
+| `LIMIT-002` | The request is among the first `maxExpansionRequests` in response order. |
+| `EXP-001` | Every `read` path, after the path normalisation of §1.11, is a `read` or `listed_only` entry that is not withheld by name and not blocked by its content (§1.7). So it is in the snapshot, not excluded, not `ignored` (§1.4), not a symbolic link or unreadable, and not secret-blocked. The detail names the entry's position in the request, never the path. |
+| `EXP-002` | Every requested line range starts at or before its end. |
+| `EXP-003` | The request adds something: a `read` entry with ranges asks for at least one line the initial context didn't send of that file, and a `read` entry without ranges names a file not sent in full (§1.11). A request whose every entry adds nothing is rejected. |
+| `EXP-004` | A search `glob`, when given, holds no backtick, whitespace, or control or format character (`Cc`, `Cf`), names something after the path normalisation of §1.11, lies under one of the snapshot's scope roots (its leading segments are the root's segments, written without wildcards, so `**/*.ts` is not under `src`; the root `.` covers everything), and matches at least one searchable file, a `read` entry that is not withheld or blocked by its content, directly or through a directory it matches, as in §1.11. |
+| `EXP-005` | A search `literal` is line-safe text: it holds no control character (`Cc`), so no line break, is at least 3 code points long, and is not only `White_Space`, punctuation or symbols. Matches are found within one line, so a line break could never match. |
 
-Invalid requests are rejected with a recorded reason. Valid ones are executed by application code:
+Whether a requested range lies within the file, and the total expansion staying within `expansionBytes` (default 60,000), are checked when the request is executed, because they need the file's content. Invalid requests are rejected with a recorded reason. Valid ones are executed by application code:
 
 - File content is read live, and its hash must match the snapshot. A mismatch fails that request with "changed since snapshot".
 - Search runs over candidate files only, never `ignored` ones, in path order. Matches are ordered by path, then line, and the result is capped.
@@ -1478,15 +1494,17 @@ A `Citation`'s `quote` is at most 200 characters in the schema; its other quote 
 **Validation**, in order:
 
 1. Schema (§3.5), then per-item limits (`LIMIT-001`).
-2. Aliases (`ALIAS-001`, `ALIAS-002`, `ALIAS-003`), except citation items, which step 3 checks one citation at a time (§3.2.2).
+2. Aliases (`ALIAS-001`, `ALIAS-002`, `ALIAS-003`), except citation items, which step 3 checks one citation at a time (§3.2.2), and content-notice items, which step 10 checks.
 3. Citations: provenance (§3.2.2), then support (§3.2.3), then basis derivation (§3.2.4).
 4. Scope paths: each path or glob matches a listed path that is not withheld (§1.11, `SCOPE-001`).
 5. Gaps: each `relatedPath` is listed or uncovered; an unlisted one rejects the gap, which must be an absence claim instead (`GAP-001`). Then the coverage check: a related file not sent in full → relabel `not_inspected` (`GAP-002`, §1.11).
 6. Absence claims: a glob holding a backtick, whitespace, a control or format character, or a `..` segment is rejected (`ABS-003`); then evaluated against the full file list (`ABS-001`, `ABS-002`), with code-generated wording (§1.11).
-7. Conflicts: at least two member findings survived validation; otherwise rejected (`CONF-001`). Then `SUP-005`.
-8. Duplicates: identical normalised statements with the same scope keep the first (`DUP-001`). Restatements of known facts are dropped (`DUP-002`).
-9. Expansion requests (§1.8).
-10. Content notices: the cited lines must be sent lines of the item (`CIT-006`, `CIT-003`; §3.2.2). Valid notices are recorded on the snapshot and shown in the findings view. They never change behaviour.
+7. Duplicates, among the items that survived the item stage, in response order. A finding with the same normalised statement and the same scope as a known fact is dropped (`DUP-002`); otherwise one with the same normalised statement and scope as an earlier finding is dropped (`DUP-001`). A gap with the same normalised statement, `gapType` and set of normalised related paths as an earlier gap, and an absence claim with the same normalised glob as an earlier claim, are dropped (`DUP-001`). A **normalised statement** is the statement in Unicode NFC, with every run of `White_Space` replaced by one space and the ends trimmed; case is kept. Two scopes are the same when both are `repository`, or both hold the same set of paths after the path normalisation of §1.11, in any order. A reference to a dropped duplicate is redirected to the item kept: the earlier finding, or the known fact's `F` alias.
+8. Conflicts: after redirection, each member counts once; at least two members are findings that survived validation, or `F` aliases; otherwise the conflict is rejected (`CONF-001`). Then `SUP-005`, over the members after redirection.
+9. Expansion requests: the static checks of §1.8 (`LIMIT-002`, `EXP-001` to `EXP-005`). The byte budget and execution follow validation (§1.8).
+10. Content notices: the item alias is a `T` or `E` item in this call's input (`CIT-001`, or `ALIAS-003` for an alias of another kind or a local key the response defines), and the cited lines must be sent lines of the item (`CIT-006`, `CIT-003`; §3.2.2). Valid notices are recorded on the snapshot and shown in the findings view. They never change behaviour.
+
+Steps 7 and 8 are the cross-item stage (§3.5), in that order; the others are item checks. The corrected-citation rate (§3.2.2) is recorded with the result.
 
 #### 3.3.3 `analyse_expansion`
 
@@ -1517,10 +1535,14 @@ There is no `expansionRequests` field; one expansion round only.
 **Validation:** as for `analyse`, with these additions:
 
 - Citations may target both `T*` and `E*` items.
-- A `replace` requires its replacement to pass validation; otherwise the original is kept and the revision rejected (`REV-001`).
+- Conflict members are `f` keys or `F` aliases. An `F` member's sources, for `SUP-005`, are the paths of its validated evidence.
+- A revision's `target` is an `F` or `C` alias. An `F` target is replaced only by an `f` key, and a `C` target only by a `c` key; a replacement of the other kind fails `ALIAS-003`.
+- Known facts (`producedBy: deterministic`) cannot be withdrawn or replaced by the model (`REV-002`, item stage).
+- Duplicates (`DUP-001`) also compare new findings with the call-1 findings still passed forward: those no revision that survived the item stage withdraws or replaces. A new finding that restates one is dropped, and references to it are redirected to that `F` alias.
+- A second revision of the same target is rejected; the first is kept (`REV-003`, cross-item, after the duplicates).
+- A `replace` requires its replacement to pass validation; otherwise the original is kept and the revision rejected (`REV-001`, cross-item, last, after `SUP-005`). A replacement dropped as a duplicate of another new item counts as that item; one redirected to an `F` alias fails `REV-001`.
 - Withdrawn and replaced records are kept for history with their status, and are no longer passed forward.
-- Conflicts that lose a member below two are marked withdrawn with reason "member withdrawn".
-- Known facts (`producedBy: deterministic`) cannot be withdrawn by the model (`REV-002`).
+- Members are carried through the revisions that survived `REV-003`, for the new conflicts (before `CONF-001`) and for the call-1 conflicts no surviving revision withdraws or replaces: a withdrawn member is lost, and a replaced member's place goes to its replacement when that replacement is a surviving finding; otherwise the member is kept, since `REV-001` will keep the original. A call-1 conflict left with fewer than two distinct members is marked withdrawn with reason "member withdrawn". A call-1 conflict whose members changed by a replacement is checked against `SUP-005` again, and marked withdrawn with reason "sources not distinct" if it fails. A call-1 conflict that keeps two or more members after a change is returned as kept, with its new members. These are outcomes for call-1 records, not rejections of the response, so they are returned with the result rather than as validation events.
 
 #### 3.3.4 `generate_questions`
 
@@ -1541,24 +1563,25 @@ type GenerateQuestionsOutput = {
 };
 ```
 
-Every question accepts a typed answer and a skip; the schema doesn't model those. The schema's ceiling is fixed, because a schema can't depend on a session setting without changing its hash; questions beyond twice the question budget are dropped in response order, and recorded.
+Every question accepts a typed answer and a skip; the schema doesn't model those. The schema's ceiling is fixed, because a schema can't depend on a session setting without changing its hash; valid questions ranked beyond twice the question budget are dropped and recorded (`LIMIT-002`).
 
 **Validation:**
 
 1. Schema and aliases.
-2. **Asks about intent, not documented policy** (`Q-001`): `resolves` must include at least one unresolved conflict, gap, or finding without `documentation` basis. A question linked only to documented, uncontested findings is rejected.
+2. **Asks about intent, not documented policy** (`Q-001`): `resolves` must include at least one unresolved conflict, gap, or finding without `documentation` basis. A question linked only to documented, uncontested findings is rejected. A finding whose basis includes `documentation` is documented; a documented finding that is a member of an unresolved conflict in the input is contested, and qualifies.
 3. Scope paths are listed (§1.11, `SCOPE-001`).
-4. Duplicates: questions with an identical `resolves` set keep the first (`DUP-003`).
+4. Duplicates: questions with an identical `resolves` set, compared as a set, keep the first (`DUP-003`, cross-item).
+5. Ranking (below), over every question that survived, then `LIMIT-002` (cross-item) on those ranked beyond twice the question budget, then the cut at the budget.
 
 **Ranking**, by code:
 
 1. questions that resolve a conflict;
 2. questions that resolve a gap of type `no_command` or `undetermined_ownership`;
 3. questions that resolve other gaps;
-4. questions about observed conventions;
+4. questions about observed conventions: every other valid question, which `Q-001` ties to a finding;
 5. within each class, the model's order (recorded).
 
-The top questions up to the budget are presented. The rest are recorded with status `unreached` and reason `budget`.
+A question belongs to the first class it qualifies for. The top questions up to the budget are presented. The rest are recorded with status `unreached` and reason `budget`.
 
 When the developer answers, code creates the Decision; the model is not called. Choosing an option or typing an answer goes through the confirmation step (§2.6).
 
@@ -1684,7 +1707,7 @@ For every call:
 1. **Transport:** the response arrives (§3.6).
 2. **Schema:** structured-output parse and Zod validation, with unknown fields rejected.
 3. **Items:** the per-call sequence above, starting with the item's own limits: a string longer than its maximum, or an array inside the item outside its size, rejects the item (`LIMIT-001`), with a detail naming the field and the limit, never the value. Each item is validated independently. An item that fails one rule is dropped, and later rules are not run on it. A rule may instead correct an item (`CIT-R01`) or relabel it (`GAP-002`); the item continues with the changed value. A citation is a sub-item: a rejected citation drops only itself (§3.2.2), a finding is dropped when no citation is left, and an accepted finding records how many of its citations were dropped ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.3).
-4. **Cross-item:** conflicts, duplicates, held-back entries, regeneration coverage. These run only on items that passed the item stage, and may reject some of them.
+4. **Cross-item:** duplicates, conflicts, revisions, question ranking limits, held-back entries, regeneration coverage. These run only on items that passed the item stage, and may reject some of them.
 5. **Persist:** accepted records, with `producedBy` pointing at the model call.
 
 Every rejection or correction is recorded on the model call:
@@ -1703,9 +1726,9 @@ type ValidationEvent = {
 
 A schema failure rejects the whole response with one event per issue, in the order the schema reports them: `itemKey` is `$response`, `rule` is `SCHEMA`, and `detail` is the issue's path and code only, never the value received, because the model may have copied source text into it. A path segment that isn't a field name the schema defines, such as a record key, is written `<key>`. The proposed count is then unknown, with the reason `schema_failed`, never zero.
 
-No event repeats text from the response. An `itemKey` is a local key or alias only when it is well formed (a local key is one or two lowercase letters and a number, an alias as in §3.2.1); otherwise the item is named by its position, `<collection>/<index>`, and a malformed local key defines nothing. A detail names only code-made values, such as an alias from the table, never an unknown value the model wrote. A rejected item keeps the events of its sub-items, such as each failed citation. Events are ordered by stage. In the item stage they follow the response's item order, collections in schema order, and within an item the rule order, except that a sub-item's events are in sub-item order, each sub-item's in rule order; `ALIAS-002` is checked first, for each item in turn. In the cross-item stage they follow rule order, then item order.
+No event repeats text from the response. An `itemKey` is a local key or alias only when it is well formed (a local key is one or two lowercase letters and a number, an alias as in §3.2.1); otherwise the item is named by its position, `<collection>/<index>`, and a malformed local key defines nothing. A detail names only code-made values, such as an alias from the table, never an unknown value the model wrote. A rejected item keeps the events of its sub-items, such as each failed citation. Events are ordered by stage. In the item stage they follow the response's item order, collections in schema order, and within an item the rule order, except that a sub-item's events are in sub-item order, each sub-item's in rule order; `ALIAS-002` is checked first, for each item in turn. In the cross-item stage they follow the order in which the call's cross-item checks run (§3.3.2–§3.3.4), then item order.
 
-Each call also records counts: proposed, accepted, corrected and relabelled items, and rejections by rule. An item counts as corrected or relabelled if it was accepted with such an event. Rule IDs are stable across versions. The validator has its own version (`validatorVersion`, `validate/0.8.0` since the coverage rules of §1.11 in v0.25), recorded with every call, because changing a rule changes what is accepted even when the model output is identical. Any change to what is accepted increases it, changed thresholds and word lists included. A test pins the list of rule IDs to the version, together with the runtime's Unicode version (`process.versions.unicode`), because `CIT-007`'s and `SUP-002`'s character classes follow it.
+Each call also records counts: proposed, accepted, corrected and relabelled items, and rejections by rule. An item counts as corrected or relabelled if it was accepted with such an event. Rule IDs are stable across versions. The validator has its own version (`validatorVersion`, `validate/0.9.0` since the item validation of §3.3.2–§3.3.4 in v0.26), recorded with every call, because changing a rule changes what is accepted even when the model output is identical. Any change to what is accepted increases it, changed thresholds and word lists included. A test pins the list of rule IDs to the version, together with the runtime's Unicode version (`process.versions.unicode`), because `CIT-007`'s and `SUP-002`'s character classes follow it.
 
 ### 3.6 Retry and failure policy
 
@@ -1769,7 +1792,11 @@ A change to any prompt, schema, validator or detector requires the fixture suite
   - a recommendation depending on a skipped question;
   - `noChangeReason` alongside recommendations;
   - a regeneration response that omits an affected recommendation;
-  - instructions embedded in repository content.
+  - instructions embedded in repository content;
+  - an expansion request beyond `maxExpansionRequests` (`LIMIT-002`), on an excluded, ignored, withheld or unlisted path (`EXP-001`), with a reversed range (`EXP-002`), asking only for lines already sent (`EXP-003`), with a search glob outside the scope roots or matching no searchable file (`EXP-004`), and with a literal holding a line break (`EXP-005`);
+  - a conflict whose members are a finding and its duplicate (`DUP-001`, then `CONF-001`), a duplicate gap and absence claim, and a restated known fact (`DUP-002`);
+  - a revision of a known fact (`REV-002`), two revisions of one target (`REV-003`), a replacement that failed validation (`REV-001`), and a call-1 conflict that loses a member or whose replacement member shares its sources (`SUP-005` again);
+  - a question tied only to documented, uncontested findings (`Q-001`), one tied to a documented finding in an unresolved conflict (accepted), duplicate `resolves` sets in another order (`DUP-003`), and more valid questions than twice the budget (`LIMIT-002`) with the rest `unreached`.
 
 **Evidence basis and known facts** (§3.2.4–§3.2.5), with no model involved:
 
