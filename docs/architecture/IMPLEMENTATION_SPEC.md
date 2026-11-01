@@ -2,8 +2,12 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 1 November 2026  
-**Version:** 0.33  
+**Version:** 0.34  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.33
+
+- **Which records have `revisedBy` (§4.4.1).** Only findings and conflicts: they are the only records a model call revises. Decisions and selections record the developer as `actor`; questions change by the developer's answer or skip, or are marked unreached by code ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) v0.23).
 
 ### Changes from v0.32
 
@@ -1991,7 +1995,7 @@ The example leaves out most record fields.
 
 **Revising.** A change to a lineage appends its next revision. That revision repeats every field of the one before, changes what changed, and lists the one before in `supersedes`, by record ID. The one exception is a recommendation revision that fails validation, which supersedes nothing (below). A **replacement** starts a new lineage, with revision 1, whose `supersedes` also lists the current revision of every lineage it replaces; one replacement may stand for several (§3.3.3).
 
-**Who revised it.** `producedBy` names what created the lineage, and every revision repeats it. A revision appended by a model call, such as an `analyse_expansion` withdrawal or a conflict whose members changed, also records that call's lineage ID in `revisedBy`. A revision the developer causes names its decision instead, as `resolvingDecisionId` does. `revisedBy` is never repeated from the revision before, and never set on a first revision.
+**Who revised it.** `producedBy` names what created the lineage, and every revision repeats it. A revision appended by a model call, such as an `analyse_expansion` withdrawal or a conflict whose members changed, also records that call's lineage ID in `revisedBy`. A revision the developer causes names its decision instead, as `resolvingDecisionId` does. `revisedBy` is never repeated from the revision before, and never set on a first revision. Only findings and conflicts have it, because they are the only records a model call revises (§4.5). Decisions and selections record the developer as `actor` (DM §8.2, §9.2); a question changes by the developer's answer or skip, or is marked unreached by code, never by a model call.
 
 **Current.** A revision is current when no other record supersedes it and its status is a current one (the table's last column). So a lineage has at most one current revision, and a withdrawn or replaced one has none. Immutable records and records with status `failed_validation` (§4.4.3) supersede nothing and are never superseded.
 
