@@ -11,9 +11,10 @@ const HASH_A: Hash = "sha256:aaaa";
 const HASH_B: Hash = "sha256:bbbb";
 
 describe("alias tables (IMPL §3.2.1)", () => {
+  // Call 1's table holds the F aliases of the known facts sent, which no call-1 field accepts.
   it("allows each kind only in the calls the spec lists", () => {
     expect(CALL_ALIAS_KINDS).toEqual({
-      analyse: ["T", "E", "B"],
+      analyse: ["T", "E", "F", "B"],
       analyse_expansion: ["T", "E", "F", "C", "B"],
       generate_questions: ["F", "C", "B"],
       recommend: ["F", "C", "Q", "D", "B"],
@@ -94,7 +95,7 @@ describe("alias tables (IMPL §3.2.1)", () => {
   });
 
   it("refuses a kind the call doesn't accept", () => {
-    expect(() => createAliasTable("analyse", { findings: ["find_1"] })).toThrow(/F.*analyse/);
+    expect(() => createAliasTable("analyse", { conflicts: ["con_1"] })).toThrow(/C.*analyse/);
     expect(() => createAliasTable("generate_questions", { items: ["T1-001"] })).toThrow(
       /T.*generate_questions/,
     );

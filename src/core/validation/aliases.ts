@@ -15,7 +15,8 @@ export type AliasKind = "T" | "E" | "F" | "C" | "Q" | "D" | "R" | "B";
 
 /** The kinds each call's input may hold, in the order a table lists them. */
 export const CALL_ALIAS_KINDS: Readonly<Record<CallPurpose, readonly AliasKind[]>> = {
-  analyse: ["T", "E", "B"],
+  // The F aliases of the known facts sent, which no call-1 field accepts (ALIAS-003).
+  analyse: ["T", "E", "F", "B"],
   analyse_expansion: ["T", "E", "F", "C", "B"],
   generate_questions: ["F", "C", "B"],
   recommend: ["F", "C", "Q", "D", "B"],
