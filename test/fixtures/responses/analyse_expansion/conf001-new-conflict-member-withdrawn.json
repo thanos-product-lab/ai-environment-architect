@@ -21,7 +21,7 @@
     "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": ["revisions/0"], "contentNotices": [] },
     "correctedCitationRate": { "state": "unknown", "reason": "no_citations" },
     "conflictOutcomes": [
-      { "alias": "C-1", "status": "withdrawn", "withdrawnReason": "member withdrawn" }
+      { "alias": "C-1", "status": "withdrawn", "withdrawnReason": "member_withdrawn" }
     ]
   }
 }

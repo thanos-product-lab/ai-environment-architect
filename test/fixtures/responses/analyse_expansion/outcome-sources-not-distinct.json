@@ -1,5 +1,5 @@
 {
-  "description": "F-3 is replaced by f1, which cites only docs/guide.md; C-1 becomes F-2 and f1, both resting on the guide, so it is withdrawn (\"sources not distinct\"). C-3 becomes f1, F-4 and F-6 and passes, because F-4 does not cite the guide.",
+  "description": "F-3 is replaced by f1, which cites only docs/guide.md; C-1 becomes F-2 and f1, both resting on the guide, so it is withdrawn (\"sources_not_distinct\"). C-3 becomes f1, F-4 and F-6 and passes, because F-4 does not cite the guide.",
   "section": "IMPL §3.3.3 (SUP-005 again on a call-1 conflict changed by a replacement), §3.2.3",
   "response": {
     "findings": [
@@ -26,7 +26,7 @@
     "correctedCitationRate": { "state": "known", "corrected": 0, "checked": 1 },
     "citationsProposed": { "state": "known", "count": 1 },
     "conflictOutcomes": [
-      { "alias": "C-1", "status": "withdrawn", "withdrawnReason": "sources not distinct" }
+      { "alias": "C-1", "status": "withdrawn", "withdrawnReason": "sources_not_distinct" }
     ]
   }
 }

@@ -243,7 +243,7 @@ describe("conflict members through revisions (IMPL §3.3.3)", () => {
   it("marks a call-1 conflict that loses a member below two as withdrawn", () => {
     const outcome = run({ revisions: [withdraw("F-2")] });
     expect(outcome.conflictOutcomes).toEqual([
-      { alias: "C-1", status: "withdrawn", withdrawnReason: "member withdrawn" },
+      { alias: "C-1", status: "withdrawn", withdrawnReason: "member_withdrawn" },
       { alias: "C-2", status: "kept" },
     ]);
   });
@@ -255,8 +255,8 @@ describe("conflict members through revisions (IMPL §3.3.3)", () => {
       revisions: [replace("F-3", "f1")],
     });
     expect(outcome.conflictOutcomes).toEqual([
-      { alias: "C-1", status: "withdrawn", withdrawnReason: "sources not distinct" },
-      { alias: "C-2", status: "withdrawn", withdrawnReason: "sources not distinct" },
+      { alias: "C-1", status: "withdrawn", withdrawnReason: "sources_not_distinct" },
+      { alias: "C-2", status: "withdrawn", withdrawnReason: "sources_not_distinct" },
     ]);
   });
 
@@ -301,15 +301,15 @@ describe("conflict members through revisions (IMPL §3.3.3)", () => {
       analyseExpansionContext(wide),
     );
     expect(outcome.conflictOutcomes).toEqual([
-      { alias: "C-1", status: "withdrawn", withdrawnReason: "sources not distinct" },
+      { alias: "C-1", status: "withdrawn", withdrawnReason: "sources_not_distinct" },
     ]);
   });
 
   it("returns an outcome for every call-1 conflict, the model's own withdrawal included", () => {
     const outcome = run({ revisions: [withdraw("C-1"), withdraw("F-4")] });
     expect(outcome.conflictOutcomes).toEqual([
-      { alias: "C-1", status: "withdrawn", withdrawnReason: "withdrawn by the model" },
-      { alias: "C-2", status: "withdrawn", withdrawnReason: "member withdrawn" },
+      { alias: "C-1", status: "withdrawn", withdrawnReason: "withdrawn_by_model" },
+      { alias: "C-2", status: "withdrawn", withdrawnReason: "member_withdrawn" },
     ]);
   });
 
@@ -368,7 +368,7 @@ describe("conflict members through revisions (IMPL §3.3.3)", () => {
     ]);
   });
 
-  it("keeps member withdrawn when a merge and a withdrawal together leave one member", () => {
+  it("keeps member_withdrawn when a merge and a withdrawal together leave one member", () => {
     const wide = {
       ...fixture,
       conflicts: [{ alias: "C-1", members: ["F-2", "F-3", "F-4"] }],
@@ -385,7 +385,7 @@ describe("conflict members through revisions (IMPL §3.3.3)", () => {
       analyseExpansionContext(wide),
     );
     expect(outcome.conflictOutcomes).toEqual([
-      { alias: "C-1", status: "withdrawn", withdrawnReason: "member withdrawn" },
+      { alias: "C-1", status: "withdrawn", withdrawnReason: "member_withdrawn" },
     ]);
   });
 

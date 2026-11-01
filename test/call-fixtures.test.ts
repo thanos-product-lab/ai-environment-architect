@@ -183,7 +183,7 @@ for (const call of CALLS) {
               status: string;
               withdrawnReason?: string;
             };
-            return status === "withdrawn" && withdrawnReason !== "withdrawn by the model";
+            return status === "withdrawn" && withdrawnReason !== "withdrawn_by_model";
           }),
         ).toEqual(expected.conflictOutcomes);
       if (expected.presented !== undefined) expect(observed.presented).toEqual(expected.presented);

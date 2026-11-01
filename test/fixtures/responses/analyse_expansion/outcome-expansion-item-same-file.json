@@ -26,7 +26,7 @@
     "correctedCitationRate": { "state": "known", "corrected": 0, "checked": 1 },
     "citationsProposed": { "state": "known", "count": 1 },
     "conflictOutcomes": [
-      { "alias": "C-1", "status": "withdrawn", "withdrawnReason": "sources not distinct" }
+      { "alias": "C-1", "status": "withdrawn", "withdrawnReason": "sources_not_distinct" }
     ]
   }
 }

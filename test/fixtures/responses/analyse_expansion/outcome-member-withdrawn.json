@@ -1,5 +1,5 @@
 {
-  "description": "Withdrawing F-3 leaves C-1 with only F-2, so C-1 is marked withdrawn (\"member withdrawn\"); C-3 keeps F-4 and F-6 and is unchanged. Neither is a validation event.",
+  "description": "Withdrawing F-3 leaves C-1 with only F-2, so C-1 is marked withdrawn (\"member_withdrawn\"); C-3 keeps F-4 and F-6 and is unchanged. Neither is a validation event.",
   "section": "IMPL §3.3.3 (members carried through the surviving revisions)",
   "response": {
     "findings": [],
@@ -17,7 +17,7 @@
     "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": ["revisions/0"], "contentNotices": [] },
     "correctedCitationRate": { "state": "unknown", "reason": "no_citations" },
     "conflictOutcomes": [
-      { "alias": "C-1", "status": "withdrawn", "withdrawnReason": "member withdrawn" }
+      { "alias": "C-1", "status": "withdrawn", "withdrawnReason": "member_withdrawn" }
     ]
   }
 }

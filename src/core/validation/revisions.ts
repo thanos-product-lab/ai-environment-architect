@@ -139,10 +139,10 @@ export interface PriorConflict {
 }
 
 export type WithdrawnReason =
-  | "withdrawn by the model"
-  | "member withdrawn"
+  | "withdrawn_by_model"
+  | "member_withdrawn"
   | "members_merged"
-  | "sources not distinct";
+  | "sources_not_distinct";
 
 /** What this call does to one call-1 conflict (§3.3.3, DM §6.5). */
 export type ConflictOutcome =
@@ -177,7 +177,7 @@ export function priorConflictOutcomes<A extends RevisionItems>(
     const { alias } = conflict;
     const revision = revisions.get(alias);
     if (revision?.action === "withdraw")
-      return { alias, status: "withdrawn", withdrawnReason: "withdrawn by the model" };
+      return { alias, status: "withdrawn", withdrawnReason: "withdrawn_by_model" };
     if (revision?.action === "replace")
       return {
         alias,
@@ -192,11 +192,11 @@ export function priorConflictOutcomes<A extends RevisionItems>(
       return {
         alias,
         status: "withdrawn",
-        withdrawnReason: lost ? "member withdrawn" : "members_merged",
+        withdrawnReason: lost ? "member_withdrawn" : "members_merged",
       };
     }
     if (!hasDistinctSources(resolved.map((member) => member.paths)))
-      return { alias, status: "withdrawn", withdrawnReason: "sources not distinct" };
+      return { alias, status: "withdrawn", withdrawnReason: "sources_not_distinct" };
     return { alias, status: "revised", members: resolved.map((member) => member.member) };
   });
 }
