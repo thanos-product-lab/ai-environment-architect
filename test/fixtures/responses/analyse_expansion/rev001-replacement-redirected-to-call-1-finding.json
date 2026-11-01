@@ -1,0 +1,32 @@
+{
+  "description": "F-3 is replaced by f1, which restates the call-1 finding F-6 (still passed forward); f1 is dropped and redirected to F-6, so the replacement fails REV-001.",
+  "section": "IMPL §3.3.3 (DUP-001 against call-1 findings; REV-001: one redirected to an F alias fails)",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "The guide says errors are logged with the logger helper.",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [{ "item": "T2-001", "lines": "5-5", "quote": "Errors are logged with the logger helper." }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "revisions": [
+      { "target": "F-3", "action": "replace", "replacement": "f1", "reason": "The client pattern is really about logging." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "f1", "stage": "cross_item", "rule": "DUP-001", "outcome": "rejected" },
+      { "itemKey": "F-3", "stage": "cross_item", "rule": "REV-001", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 1 },
+    "conflictOutcomes": []
+  }
+}

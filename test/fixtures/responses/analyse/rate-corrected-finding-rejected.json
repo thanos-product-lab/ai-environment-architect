@@ -1,0 +1,31 @@
+{
+  "description": "The only citation is corrected from 3-3 to 4-4, then the finding is rejected for the counted quantity \"most\"; the correction still counts.",
+  "section": "IMPL §3.2.2 (a corrected citation counts even if its finding is rejected), §3.2.3 SUP-002",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "Most HTTP calls go through the shared client.",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [
+          { "item": "T2-001", "lines": "3-3", "quote": "HTTP calls go through the shared client in src/client.ts." }
+        ]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "f1/citations/0", "stage": "item", "rule": "CIT-R01", "outcome": "corrected", "original": { "originalLines": "3-3", "correctedLines": "4-4" } },
+      { "itemKey": "f1", "stage": "item", "rule": "SUP-002", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "known", "corrected": 1, "proposed": 1 }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "description": "F-6 is withdrawn and then replaced in the same response; the first revision is kept and the second rejected, while the new finding f1 stands on its own.",
+  "section": "IMPL §3.3.3 (REV-003, cross-item, after the duplicates)",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "The error helper writes errors to the console.",
+        "mode": "descriptive",
+        "scope": { "kind": "paths", "paths": ["src/util.ts"] },
+        "citations": [{ "item": "E-2", "lines": "2-2", "quote": "console.error(err);" }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "revisions": [
+      { "target": "F-6", "action": "withdraw", "reason": "The expansion shows errors go to the console." },
+      { "target": "F-6", "action": "replace", "replacement": "f1", "reason": "Describe what the helper does." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "F-6", "stage": "cross_item", "rule": "REV-003", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": ["F-6"], "contentNotices": [] },
+    "acceptedRevisions": [{ "index": 0, "target": "F-6", "action": "withdraw" }],
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 1 },
+    "conflictOutcomes": []
+  }
+}

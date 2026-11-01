@@ -1,0 +1,55 @@
+{
+  "files": [
+    { "path": "package.json", "status": "read" },
+    { "path": "src/client.ts", "status": "read" },
+    { "path": "src/server.ts", "status": "read" }
+  ],
+  "userExclusions": [],
+  "ignoreRules": { "state": "applied" },
+  "scopeRoots": ["src"],
+  "items": [
+    {
+      "alias": "T3-001",
+      "path": "package.json",
+      "basis": "code_observation",
+      "totalLines": 6,
+      "sent": [
+        {
+          "first": 1,
+          "lines": [
+            "{",
+            "  \"name\": \"tiny-app\",",
+            "  \"scripts\": {",
+            "    \"test\": \"vitest run\"",
+            "  }",
+            "}"
+          ]
+        }
+      ],
+      "changed": false
+    },
+    {
+      "alias": "T5-001",
+      "path": "src/client.ts",
+      "basis": "code_observation",
+      "totalLines": 20,
+      "sent": [
+        {
+          "first": 1,
+          "lines": [
+            "import { log } from \"./log\";",
+            "",
+            "export async function getJson(url: string) {",
+            "  const res = await fetch(url);",
+            "  return res.json();",
+            "}"
+          ]
+        }
+      ],
+      "changed": false
+    }
+  ],
+  "knownFacts": [],
+  "blocks": 1,
+  "maxExpansionRequests": 5
+}

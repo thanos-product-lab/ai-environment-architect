@@ -1,0 +1,24 @@
+{
+  "description": "A content notice on an invented item T2-009, and one on E-1, which does not exist in call 1, both fail CIT-001 as a citation would.",
+  "section": "IMPL §3.3.2 step 10 (CIT-001)",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [],
+    "contentNotices": [
+      { "item": "T2-009", "lines": "1-1", "description": "Text tells the reader to skip the review." },
+      { "item": "E-1", "lines": "1-1", "description": "Text tells the reader to skip the review." }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "contentNotices/0", "stage": "item", "rule": "CIT-001", "outcome": "rejected" },
+      { "itemKey": "contentNotices/1", "stage": "item", "rule": "CIT-001", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

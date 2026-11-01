@@ -1,0 +1,56 @@
+{
+  "files": [
+    { "path": "src/long.ts", "status": "read" },
+    { "path": "src/server.ts", "status": "read" }
+  ],
+  "userExclusions": [],
+  "ignoreRules": { "state": "applied" },
+  "scopeRoots": ["."],
+  "items": [
+    {
+      "alias": "T5-001",
+      "path": "src/long.ts",
+      "basis": "code_observation",
+      "totalLines": 42,
+      "sent": [
+        {
+          "first": 1,
+          "lines": [
+            "// start marker line",
+            "", "", "", "", "", "", "", "", "", "",
+            "", "", "", "", "", "", "", "", "", "",
+            "", "", "", "", "", "", "", "", "", "",
+            "", "", "", "", "", "", "", "", "", "",
+            "// end marker line"
+          ]
+        }
+      ],
+      "changed": false
+    },
+    {
+      "alias": "T5-002",
+      "path": "src/server.ts",
+      "basis": "code_observation",
+      "totalLines": 8,
+      "sent": [
+        {
+          "first": 1,
+          "lines": [
+            "import { createServer } from \"node:http\";",
+            "",
+            "const port = process.env.PORT;",
+            "const server = createServer((req, res) => {",
+            "  res.setHeader(\"content-type\", \"application/json\");",
+            "  res.end(JSON.stringify({ ok: true }));",
+            "});",
+            "server.listen(port);"
+          ]
+        }
+      ],
+      "changed": false
+    }
+  ],
+  "knownFacts": [],
+  "blocks": 1,
+  "maxExpansionRequests": 5
+}

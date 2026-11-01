@@ -1,0 +1,22 @@
+{
+  "description": "A content notice on the outline-only item T5-003, which has no sent lines.",
+  "section": "IMPL §3.3.2 step 10 (CIT-006)",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [],
+    "contentNotices": [
+      { "item": "T5-003", "lines": "1-2", "description": "An outline label reads like an instruction to the reader." }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "contentNotices/0", "stage": "item", "rule": "CIT-006", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

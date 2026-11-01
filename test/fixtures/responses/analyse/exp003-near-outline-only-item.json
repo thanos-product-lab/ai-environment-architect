@@ -1,0 +1,21 @@
+{
+  "description": "A range read of the outline-only src/util.ts adds lines: outline labels are not sent lines, so nothing of the file was sent.",
+  "section": "IMPL §1.8 (EXP-003), §3.2.2 sent lines",
+  "nearMissOf": "exp003-range-already-sent.json",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      { "kind": "read", "entries": [{ "path": "src/util.ts", "lines": "1-4" }], "reason": "The outline shows an error helper." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": ["expansionRequests/0"], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

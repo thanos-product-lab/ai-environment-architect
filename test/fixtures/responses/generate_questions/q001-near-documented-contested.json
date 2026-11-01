@@ -1,0 +1,24 @@
+{
+  "description": "F-2 is documented but a member of the unresolved conflict C-1, so it is contested and qualifies; the question does not resolve C-1 itself, so it ranks as an observed convention.",
+  "section": "IMPL §3.3.4 step 2 (Q-001: contested documented findings qualify)",
+  "nearMissOf": "q001-documented-uncontested.json",
+  "response": {
+    "questions": [
+      {
+        "key": "q1",
+        "prompt": "Is the shared client still the intended way to make HTTP calls?",
+        "reason": "The guide names the shared client, but some code calls fetch directly.",
+        "resolves": ["F-2"],
+        "scope": { "kind": "repository" },
+        "options": []
+      }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "questions": ["q1"] },
+    "presented": ["q1"],
+    "unreached": []
+  }
+}

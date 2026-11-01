@@ -1,0 +1,22 @@
+{
+  "description": "The glob *.log matches only the ignored debug.log, which is not searchable.",
+  "section": "IMPL §1.8 (EXP-004: matches at least one searchable file)",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      { "kind": "search", "literal": "error", "glob": "*.log", "reason": "See which errors are logged." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "expansionRequests/0", "stage": "item", "rule": "EXP-004", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "description": "The glob src/big.* matches only the listed_only src/big.ts; search covers read entries only.",
+  "section": "IMPL §1.8 (EXP-004: a searchable file is a read entry)",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      { "kind": "search", "literal": "fetch(", "glob": "src/big.*", "reason": "Check the big module for fetch calls." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "expansionRequests/0", "stage": "item", "rule": "EXP-004", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

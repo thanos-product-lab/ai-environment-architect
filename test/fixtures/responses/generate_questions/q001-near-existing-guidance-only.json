@@ -1,0 +1,24 @@
+{
+  "description": "F-7 rests on existing guidance only, which is not documentation, so it qualifies even as a member of the resolved conflict C-2.",
+  "section": "IMPL §3.3.4 step 2 (Q-001: finding without documentation basis)",
+  "nearMissOf": "q001-mixed-basis-documented.json",
+  "response": {
+    "questions": [
+      {
+        "key": "q1",
+        "prompt": "Does the existing agent guidance still describe how you want changes reviewed?",
+        "reason": "Only the existing guidance describes the review step.",
+        "resolves": ["F-7"],
+        "scope": { "kind": "repository" },
+        "options": []
+      }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "questions": ["q1"] },
+    "presented": ["q1"],
+    "unreached": []
+  }
+}

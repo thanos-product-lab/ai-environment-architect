@@ -1,0 +1,69 @@
+{
+  "files": [
+    { "path": "README.md", "status": "read" },
+    { "path": "broken", "status": "unreadable", "kind": "directory" },
+    { "path": "debug.log", "status": "ignored", "kind": "file" },
+    { "path": "docs/api.md", "status": "read" },
+    { "path": "docs/guide.md", "status": "read" },
+    { "path": "logs", "status": "ignored", "kind": "directory" },
+    { "path": "node_modules", "status": "excluded", "kind": "directory", "rule": "node_modules" },
+    { "path": "package.json", "status": "read" },
+    { "path": "src/big.ts", "status": "listed_only" },
+    { "path": "src/client.ts", "status": "read" },
+    { "path": "src/secret-{{aws-access-key-id}}.ts", "status": "read" },
+    { "path": "src/server.ts", "status": "read" },
+    { "path": "src/util.ts", "status": "read" },
+    { "path": "test/client.test.ts", "status": "read" },
+    { "path": "vendor", "status": "symlink", "target": "../shared" }
+  ],
+  "userExclusions": [],
+  "ignoreRules": { "state": "applied" },
+  "scopeRoots": ["."],
+  "items": [
+    {
+      "alias": "T5-001",
+      "path": "src/client.ts",
+      "basis": "code_observation",
+      "totalLines": 20,
+      "sent": [
+        {
+          "first": 1,
+          "lines": [
+            "import { log } from \"./log\";",
+            "",
+            "export async function getJson(url: string) {",
+            "  const res = await fetch(url);",
+            "  return res.json();",
+            "}"
+          ]
+        }
+      ],
+      "changed": false
+    },
+    {
+      "alias": "T5-002",
+      "path": "src/server.ts",
+      "basis": "code_observation",
+      "totalLines": 8,
+      "sent": [
+        {
+          "first": 1,
+          "lines": [
+            "import { createServer } from \"node:http\";",
+            "",
+            "const port = process.env.PORT;",
+            "const server = createServer((req, res) => {",
+            "  res.setHeader(\"content-type\", \"application/json\");",
+            "  res.end(JSON.stringify({ ok: true }));",
+            "});",
+            "server.listen(port);"
+          ]
+        }
+      ],
+      "changed": false
+    }
+  ],
+  "knownFacts": [],
+  "blocks": 1,
+  "maxExpansionRequests": 2
+}

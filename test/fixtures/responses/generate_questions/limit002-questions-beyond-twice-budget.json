@@ -1,0 +1,66 @@
+{
+  "description": "Six valid questions with a budget of 2: ranking runs over all six first, the two ranked fifth and sixth (q1, q2, written first) are rejected by LIMIT-002, two are presented and two are unreached.",
+  "section": "IMPL §3.3.4 step 5 (ranking, then LIMIT-002 beyond twice the budget, then the cut)",
+  "response": {
+    "questions": [
+      {
+        "key": "q1",
+        "prompt": "Is calling fetch directly acceptable in the client?",
+        "reason": "Some code in the client module calls fetch directly.",
+        "resolves": ["F-3"],
+        "scope": { "kind": "repository" },
+        "options": []
+      },
+      {
+        "key": "q2",
+        "prompt": "Does the existing agent guidance still describe how you want changes reviewed?",
+        "reason": "Only the existing guidance describes the review step.",
+        "resolves": ["F-7"],
+        "scope": { "kind": "repository" },
+        "options": []
+      },
+      {
+        "key": "q3",
+        "prompt": "Where should retry behaviour be described?",
+        "reason": "Nothing describes retries.",
+        "resolves": ["F-5"],
+        "scope": { "kind": "repository" },
+        "options": []
+      },
+      {
+        "key": "q4",
+        "prompt": "Who owns the server module?",
+        "reason": "No owner for the server could be determined.",
+        "resolves": ["F-8"],
+        "scope": { "kind": "repository" },
+        "options": []
+      },
+      {
+        "key": "q5",
+        "prompt": "Should HTTP calls go through the shared client?",
+        "reason": "The guide names the shared client, but some code calls fetch directly.",
+        "resolves": ["C-1"],
+        "scope": { "kind": "repository" },
+        "options": []
+      },
+      {
+        "key": "q6",
+        "prompt": "Which command starts the server locally?",
+        "reason": "No command for starting the server was found.",
+        "resolves": ["F-4"],
+        "scope": { "kind": "repository" },
+        "options": []
+      }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "q1", "stage": "cross_item", "rule": "LIMIT-002", "outcome": "rejected" },
+      { "itemKey": "q2", "stage": "cross_item", "rule": "LIMIT-002", "outcome": "rejected" }
+    ],
+    "accepted": { "questions": ["q3", "q4", "q5", "q6"] },
+    "presented": ["q5", "q4"],
+    "unreached": ["q6", "q3"]
+  }
+}

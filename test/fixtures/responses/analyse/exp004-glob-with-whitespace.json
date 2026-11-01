@@ -1,0 +1,22 @@
+{
+  "description": "A glob with a trailing space is rejected before matching, though src/*.ts would match searchable files.",
+  "section": "IMPL §1.8 (EXP-004: no whitespace)",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      { "kind": "search", "literal": "fetch(", "glob": "src/*.ts ", "reason": "Find other direct fetch calls." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "expansionRequests/0", "stage": "item", "rule": "EXP-004", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

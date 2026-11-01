@@ -1,0 +1,38 @@
+{
+  "description": "A conflict between f1 and its exact duplicate f2: after redirection both members are f1, which counts once, so the conflict has one member.",
+  "section": "IMPL §3.3.2 steps 7-8 (DUP-001, then CONF-001)",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "The guide says HTTP calls go through the shared client.",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [{ "item": "T2-001", "lines": "4-4", "quote": "HTTP calls go through the shared client in src/client.ts." }]
+      },
+      {
+        "key": "f2",
+        "statement": "The guide says HTTP calls go through the shared client.",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [{ "item": "T5-001", "lines": "4-4", "quote": "const res = await fetch(url);" }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [
+      { "key": "c1", "description": "The guide and the client disagree on how HTTP calls are made.", "findings": ["f1", "f2"] }
+    ],
+    "expansionRequests": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "f2", "stage": "cross_item", "rule": "DUP-001", "outcome": "rejected" },
+      { "itemKey": "c1", "stage": "cross_item", "rule": "CONF-001", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 2 }
+  }
+}

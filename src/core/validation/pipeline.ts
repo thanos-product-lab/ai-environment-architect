@@ -9,7 +9,7 @@ import { comparePaths } from "../paths.js";
  * Increases with any change to what is accepted, thresholds and word lists included, and with a
  * runtime whose Unicode version changes CIT-007's or SUP-002's character classes.
  */
-export const VALIDATOR_VERSION = "validate/0.8.0";
+export const VALIDATOR_VERSION = "validate/0.9.0";
 
 /** The rule IDs this version applies. A test pins this list to `VALIDATOR_VERSION`. */
 export const RULE_IDS = [
@@ -40,6 +40,20 @@ export const RULE_IDS = [
   "ABS-001",
   "ABS-002",
   "ABS-003",
+  "LIMIT-002",
+  "EXP-001",
+  "EXP-002",
+  "EXP-003",
+  "EXP-004",
+  "EXP-005",
+  "CONF-001",
+  "DUP-001",
+  "DUP-002",
+  "DUP-003",
+  "REV-001",
+  "REV-002",
+  "REV-003",
+  "Q-001",
 ] as const;
 
 export type ValidationStage = "schema" | "item" | "cross_item";
@@ -102,7 +116,16 @@ export interface ResponseScope {
   readonly localKeys: ReadonlySet<string>;
 }
 
-export type ItemCheck<V, C> = (item: V, context: C, response: ResponseScope) => CheckResult<V>;
+/**
+ * `position` is the item's index in its collection, as the response wrote it. The pipeline always
+ * passes it; checks that don't need it, and tests that call them directly, leave it out.
+ */
+export type ItemCheck<V, C> = (
+  item: V,
+  context: C,
+  response: ResponseScope,
+  position?: number,
+) => CheckResult<V>;
 
 export interface CollectionSpec<R, V, C> {
   readonly items: (response: R) => readonly V[];
@@ -141,12 +164,21 @@ export interface CrossItemRejection<A> {
   readonly index: number;
   readonly rule: string;
   readonly detail: string;
+  /**
+   * For a duplicate: the key or alias of the item kept. Later checks see references to the
+   * dropped item redirected to it (IMPL §3.3.2 step 7).
+   */
+  readonly mergedInto?: string;
 }
 
-/** Sees only items that are still accepted, and returns the ones to reject. */
+/**
+ * Sees only items that are still accepted, and returns the ones to reject. `redirects` maps the
+ * key of each duplicate dropped so far to the key or alias of the item kept.
+ */
 export type CrossItemCheck<A, C> = (
   surviving: AcceptedItems<A>,
   context: C,
+  redirects?: ReadonlyMap<string, string>,
 ) => readonly CrossItemRejection<A>[];
 
 export interface CallValidator<R, C, A> {
@@ -171,7 +203,7 @@ export interface ValidationCounts {
   readonly rejectionsByRule: readonly { readonly rule: string; readonly count: number }[];
 }
 
-export type ValidationResult<A> =
+export type ValidationResult<A, R = unknown> =
   | {
       readonly status: "schema_failed";
       readonly validatorVersion: string;
@@ -182,7 +214,11 @@ export type ValidationResult<A> =
   | {
       readonly status: "validated";
       readonly validatorVersion: string;
+      /** The parsed response, for what is computed from it, such as the corrected-citation rate. */
+      readonly response: R;
       readonly accepted: AcceptedItems<A>;
+      /** Each dropped duplicate's key, mapped to the key or alias of the item kept. */
+      readonly redirects: ReadonlyMap<string, string>;
       readonly events: readonly ValidationEvent[];
       readonly counts: ValidationCounts;
     };
@@ -193,7 +229,7 @@ export function validateResponse<R, C, A>(
   call: CallValidator<R, C, A>,
   text: string,
   context: C,
-): ValidationResult<A> {
+): ValidationResult<A, R> {
   const parsed = parseSchema(call.schema, text);
   if (!parsed.ok) {
     const events = parsed.issues.map(
@@ -254,7 +290,7 @@ export function validateResponse<R, C, A>(
       let relabelled = false;
       let rejected = false;
       for (const check of spec.checks) {
-        const result = check(value, context, scope);
+        const result = check(value, context, scope, item.index);
         for (const event of result.events) {
           events.push({
             itemKey: event.subKey === undefined ? item.key : `${item.key}/${event.subKey}`,
@@ -287,17 +323,19 @@ export function validateResponse<R, C, A>(
       call.order.map((name) => [name, [...(survivors.get(name) ?? [])]]),
     ) as unknown as AcceptedItems<A>;
   const position = (name: string): number => call.order.indexOf(name as keyof A & string);
+  const redirects = new Map<string, string>();
   for (const check of call.crossItem) {
     // Events follow item order whatever order the check returns them in.
-    const rejections = [...check(current(), context)].sort(
+    const rejections = [...check(current(), context, redirects)].sort(
       (a, b) => position(a.collection) - position(b.collection) || a.index - b.index,
     );
-    for (const { collection, index, rule, detail } of rejections) {
+    for (const { collection, index, rule, detail, mergedInto } of rejections) {
       const list = survivors.get(collection) ?? [];
       const at = list.findIndex((item) => item.index === index);
       const item = list[at];
       if (item === undefined) continue;
       list.splice(at, 1);
+      if (mergedInto !== undefined) redirects.set(item.key, mergedInto);
       events.push(rejection(item.key, "cross_item", rule, detail));
     }
   }
@@ -307,7 +345,9 @@ export function validateResponse<R, C, A>(
   return {
     status: "validated",
     validatorVersion: VALIDATOR_VERSION,
+    response,
     accepted,
+    redirects,
     events,
     counts: {
       proposed: {

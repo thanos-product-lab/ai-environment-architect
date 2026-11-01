@@ -1,0 +1,38 @@
+{
+  "description": "A conflict names a finding that restates F-1; the member is redirected to F-1, which counts as a member, and F-1 (package.json) and f2 (docs/guide.md) have distinct sources.",
+  "section": "IMPL §3.3.2 steps 7-8 (DUP-002 redirection, CONF-001, SUP-005)",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "`package.json` defines the script `test`.",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [{ "item": "T3-001", "lines": "4-4", "quote": "\"test\": \"vitest run\"" }]
+      },
+      {
+        "key": "f2",
+        "statement": "The guide says the tests run with the test script before a push.",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [{ "item": "T2-001", "lines": "3-3", "quote": "Run the tests with the test script before pushing." }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [
+      { "key": "c1", "description": "The guide and the manifest may describe the test step differently.", "findings": ["f1", "f2"] }
+    ],
+    "expansionRequests": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "f1", "stage": "cross_item", "rule": "DUP-002", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": ["f2"], "gaps": [], "absenceClaims": [], "conflicts": ["c1"], "expansionRequests": [], "contentNotices": [] },
+    "acceptedConflictMembers": { "c1": ["F-1", "f2"] },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 2 }
+  }
+}

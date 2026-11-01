@@ -1,0 +1,23 @@
+{
+  "description": "Withdrawing F-3 leaves C-1 with only F-2, so C-1 is marked withdrawn (\"member withdrawn\"); C-3 keeps F-4 and F-6 and is unchanged. Neither is a validation event.",
+  "section": "IMPL §3.3.3 (members carried through the surviving revisions)",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "revisions": [
+      { "target": "F-3", "action": "withdraw", "reason": "The expansion shows the client wraps fetch in one helper." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": ["F-3"], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" },
+    "conflictOutcomes": [
+      { "alias": "C-1", "status": "withdrawn", "reason": "member withdrawn" }
+    ]
+  }
+}

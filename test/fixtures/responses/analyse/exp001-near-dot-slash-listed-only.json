@@ -1,0 +1,21 @@
+{
+  "description": "A range read of the listed_only src/big.ts written with a leading ./ is accepted after normalisation.",
+  "section": "IMPL §1.8 (EXP-001), §1.11 path normalisation",
+  "nearMissOf": "exp001-dot-dot-segment.json",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      { "kind": "read", "entries": [{ "path": "./src/big.ts", "lines": "1-10" }], "reason": "The file is listed only." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": ["expansionRequests/0"], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

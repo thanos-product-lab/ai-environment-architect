@@ -1,0 +1,23 @@
+{
+  "description": "Two absence claims whose globs are equal after removing a leading ./ ; the second is dropped, whatever its reason says.",
+  "section": "IMPL §3.3.2 step 7 (DUP-001 for absence claims)",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [
+      { "key": "a1", "pathGlob": "src/**/*.test.ts", "reason": "No tests sit next to the source." },
+      { "key": "a2", "pathGlob": "./src/**/*.test.ts", "reason": "Tests are kept elsewhere." }
+    ],
+    "conflicts": [],
+    "expansionRequests": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "a2", "stage": "cross_item", "rule": "DUP-001", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": ["a1"], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

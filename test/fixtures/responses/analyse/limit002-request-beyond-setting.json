@@ -1,0 +1,32 @@
+{
+  "description": "With maxExpansionRequests set to 2, a third valid request is rejected because of its position in the response.",
+  "section": "IMPL §1.8, §3.3.2 step 9",
+  "context": "context-limit2.json",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      { "kind": "read", "entries": [{ "path": "src/big.ts", "lines": "1-10" }], "reason": "The file is listed only." },
+      { "kind": "search", "literal": "fetch(", "glob": "src/**/*.ts", "reason": "Find other direct fetch calls." },
+      { "kind": "read", "entries": [{ "path": "test/client.test.ts" }], "reason": "See how the client is tested." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "expansionRequests/2", "stage": "item", "rule": "LIMIT-002", "outcome": "rejected" }
+    ],
+    "accepted": {
+      "findings": [],
+      "gaps": [],
+      "absenceClaims": [],
+      "conflicts": [],
+      "expansionRequests": ["expansionRequests/0", "expansionRequests/1"],
+      "contentNotices": []
+    },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

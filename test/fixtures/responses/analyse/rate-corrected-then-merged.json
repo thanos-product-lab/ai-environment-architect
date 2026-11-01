@@ -1,0 +1,32 @@
+{
+  "description": "The second citation is corrected from 3-3 to 4-4 and then merged into the first (same path and final range); the correction still counts.",
+  "section": "IMPL §3.2.2 (corrected-citation rate; duplicates, CIT-009 after its own events)",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "The guide says HTTP calls go through the shared client.",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [
+          { "item": "T2-001", "lines": "4-4", "quote": "HTTP calls go through the shared client in src/client.ts." },
+          { "item": "T2-001", "lines": "3-3", "quote": "HTTP calls go through the shared client in src/client.ts." }
+        ]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "f1/citations/1", "stage": "item", "rule": "CIT-R01", "outcome": "corrected", "original": { "originalLines": "3-3", "correctedLines": "4-4" } },
+      { "itemKey": "f1/citations/1", "stage": "item", "rule": "CIT-009", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "known", "corrected": 1, "proposed": 2 }
+  }
+}

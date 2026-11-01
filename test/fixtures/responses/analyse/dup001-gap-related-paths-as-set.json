@@ -1,0 +1,33 @@
+{
+  "description": "Two gaps with the same statement and gapType, whose related paths are the same set after normalisation; both files were sent in full, so neither is relabelled.",
+  "section": "IMPL §3.3.2 step 7 (DUP-001 for gaps)",
+  "response": {
+    "findings": [],
+    "gaps": [
+      {
+        "key": "g1",
+        "statement": "No command for starting the server is documented.",
+        "gapType": "no_command",
+        "relatedPaths": ["docs/api.md", "src/server.ts"]
+      },
+      {
+        "key": "g2",
+        "statement": "No command for starting the server is documented.",
+        "gapType": "no_command",
+        "relatedPaths": ["./src/server.ts", "docs/api.md"]
+      }
+    ],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "g2", "stage": "cross_item", "rule": "DUP-001", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": ["g1"], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

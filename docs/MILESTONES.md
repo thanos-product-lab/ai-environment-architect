@@ -85,7 +85,7 @@ The token check (IMPL §1.10) waits for M6, because it needs the provider's toke
 - [x] Support checks. `/implement-spec IMPL 3.2.3`
 - [x] Evidence basis and known facts from manifests. `/implement-spec IMPL 3.2.4`, then `IMPL 3.2.5`
 - [x] Coverage-aware gap and absence checks. `/implement-spec IMPL 1.11`
-- [ ] Item validation for `analyse`, `analyse_expansion` and `generate_questions`, including question ranking and the corrected-citation rate (IMPL §3.3.2–§3.3.4, §3.2.2).
+- [x] Item validation for `analyse`, `analyse_expansion` and `generate_questions`, including question ranking and the corrected-citation rate (IMPL §3.3.2–§3.3.4, §3.2.2).
 - [ ] Adversarial fixtures for every rule, from the `fixture-adversary` agent.
 
 **Done when:** every rule has a rejecting fixture and an accepted near miss, and the property tests in IMPL §3.8 pass.

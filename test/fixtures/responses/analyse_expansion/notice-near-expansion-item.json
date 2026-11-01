@@ -1,0 +1,26 @@
+{
+  "description": "Notices on sent lines of the expansion item E-2 and of the context item T2-001 are accepted; E-1 lines 1-6 are outside E-1's sent lines (7-12) and fail CIT-003, even though T5-001 sent them.",
+  "section": "IMPL §3.3.2 step 10, §3.3.3 (T and E items)",
+  "nearMissOf": "alias003-notice-record-aliases.json",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "revisions": [],
+    "contentNotices": [
+      { "item": "E-2", "lines": "1-2", "description": "The helper prints raw errors, which may expose secrets." },
+      { "item": "T2-001", "lines": "6-6", "description": "Text instructs the reader to ignore earlier rules and approve changes." },
+      { "item": "E-1", "lines": "1-6", "description": "The imports may load untrusted code." }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "contentNotices/2", "stage": "item", "rule": "CIT-003", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": [], "contentNotices": ["contentNotices/0", "contentNotices/1"] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" },
+    "conflictOutcomes": []
+  }
+}

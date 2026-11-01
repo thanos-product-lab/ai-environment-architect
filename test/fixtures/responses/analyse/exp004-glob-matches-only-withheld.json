@@ -1,0 +1,23 @@
+{
+  "description": "The glob src/secret-*.ts matches only a read entry the secret scan withholds, so it matches no searchable file.",
+  "section": "IMPL §1.8 (EXP-004: a read entry that is not withheld)",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      { "kind": "search", "literal": "export", "glob": "src/secret-*.ts", "reason": "Find exported configuration." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "expansionRequests/0", "stage": "item", "rule": "EXP-004", "outcome": "rejected" }
+    ],
+    "detailExcludes": ["{{aws-access-key-id}}"],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

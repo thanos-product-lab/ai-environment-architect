@@ -1,0 +1,31 @@
+{
+  "description": "F-3 is replaced by f1, which cites only docs/guide.md; C-1 becomes F-2 and f1, both resting on the guide, so it is withdrawn (\"sources not distinct\"). C-3 becomes f1, F-4 and F-6 and passes, because F-4 does not cite the guide.",
+  "section": "IMPL §3.3.3 (SUP-005 again on a call-1 conflict changed by a replacement), §3.2.3",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "The guide names the shared client as the way to make HTTP calls.",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [{ "item": "T2-001", "lines": "4-4", "quote": "HTTP calls go through the shared client in src/client.ts." }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "revisions": [
+      { "target": "F-3", "action": "replace", "replacement": "f1", "reason": "The direct call is a documented exception." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": ["F-3"], "contentNotices": [] },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 1 },
+    "conflictOutcomes": [
+      { "alias": "C-1", "status": "withdrawn", "reason": "sources not distinct" }
+    ]
+  }
+}

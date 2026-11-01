@@ -1,0 +1,22 @@
+{
+  "description": "A read of a file reached through the symbolic link vendor is rejected: the path is uncovered, not an entry.",
+  "section": "IMPL §1.8 (EXP-001), §1.11",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      { "kind": "read", "entries": [{ "path": "vendor/http.ts" }], "reason": "The shared HTTP helper may live here." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "expansionRequests/0", "stage": "item", "rule": "EXP-001", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

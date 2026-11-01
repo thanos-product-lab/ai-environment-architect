@@ -1,0 +1,39 @@
+{
+  "description": "A question resolving both F-3 and C-1 ranks in the conflict class; a question resolving a no_command gap and an other gap ranks in class 2; within class 2 the model's order is kept.",
+  "section": "IMPL §3.3.4 (a question belongs to the first class it qualifies for; model order within a class)",
+  "response": {
+    "questions": [
+      {
+        "key": "q1",
+        "prompt": "Who owns the server module?",
+        "reason": "No owner for the server could be determined.",
+        "resolves": ["F-8"],
+        "scope": { "kind": "repository" },
+        "options": []
+      },
+      {
+        "key": "q2",
+        "prompt": "Which command starts the server, and where are retries described?",
+        "reason": "Neither a start command nor retry documentation was found.",
+        "resolves": ["F-4", "F-5"],
+        "scope": { "kind": "repository" },
+        "options": []
+      },
+      {
+        "key": "q3",
+        "prompt": "Should the client keep calling fetch directly?",
+        "reason": "The guide and the client disagree.",
+        "resolves": ["F-3", "C-1"],
+        "scope": { "kind": "repository" },
+        "options": []
+      }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "questions": ["q1", "q2", "q3"] },
+    "presented": ["q3", "q1"],
+    "unreached": ["q2"]
+  }
+}

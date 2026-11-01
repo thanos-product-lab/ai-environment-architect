@@ -1,0 +1,30 @@
+{
+  "description": "Exactly maxExpansionRequests (2) valid requests are all accepted.",
+  "section": "IMPL §1.8, §3.3.2 step 9",
+  "context": "context-limit2.json",
+  "nearMissOf": "limit002-request-beyond-setting.json",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      { "kind": "read", "entries": [{ "path": "src/big.ts", "lines": "1-10" }], "reason": "The file is listed only." },
+      { "kind": "search", "literal": "fetch(", "glob": "src/**/*.ts", "reason": "Find other direct fetch calls." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": {
+      "findings": [],
+      "gaps": [],
+      "absenceClaims": [],
+      "conflicts": [],
+      "expansionRequests": ["expansionRequests/0", "expansionRequests/1"],
+      "contentNotices": []
+    },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

@@ -147,16 +147,10 @@ export function validateCitation(
       original: { path: item.path },
     };
 
-  // 4. Sent content (CIT-006).
-  if (item.sent.length === 0) return failure("CIT-006", `${alias} has no sent lines`);
-
-  // 5. Range (CIT-003). The schema guarantees the `a-b` form.
-  const [start, end] = citation.lines.split("-").map(Number) as [number, number];
-  const run = item.sent.find(
-    (candidate) => start >= candidate.first && end < candidate.first + candidate.lines.length,
-  );
-  if (start > end) return failure("CIT-003", "range starts after it ends");
-  if (run === undefined) return failure("CIT-003", `range is not within ${alias}'s sent lines`);
+  // 4–5. Sent content (CIT-006) and range (CIT-003).
+  const located = locateSentRange(item, alias, citation.lines);
+  if (!located.ok) return failure(located.rule, located.detail);
+  const { run, start, end } = located;
 
   // A lone surrogate would match half of a character in the UTF-16 search below.
   if (LONE_SURROGATE.test(quote)) return failure("CIT-004", "quote is not well-formed text");
@@ -182,6 +176,30 @@ export function validateCitation(
     evidence: evidence(item, only.run, only.start, only.end),
     correction: { originalLines: citation.lines, correctedLines },
   };
+}
+
+/**
+ * CIT-006, then CIT-003: the item has sent lines, and the range lies within one run of them.
+ * Citations and content notices (IMPL §3.3.2 step 10) both cite lines this way.
+ */
+export function locateSentRange(
+  item: CitableItem,
+  alias: string,
+  lines: string,
+):
+  | { readonly ok: true; readonly run: SentRun; readonly start: number; readonly end: number }
+  | { readonly ok: false; readonly rule: string; readonly detail: string } {
+  if (item.sent.length === 0)
+    return { ok: false, rule: "CIT-006", detail: `${alias} has no sent lines` };
+  // The schema guarantees the `a-b` form.
+  const [start, end] = lines.split("-").map(Number) as [number, number];
+  if (start > end) return { ok: false, rule: "CIT-003", detail: "range starts after it ends" };
+  const run = item.sent.find(
+    (candidate) => start >= candidate.first && end < candidate.first + candidate.lines.length,
+  );
+  if (run === undefined)
+    return { ok: false, rule: "CIT-003", detail: `range is not within ${alias}'s sent lines` };
+  return { ok: true, run, start, end };
 }
 
 function failure(rule: string, detail: string): CitationResult {

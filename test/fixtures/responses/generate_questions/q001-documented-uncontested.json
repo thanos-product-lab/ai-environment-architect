@@ -1,0 +1,25 @@
+{
+  "description": "A question tied only to F-1, a documented finding in no conflict, asks about documented policy and is rejected.",
+  "section": "IMPL §3.3.4 step 2 (Q-001)",
+  "response": {
+    "questions": [
+      {
+        "key": "q1",
+        "prompt": "Should HTTP calls go through the shared client?",
+        "reason": "The guide describes the shared client for HTTP calls.",
+        "resolves": ["F-1"],
+        "scope": { "kind": "repository" },
+        "options": [{ "label": "Yes" }, { "label": "No" }]
+      }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "q1", "stage": "item", "rule": "Q-001", "outcome": "rejected" }
+    ],
+    "accepted": { "questions": [] },
+    "presented": [],
+    "unreached": []
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "description": "A question tied to the documented, uncontested F-1 and to the gap F-5 qualifies through the gap, and ranks as a question about another gap.",
+  "section": "IMPL §3.3.4 step 2 (Q-001: at least one qualifying alias)",
+  "nearMissOf": "q001-documented-uncontested.json",
+  "response": {
+    "questions": [
+      {
+        "key": "q1",
+        "prompt": "Where should the shared client's retry behaviour be described?",
+        "reason": "The guide covers the client, but nothing describes retries.",
+        "resolves": ["F-1", "F-5"],
+        "scope": { "kind": "repository" },
+        "options": []
+      }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "questions": ["q1"] },
+    "presented": ["q1"],
+    "unreached": []
+  }
+}

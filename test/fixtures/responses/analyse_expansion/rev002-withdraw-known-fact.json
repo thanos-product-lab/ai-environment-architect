@@ -1,0 +1,23 @@
+{
+  "description": "The model withdraws the known fact F-1, which code produced; known facts cannot be withdrawn by the model.",
+  "section": "IMPL §3.3.3 (REV-002, item stage)",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "revisions": [
+      { "target": "F-1", "action": "withdraw", "reason": "The test script may not be the one developers use." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "F-1", "stage": "item", "rule": "REV-002", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" },
+    "conflictOutcomes": []
+  }
+}

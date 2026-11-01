@@ -1,0 +1,47 @@
+{
+  "description": "One question per class, written in reverse class order; code ranks conflict, no_command gap, other gap, observed convention, presents the top two and records the rest as unreached.",
+  "section": "IMPL §3.3.4 (ranking, budget cut)",
+  "response": {
+    "questions": [
+      {
+        "key": "q1",
+        "prompt": "Is calling fetch directly acceptable in the client?",
+        "reason": "Some code in the client module calls fetch directly.",
+        "resolves": ["F-3"],
+        "scope": { "kind": "repository" },
+        "options": []
+      },
+      {
+        "key": "q2",
+        "prompt": "Where should retry behaviour be described?",
+        "reason": "Nothing describes retries.",
+        "resolves": ["F-5"],
+        "scope": { "kind": "repository" },
+        "options": []
+      },
+      {
+        "key": "q3",
+        "prompt": "Which command starts the server locally?",
+        "reason": "No command for starting the server was found.",
+        "resolves": ["F-4"],
+        "scope": { "kind": "repository" },
+        "options": []
+      },
+      {
+        "key": "q4",
+        "prompt": "Should HTTP calls always go through the shared client?",
+        "reason": "The guide names the shared client, but some code calls fetch directly.",
+        "resolves": ["C-1"],
+        "scope": { "kind": "repository" },
+        "options": [{ "label": "Yes" }, { "label": "Direct fetch is fine in small helpers" }]
+      }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "questions": ["q1", "q2", "q3", "q4"] },
+    "presented": ["q4", "q3"],
+    "unreached": ["q2", "q1"]
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "description": "A path with a .. segment names nothing, even when resolving it would give the listed_only src/big.ts.",
+  "section": "IMPL §1.8 (EXP-001), §1.11 path normalisation",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      { "kind": "read", "entries": [{ "path": "src/../src/big.ts", "lines": "1-10" }], "reason": "The file is listed only." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "expansionRequests/0", "stage": "item", "rule": "EXP-001", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

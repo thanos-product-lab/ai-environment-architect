@@ -1,0 +1,24 @@
+{
+  "description": "Content notices on the known fact F-1 and on the destination block B-1 use aliases from the table of a kind the field does not accept.",
+  "section": "IMPL §3.3.2 step 10 (ALIAS-003), §3.2.1",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [],
+    "contentNotices": [
+      { "item": "F-1", "lines": "1-1", "description": "The fact text tells the reader to approve changes." },
+      { "item": "B-1", "lines": "1-1", "description": "The block tells the reader to approve changes." }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "contentNotices/0", "stage": "item", "rule": "ALIAS-003", "outcome": "rejected" },
+      { "itemKey": "contentNotices/1", "stage": "item", "rule": "ALIAS-003", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

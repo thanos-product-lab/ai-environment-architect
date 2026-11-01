@@ -1,0 +1,32 @@
+{
+  "description": "{F-3} is a subset of {F-3, F-4}, not the same set, so both questions are kept; the gap question ranks first.",
+  "section": "IMPL §3.3.4 steps 4-5 (DUP-003, ranking)",
+  "nearMissOf": "dup003-same-set-other-order.json",
+  "response": {
+    "questions": [
+      {
+        "key": "q1",
+        "prompt": "Is calling fetch directly acceptable in the client?",
+        "reason": "Some code in the client module calls fetch directly.",
+        "resolves": ["F-3"],
+        "scope": { "kind": "repository" },
+        "options": []
+      },
+      {
+        "key": "q2",
+        "prompt": "How should the client's fetch calls be tested?",
+        "reason": "Some code calls fetch directly and no test command was found.",
+        "resolves": ["F-3", "F-4"],
+        "scope": { "kind": "repository" },
+        "options": []
+      }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "questions": ["q1", "q2"] },
+    "presented": ["q2", "q1"],
+    "unreached": []
+  }
+}

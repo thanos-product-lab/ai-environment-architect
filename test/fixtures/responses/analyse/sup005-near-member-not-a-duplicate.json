@@ -1,0 +1,44 @@
+{
+  "description": "As sup005-after-redirection, but f2's statement differs from f1's, so f2 stays a member and its client source is distinct from f3's guide.",
+  "section": "IMPL §3.3.2 steps 7-8",
+  "nearMissOf": "sup005-after-redirection.json",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "HTTP calls use the shared client.",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [{ "item": "T2-001", "lines": "4-4", "quote": "HTTP calls go through the shared client in src/client.ts." }]
+      },
+      {
+        "key": "f2",
+        "statement": "Some HTTP calls in the client use fetch directly.",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [{ "item": "T5-001", "lines": "4-4", "quote": "const res = await fetch(url);" }]
+      },
+      {
+        "key": "f3",
+        "statement": "The guide says errors are logged with the logger helper.",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [{ "item": "T2-001", "lines": "5-5", "quote": "Errors are logged with the logger helper." }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [
+      { "key": "c1", "description": "The client and the guide describe error handling differently.", "findings": ["f2", "f3"] }
+    ],
+    "expansionRequests": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "findings": ["f1", "f2", "f3"], "gaps": [], "absenceClaims": [], "conflicts": ["c1"], "expansionRequests": [], "contentNotices": [] },
+    "acceptedConflictMembers": { "c1": ["f2", "f3"] },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 3 }
+  }
+}

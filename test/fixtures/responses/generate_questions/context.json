@@ -1,0 +1,31 @@
+{
+  "files": [
+    { "path": "README.md", "status": "read" },
+    { "path": "docs/api.md", "status": "read" },
+    { "path": "docs/guide.md", "status": "read" },
+    { "path": "node_modules", "status": "excluded", "kind": "directory", "rule": "node_modules" },
+    { "path": "package.json", "status": "read" },
+    { "path": "src/client.ts", "status": "read" },
+    { "path": "src/secret-{{aws-access-key-id}}.ts", "status": "read" },
+    { "path": "src/server.ts", "status": "read" }
+  ],
+  "userExclusions": [],
+  "ignoreRules": { "state": "applied" },
+  "findings": [
+    { "alias": "F-1", "kind": "claim", "basis": ["documentation"] },
+    { "alias": "F-2", "kind": "claim", "basis": ["documentation"] },
+    { "alias": "F-3", "kind": "claim", "basis": ["code_observation"] },
+    { "alias": "F-4", "kind": "gap", "basis": [], "gapType": "no_command" },
+    { "alias": "F-5", "kind": "gap", "basis": [], "gapType": "other" },
+    { "alias": "F-6", "kind": "claim", "basis": ["code_observation", "documentation"] },
+    { "alias": "F-7", "kind": "claim", "basis": ["existing_guidance"] },
+    { "alias": "F-8", "kind": "gap", "basis": [], "gapType": "undetermined_ownership" },
+    { "alias": "F-9", "kind": "claim", "basis": ["documentation"] }
+  ],
+  "conflicts": [
+    { "alias": "C-1", "members": ["F-2", "F-3"], "status": "unresolved" },
+    { "alias": "C-2", "members": ["F-9", "F-7"], "status": "resolved" }
+  ],
+  "blocks": 2,
+  "questionBudget": 2
+}

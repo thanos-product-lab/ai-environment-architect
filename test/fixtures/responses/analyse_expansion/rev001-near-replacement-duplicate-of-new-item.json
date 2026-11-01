@@ -1,0 +1,40 @@
+{
+  "description": "F-3 is replaced by f2, a duplicate of the new finding f1; the replacement counts as f1, so the revision is accepted and C-1 and C-3 now list f1.",
+  "section": "IMPL §3.3.3 (REV-001: a replacement dropped as a duplicate of another new item counts as that item)",
+  "nearMissOf": "rev001-replacement-redirected-to-call-1-finding.json",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "Some client helpers post JSON with fetch.",
+        "mode": "descriptive",
+        "scope": { "kind": "paths", "paths": ["src/client.ts"] },
+        "citations": [{ "item": "E-1", "lines": "8-8", "quote": "return fetch(url, { method: \"POST\", body: JSON.stringify(body) });" }]
+      },
+      {
+        "key": "f2",
+        "statement": "Some client helpers post JSON with fetch.",
+        "mode": "descriptive",
+        "scope": { "kind": "paths", "paths": ["./src/client.ts"] },
+        "citations": [{ "item": "E-1", "lines": "7-7", "quote": "export function postJson(url: string, body: unknown) {" }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "revisions": [
+      { "target": "F-3", "action": "replace", "replacement": "f2", "reason": "The expansion shows a second helper." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "f2", "stage": "cross_item", "rule": "DUP-001", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": ["F-3"], "contentNotices": [] },
+    "acceptedRevisions": [{ "index": 0, "target": "F-3", "action": "replace", "replacement": "f1" }],
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 2 },
+    "conflictOutcomes": []
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "description": "F-2 is replaced by f1 citing the expansion item E-1 of src/client.ts; C-1 becomes f1 and F-3, and a context item and an expansion item of one file are one source, so C-1 is withdrawn.",
+  "section": "IMPL §3.3.3, §3.2.3 (SUP-005: a context item and an expansion item of the same file are one source)",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "Some client helpers post JSON with fetch.",
+        "mode": "descriptive",
+        "scope": { "kind": "paths", "paths": ["src/client.ts"] },
+        "citations": [{ "item": "E-1", "lines": "8-8", "quote": "return fetch(url, { method: \"POST\", body: JSON.stringify(body) });" }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "revisions": [
+      { "target": "F-2", "action": "replace", "replacement": "f1", "reason": "The client is the better evidence." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": ["F-2"], "contentNotices": [] },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 1 },
+    "conflictOutcomes": [
+      { "alias": "C-1", "status": "withdrawn", "reason": "sources not distinct" }
+    ]
+  }
+}

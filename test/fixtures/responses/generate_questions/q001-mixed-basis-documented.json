@@ -1,0 +1,25 @@
+{
+  "description": "F-6 has basis code_observation and documentation; a basis that includes documentation makes it documented, and it is in no conflict, so the question is rejected.",
+  "section": "IMPL §3.3.4 step 2 (Q-001: a finding whose basis includes documentation is documented)",
+  "response": {
+    "questions": [
+      {
+        "key": "q1",
+        "prompt": "Should errors keep going through the logger helper?",
+        "reason": "The code and the guide both use the logger helper.",
+        "resolves": ["F-6"],
+        "scope": { "kind": "repository" },
+        "options": []
+      }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "q1", "stage": "item", "rule": "Q-001", "outcome": "rejected" }
+    ],
+    "accepted": { "questions": [] },
+    "presented": [],
+    "unreached": []
+  }
+}

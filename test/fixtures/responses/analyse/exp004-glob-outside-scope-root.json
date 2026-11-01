@@ -1,0 +1,23 @@
+{
+  "description": "With scope root src, the glob *.json lies outside every scope root, though it matches the read package.json.",
+  "section": "IMPL §1.8 (EXP-004: lies under one of the snapshot's scope roots)",
+  "context": "context-scope-src.json",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      { "kind": "search", "literal": "scripts", "glob": "*.json", "reason": "Find the declared scripts." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "expansionRequests/0", "stage": "item", "rule": "EXP-004", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

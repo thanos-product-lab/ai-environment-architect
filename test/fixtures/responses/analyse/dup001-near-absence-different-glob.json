@@ -1,0 +1,22 @@
+{
+  "description": "Overlapping but different globs (src/**/*.test.ts and src/*.test.ts) are not duplicates.",
+  "section": "IMPL §3.3.2 step 7 (DUP-001: same normalised glob only)",
+  "nearMissOf": "dup001-absence-same-normalised-glob.json",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [
+      { "key": "a1", "pathGlob": "src/**/*.test.ts", "reason": "No tests sit next to the source." },
+      { "key": "a2", "pathGlob": "src/*.test.ts", "reason": "No tests at the top of src." }
+    ],
+    "conflicts": [],
+    "expansionRequests": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": ["a1", "a2"], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

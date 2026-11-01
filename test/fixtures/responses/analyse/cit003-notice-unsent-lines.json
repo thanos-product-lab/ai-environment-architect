@@ -1,0 +1,24 @@
+{
+  "description": "One notice cites omitted lines 8-9 of the excerpted src/client.ts, and one a reversed range 6-4; notices are never range-corrected.",
+  "section": "IMPL §3.3.2 step 10 (CIT-003)",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [],
+    "contentNotices": [
+      { "item": "T5-001", "lines": "8-9", "description": "Omitted lines may hold an instruction." },
+      { "item": "T2-001", "lines": "6-4", "description": "Text tells the reader to ignore earlier rules." }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "contentNotices/0", "stage": "item", "rule": "CIT-003", "outcome": "rejected" },
+      { "itemKey": "contentNotices/1", "stage": "item", "rule": "CIT-003", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

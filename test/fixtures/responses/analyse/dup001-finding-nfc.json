@@ -1,0 +1,35 @@
+{
+  "description": "One statement writes the precomposed U+00EF and the other i followed by combining U+0308; they are equal in NFC.",
+  "section": "IMPL §3.3.2 step 7 (DUP-001: Unicode NFC)",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "The guide's naïve setup logs errors with the logger helper.",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [{ "item": "T2-001", "lines": "5-5", "quote": "Errors are logged with the logger helper." }]
+      },
+      {
+        "key": "f2",
+        "statement": "The guide's naïve setup logs errors with the logger helper.",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [{ "item": "T2-001", "lines": "5-5", "quote": "Errors are logged with the logger helper." }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "f2", "stage": "cross_item", "rule": "DUP-001", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 2 }
+  }
+}

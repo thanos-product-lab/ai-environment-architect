@@ -1,0 +1,32 @@
+{
+  "description": "Same statement and related paths, but a different gapType, so both gaps are kept.",
+  "section": "IMPL §3.3.2 step 7 (DUP-001 for gaps)",
+  "nearMissOf": "dup001-gap-related-paths-as-set.json",
+  "response": {
+    "findings": [],
+    "gaps": [
+      {
+        "key": "g1",
+        "statement": "No command for starting the server is documented.",
+        "gapType": "no_command",
+        "relatedPaths": ["docs/api.md", "src/server.ts"]
+      },
+      {
+        "key": "g2",
+        "statement": "No command for starting the server is documented.",
+        "gapType": "no_documentation",
+        "relatedPaths": ["./src/server.ts", "docs/api.md"]
+      }
+    ],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "findings": [], "gaps": ["g1", "g2"], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

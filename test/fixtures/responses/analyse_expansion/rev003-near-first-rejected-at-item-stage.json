@@ -1,0 +1,29 @@
+{
+  "description": "The first revision of F-6 fails ALIAS-003 at the item stage, so REV-003 never sees it and the second revision of F-6 is the one kept.",
+  "section": "IMPL §3.3.3 (REV-003 runs on items that passed the item stage), §3.5",
+  "nearMissOf": "rev003-second-revision-same-target.json",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [
+      { "key": "c1", "description": "The client calls fetch directly while the API doc describes handler bodies.", "findings": ["F-3", "F-5"] }
+    ],
+    "revisions": [
+      { "target": "F-6", "action": "replace", "replacement": "c1", "reason": "This is better described as a conflict." },
+      { "target": "F-6", "action": "withdraw", "reason": "The expansion shows errors go to the console." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "F-6", "stage": "item", "rule": "ALIAS-003", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": ["c1"], "revisions": ["F-6"], "contentNotices": [] },
+    "acceptedRevisions": [{ "index": 1, "target": "F-6", "action": "withdraw" }],
+    "acceptedConflictMembers": { "c1": ["F-3", "F-5"] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" },
+    "conflictOutcomes": []
+  }
+}

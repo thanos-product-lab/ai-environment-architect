@@ -1,0 +1,32 @@
+{
+  "description": "The same restatement of F-4 is kept when the response also withdraws F-4, because F-4 is no longer passed forward; C-2 loses F-4 and is marked withdrawn.",
+  "section": "IMPL §3.3.3 (DUP-001: only call-1 findings no surviving revision withdraws or replaces)",
+  "nearMissOf": "dup001-restates-call-1-finding.json",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "The server sets a JSON content type on its responses.",
+        "mode": "descriptive",
+        "scope": { "kind": "paths", "paths": ["src/server.ts"] },
+        "citations": [{ "item": "T5-002", "lines": "5-5", "quote": "res.setHeader(\"content-type\", \"application/json\");" }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "revisions": [
+      { "target": "F-4", "action": "withdraw", "reason": "Restated with fresh evidence." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": ["F-4"], "contentNotices": [] },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 1 },
+    "conflictOutcomes": [
+      { "alias": "C-2", "status": "withdrawn", "reason": "member withdrawn" }
+    ]
+  }
+}

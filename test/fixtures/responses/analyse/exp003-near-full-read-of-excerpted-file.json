@@ -1,0 +1,21 @@
+{
+  "description": "A read without ranges of src/client.ts, which was excerpted (lines 1-6 of 20), names a file not sent in full and is accepted; so is one of test/client.test.ts, which had no item.",
+  "section": "IMPL §1.8 (EXP-003)",
+  "nearMissOf": "exp003-full-read-of-file-sent-in-full.json",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      { "kind": "read", "entries": [{ "path": "src/client.ts" }, { "path": "test/client.test.ts" }], "reason": "Read the client and its test." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": ["expansionRequests/0"], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

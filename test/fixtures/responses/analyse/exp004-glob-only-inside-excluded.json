@@ -1,0 +1,22 @@
+{
+  "description": "The glob node_modules/**/*.js can match only inside the excluded node_modules, where no entry is searchable.",
+  "section": "IMPL §1.8 (EXP-004)",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      { "kind": "search", "literal": "fetch(", "glob": "node_modules/**/*.js", "reason": "Check whether a dependency wraps fetch." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "expansionRequests/0", "stage": "item", "rule": "EXP-004", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

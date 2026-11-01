@@ -1,0 +1,35 @@
+{
+  "description": "F-4 and F-5 are both replaced by the same f1, so C-2 is carried to f1 and f1, fewer than two distinct members, and is marked withdrawn; C-3 (F-3, f1, F-6) keeps distinct sources.",
+  "section": "IMPL §3.3.3 (fewer than two distinct members: \"member withdrawn\")",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "The API doc and the server describe JSON responses.",
+        "mode": "descriptive",
+        "scope": { "kind": "paths", "paths": ["docs/api.md", "src/server.ts"] },
+        "citations": [
+          { "item": "T2-002", "lines": "4-4", "quote": "Handlers return JSON bodies." },
+          { "item": "T5-002", "lines": "5-5", "quote": "res.setHeader(\"content-type\", \"application/json\");" }
+        ]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "revisions": [
+      { "target": "F-4", "action": "replace", "replacement": "f1", "reason": "The server and the doc agree." },
+      { "target": "F-5", "action": "replace", "replacement": "f1", "reason": "The server and the doc agree." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": ["F-4", "F-5"], "contentNotices": [] },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 2 },
+    "conflictOutcomes": [
+      { "alias": "C-2", "status": "withdrawn", "reason": "member withdrawn" }
+    ]
+  }
+}

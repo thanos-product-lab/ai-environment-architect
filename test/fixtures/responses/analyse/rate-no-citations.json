@@ -1,0 +1,22 @@
+{
+  "description": "A response with a gap and an absence claim but no findings proposes no citations, so the rate is unknown, not zero.",
+  "section": "IMPL §3.2.2 (rate unknown with reason no_citations)",
+  "response": {
+    "findings": [],
+    "gaps": [
+      { "key": "g1", "statement": "No command for starting the server is documented.", "gapType": "no_command", "relatedPaths": ["docs/api.md"] }
+    ],
+    "absenceClaims": [
+      { "key": "a1", "pathGlob": "src/**/*.test.ts", "reason": "No tests sit next to the source." }
+    ],
+    "conflicts": [],
+    "expansionRequests": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "findings": [], "gaps": ["g1"], "absenceClaims": ["a1"], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

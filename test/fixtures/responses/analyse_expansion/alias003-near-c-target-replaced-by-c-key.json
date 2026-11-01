@@ -1,0 +1,33 @@
+{
+  "description": "C-2 replaced by a new conflict c1 of F-4 and a new finding f1, with distinct sources (src/server.ts, docs/api.md), is accepted.",
+  "section": "IMPL §3.3.3 (ALIAS-003, REV-001)",
+  "nearMissOf": "alias003-c-target-replaced-by-f-key.json",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "The API doc says requests time out after the configured limit.",
+        "mode": "descriptive",
+        "scope": { "kind": "paths", "paths": ["docs/api.md"] },
+        "citations": [{ "item": "T2-002", "lines": "5-5", "quote": "Requests time out after the configured limit." }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [
+      { "key": "c1", "description": "The server sets no timeout while the API doc describes one.", "findings": ["F-4", "f1"] }
+    ],
+    "revisions": [
+      { "target": "C-2", "action": "replace", "replacement": "c1", "reason": "The real disagreement is about timeouts." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": ["c1"], "revisions": ["C-2"], "contentNotices": [] },
+    "acceptedConflictMembers": { "c1": ["F-4", "f1"] },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 1 },
+    "conflictOutcomes": []
+  }
+}

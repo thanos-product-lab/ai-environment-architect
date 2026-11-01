@@ -1,0 +1,26 @@
+{
+  "description": "The finding F-3 is \"replaced\" by the conflict key c1; an F target is replaced only by an f key. The conflict itself is valid and kept.",
+  "section": "IMPL §3.3.3 (ALIAS-003 for replacement kinds)",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [
+      { "key": "c1", "description": "The client calls fetch directly while the API doc describes handler bodies.", "findings": ["F-3", "F-5"] }
+    ],
+    "revisions": [
+      { "target": "F-3", "action": "replace", "replacement": "c1", "reason": "This is better described as a conflict." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "F-3", "stage": "item", "rule": "ALIAS-003", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": ["c1"], "revisions": [], "contentNotices": [] },
+    "acceptedConflictMembers": { "c1": ["F-3", "F-5"] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" },
+    "conflictOutcomes": []
+  }
+}

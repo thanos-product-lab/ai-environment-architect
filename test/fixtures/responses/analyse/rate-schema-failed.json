@@ -1,0 +1,27 @@
+{
+  "description": "The response leaves out the required contentNotices collection; it fails the schema with one issue, nothing is accepted, and the rate is unknown even though citations were written.",
+  "section": "IMPL §3.5 (schema failure), §3.2.2 (rate unknown with reason schema_failed)",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "The guide says HTTP calls go through the shared client.",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [{ "item": "T2-001", "lines": "3-3", "quote": "HTTP calls go through the shared client in src/client.ts." }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": []
+  },
+  "expect": {
+    "status": "schema_failed",
+    "events": [
+      { "itemKey": "$response", "stage": "schema", "rule": "SCHEMA", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "schema_failed" }
+  }
+}

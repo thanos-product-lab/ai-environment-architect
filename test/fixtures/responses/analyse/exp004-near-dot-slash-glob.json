@@ -1,0 +1,22 @@
+{
+  "description": "A glob written ./src/*.ts names src/*.ts after normalisation and matches searchable files; a search without a glob is also accepted.",
+  "section": "IMPL §1.8 (EXP-004), §1.11 path normalisation",
+  "nearMissOf": "exp004-glob-with-whitespace.json",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      { "kind": "search", "literal": "fetch(", "glob": "./src/*.ts", "reason": "Find other direct fetch calls." },
+      { "kind": "search", "literal": "logger", "reason": "Find the logger helper." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": ["expansionRequests/0", "expansionRequests/1"], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

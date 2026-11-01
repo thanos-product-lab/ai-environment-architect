@@ -1,0 +1,22 @@
+{
+  "description": "Literals of exactly 3 code points (res) and of punctuation with one letter (=> r) are line-safe text and accepted.",
+  "section": "IMPL §1.8 (EXP-005)",
+  "nearMissOf": "exp005-literal-too-short.json",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      { "kind": "search", "literal": "res", "glob": "src/**/*.ts", "reason": "Find response handling." },
+      { "kind": "search", "literal": "=> r", "glob": "src/**/*.ts", "reason": "Find arrow functions returning r." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": ["expansionRequests/0", "expansionRequests/1"], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

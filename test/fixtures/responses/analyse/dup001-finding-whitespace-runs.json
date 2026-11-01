@@ -1,0 +1,35 @@
+{
+  "description": "A second finding differing only by a leading space, a double space, a tab and a trailing space normalises to the first finding's statement with the same scope.",
+  "section": "IMPL §3.3.2 step 7 (DUP-001, normalised statement)",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "The guide says HTTP calls go through the shared client.",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [{ "item": "T2-001", "lines": "4-4", "quote": "HTTP calls go through the shared client in src/client.ts." }]
+      },
+      {
+        "key": "f2",
+        "statement": " The guide  says HTTP calls go\tthrough the shared client. ",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [{ "item": "T2-001", "lines": "4-4", "quote": "HTTP calls go through the shared client in src/client.ts." }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "f2", "stage": "cross_item", "rule": "DUP-001", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 2 }
+  }
+}

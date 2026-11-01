@@ -1,0 +1,21 @@
+{
+  "description": "A range 2-7 overlaps the sent lines but adds line 7, which was not sent, so it is accepted.",
+  "section": "IMPL §1.8 (EXP-003)",
+  "nearMissOf": "exp003-range-already-sent.json",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      { "kind": "read", "entries": [{ "path": "src/client.ts", "lines": "2-7" }], "reason": "Check what follows the first function." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": ["expansionRequests/0"], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

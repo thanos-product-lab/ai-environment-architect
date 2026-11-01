@@ -1,0 +1,38 @@
+{
+  "description": "Three citations across two findings; one has a shifted range with a unique quote and is corrected from 2-2 to 5-5, so the rate is 1 of 3.",
+  "section": "IMPL §3.2.2 (corrected-citation rate, CIT-R01)",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "The guide says HTTP calls go through the shared client and errors go to the logger helper.",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [
+          { "item": "T2-001", "lines": "4-4", "quote": "HTTP calls go through the shared client in src/client.ts." },
+          { "item": "T2-001", "lines": "2-2", "quote": "Errors are logged with the logger helper." }
+        ]
+      },
+      {
+        "key": "f2",
+        "statement": "Some code in the client module calls fetch directly.",
+        "mode": "descriptive",
+        "scope": { "kind": "paths", "paths": ["src/client.ts"] },
+        "citations": [{ "item": "T5-001", "lines": "4-4", "quote": "const res = await fetch(url);" }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "f1/citations/1", "stage": "item", "rule": "CIT-R01", "outcome": "corrected", "original": { "originalLines": "2-2", "correctedLines": "5-5" } }
+    ],
+    "accepted": { "findings": ["f1", "f2"], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "known", "corrected": 1, "proposed": 3 }
+  }
+}

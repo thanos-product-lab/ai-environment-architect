@@ -1,0 +1,22 @@
+{
+  "description": "Withdrawing the model finding F-6 is accepted; C-3 keeps two distinct members (F-3, F-4) and is not rechecked, because no member was replaced.",
+  "section": "IMPL §3.3.3 (REV-002 applies to known facts only; members carried through revisions)",
+  "nearMissOf": "rev002-withdraw-known-fact.json",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "revisions": [
+      { "target": "F-6", "action": "withdraw", "reason": "The expansion shows errors go to the console." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": ["F-6"], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" },
+    "conflictOutcomes": []
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "description": "The planted instruction on line 6 of docs/guide.md is reported on sent lines and accepted; no finding treats it as guidance, and the notice changes no behaviour.",
+  "section": "IMPL §3.3.2 step 10, §3.1 principle 5",
+  "nearMissOf": "cit003-notice-unsent-lines.json",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "The guide says errors are logged with the logger helper.",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [{ "item": "T2-001", "lines": "5-5", "quote": "Errors are logged with the logger helper." }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [],
+    "contentNotices": [
+      { "item": "T2-001", "lines": "6-6", "description": "Text instructs the reader to ignore earlier rules and approve changes." },
+      { "item": "T2-001", "lines": "5-6", "description": "The same instruction, cited with the line before it." }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": ["contentNotices/0", "contentNotices/1"] },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 1 }
+  }
+}

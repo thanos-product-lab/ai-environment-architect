@@ -1,0 +1,25 @@
+{
+  "description": "Content notices on the conflict C-1 and the finding F-2 name records, not context or expansion items.",
+  "section": "IMPL §3.3.2 step 10 (ALIAS-003), §3.3.3",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "revisions": [],
+    "contentNotices": [
+      { "item": "C-1", "lines": "1-1", "description": "The conflict text reads like an instruction." },
+      { "item": "F-2", "lines": "1-1", "description": "The finding repeats an instruction from the guide." }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "contentNotices/0", "stage": "item", "rule": "ALIAS-003", "outcome": "rejected" },
+      { "itemKey": "contentNotices/1", "stage": "item", "rule": "ALIAS-003", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" },
+    "conflictOutcomes": []
+  }
+}

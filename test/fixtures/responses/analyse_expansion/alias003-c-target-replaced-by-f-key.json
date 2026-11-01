@@ -1,0 +1,31 @@
+{
+  "description": "The conflict C-2 is \"replaced\" by the finding key f1; a C target is replaced only by a c key. The finding itself is valid and kept.",
+  "section": "IMPL §3.3.3 (ALIAS-003 for replacement kinds)",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "The client also posts JSON with fetch.",
+        "mode": "descriptive",
+        "scope": { "kind": "paths", "paths": ["src/client.ts"] },
+        "citations": [{ "item": "E-1", "lines": "8-8", "quote": "return fetch(url, { method: \"POST\", body: JSON.stringify(body) });" }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "revisions": [
+      { "target": "C-2", "action": "replace", "replacement": "f1", "reason": "The conflict is really one observation." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "C-2", "stage": "item", "rule": "ALIAS-003", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 1 },
+    "conflictOutcomes": []
+  }
+}

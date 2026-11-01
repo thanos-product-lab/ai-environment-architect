@@ -1,0 +1,33 @@
+{
+  "description": "The limit counts positions in the response, so an invalid first request still uses a place and the third request is beyond the limit of 2.",
+  "section": "IMPL §1.8 (LIMIT-002: among the first maxExpansionRequests in response order)",
+  "context": "context-limit2.json",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      { "kind": "read", "entries": [{ "path": "src/client.ts", "lines": "12-8" }], "reason": "See the rest of the client." },
+      { "kind": "search", "literal": "fetch(", "glob": "src/**/*.ts", "reason": "Find other direct fetch calls." },
+      { "kind": "read", "entries": [{ "path": "src/big.ts", "lines": "1-10" }], "reason": "The file is listed only." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "expansionRequests/0", "stage": "item", "rule": "EXP-002", "outcome": "rejected" },
+      { "itemKey": "expansionRequests/2", "stage": "item", "rule": "LIMIT-002", "outcome": "rejected" }
+    ],
+    "accepted": {
+      "findings": [],
+      "gaps": [],
+      "absenceClaims": [],
+      "conflicts": [],
+      "expansionRequests": ["expansionRequests/1"],
+      "contentNotices": []
+    },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

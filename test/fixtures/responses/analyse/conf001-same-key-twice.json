@@ -1,0 +1,30 @@
+{
+  "description": "A conflict listing [\"f1\", \"f1\"] passes the schema's two-item minimum but has one distinct member.",
+  "section": "IMPL §3.3.2 step 8 (CONF-001: each member counts once)",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "The guide says HTTP calls go through the shared client.",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [{ "item": "T2-001", "lines": "4-4", "quote": "HTTP calls go through the shared client in src/client.ts." }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [
+      { "key": "c1", "description": "The guide contradicts itself about HTTP calls.", "findings": ["f1", "f1"] }
+    ],
+    "expansionRequests": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "c1", "stage": "cross_item", "rule": "CONF-001", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 1 }
+  }
+}

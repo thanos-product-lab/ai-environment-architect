@@ -5,7 +5,7 @@ import { accept, type ItemCheck, reject } from "./pipeline.js";
 // generation. The item is rejected alone; the detail names the field and the limit, never the
 // value.
 
-export function limitCheck<C>(schema: z.ZodType): ItemCheck<unknown, C> {
+export function limitCheck<V = unknown, C = unknown>(schema: z.ZodType): ItemCheck<V, C> {
   return (item) => {
     const result = schema.safeParse(item);
     if (result.success) return accept(item);

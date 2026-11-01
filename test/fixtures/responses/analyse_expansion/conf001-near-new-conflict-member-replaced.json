@@ -1,0 +1,33 @@
+{
+  "description": "A new conflict lists F-3, which the same response replaces with f1; the member's place goes to f1, so the conflict has f1 and F-4 with distinct sources and is accepted.",
+  "section": "IMPL §3.3.3 (members carried through revisions), §3.3.2 step 8",
+  "nearMissOf": "conf001-new-conflict-member-withdrawn.json",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "Some client helpers post JSON with fetch.",
+        "mode": "descriptive",
+        "scope": { "kind": "paths", "paths": ["src/client.ts"] },
+        "citations": [{ "item": "E-1", "lines": "8-8", "quote": "return fetch(url, { method: \"POST\", body: JSON.stringify(body) });" }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [
+      { "key": "c1", "description": "The client and the server handle responses differently.", "findings": ["F-3", "F-4"] }
+    ],
+    "revisions": [
+      { "target": "F-3", "action": "replace", "replacement": "f1", "reason": "The expansion shows a second helper." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": ["c1"], "revisions": ["F-3"], "contentNotices": [] },
+    "acceptedConflictMembers": { "c1": ["f1", "F-4"] },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 1 },
+    "conflictOutcomes": []
+  }
+}

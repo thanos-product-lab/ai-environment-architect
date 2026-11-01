@@ -1,0 +1,25 @@
+{
+  "description": "The question resolves the resolved conflict C-2 and its documented member F-9; a resolved conflict does not qualify and F-9 is not contested, so the question is rejected.",
+  "section": "IMPL §3.3.4 step 2 (Q-001: unresolved conflicts only)",
+  "response": {
+    "questions": [
+      {
+        "key": "q1",
+        "prompt": "Which of the two review rules should win?",
+        "reason": "The documentation and the existing guidance disagreed about reviews.",
+        "resolves": ["C-2", "F-9"],
+        "scope": { "kind": "repository" },
+        "options": [{ "label": "The documentation" }, { "label": "The existing guidance" }]
+      }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "q1", "stage": "item", "rule": "Q-001", "outcome": "rejected" }
+    ],
+    "accepted": { "questions": [] },
+    "presented": [],
+    "unreached": []
+  }
+}

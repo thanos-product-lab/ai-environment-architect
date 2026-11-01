@@ -1,0 +1,32 @@
+{
+  "description": "A new finding restates the call-1 finding F-4 (same statement and scope); it is dropped, and the new conflict's reference to it is redirected to F-4.",
+  "section": "IMPL §3.3.3 (DUP-001 compares new findings with call-1 findings still passed forward)",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "The server sets a JSON content type on its responses.",
+        "mode": "descriptive",
+        "scope": { "kind": "paths", "paths": ["src/server.ts"] },
+        "citations": [{ "item": "T5-002", "lines": "5-5", "quote": "res.setHeader(\"content-type\", \"application/json\");" }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [
+      { "key": "c1", "description": "The server and the API doc may disagree on response bodies.", "findings": ["f1", "F-5"] }
+    ],
+    "revisions": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "f1", "stage": "cross_item", "rule": "DUP-001", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": ["c1"], "revisions": [], "contentNotices": [] },
+    "acceptedConflictMembers": { "c1": ["F-4", "F-5"] },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 1 },
+    "conflictOutcomes": []
+  }
+}

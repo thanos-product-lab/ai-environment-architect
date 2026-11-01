@@ -1,0 +1,22 @@
+{
+  "description": "With scope root src, the glob src/*.ts lies under it and matches the read src/client.ts.",
+  "section": "IMPL §1.8 (EXP-004)",
+  "context": "context-scope-src.json",
+  "nearMissOf": "exp004-glob-outside-scope-root.json",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      { "kind": "search", "literal": "fetch(", "glob": "src/*.ts", "reason": "Find other direct fetch calls." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": ["expansionRequests/0"], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

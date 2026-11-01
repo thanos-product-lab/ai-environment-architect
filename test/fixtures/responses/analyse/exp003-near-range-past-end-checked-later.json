@@ -1,0 +1,21 @@
+{
+  "description": "A range 18-25 on the 20-line src/client.ts passes the static checks; whether it lies within the file is checked when the request is executed, not here.",
+  "section": "IMPL §1.8 (range within the file is checked at execution)",
+  "nearMissOf": "exp003-range-already-sent.json",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      { "kind": "read", "entries": [{ "path": "src/client.ts", "lines": "18-25" }], "reason": "See the end of the client." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": ["expansionRequests/0"], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

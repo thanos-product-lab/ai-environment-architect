@@ -1,0 +1,30 @@
+{
+  "description": "One bad entry (a file under the excluded node_modules) rejects the whole read request, though the first entry is valid; the detail names entry position 1, not the path.",
+  "section": "IMPL §1.8 (EXP-001; the first failure rejects the whole request)",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      {
+        "kind": "read",
+        "entries": [
+          { "path": "src/big.ts", "lines": "1-10" },
+          { "path": "node_modules/left-pad/index.js" }
+        ],
+        "reason": "Compare the big module with its dependency."
+      }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "expansionRequests/0", "stage": "item", "rule": "EXP-001", "outcome": "rejected" }
+    ],
+    "detailExcludes": ["node_modules/left-pad/index.js", "left-pad"],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

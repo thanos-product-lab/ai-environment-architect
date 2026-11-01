@@ -1,0 +1,30 @@
+{
+  "description": "F-3 is replaced by f1 citing E-1 (src/client.ts); C-1 (F-2, f1) and C-3 (f1, F-4, F-6) are rechecked and keep distinct sources, so no call-1 conflict changes status.",
+  "section": "IMPL §3.3.3 (SUP-005 again)",
+  "nearMissOf": "outcome-sources-not-distinct.json",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "Some client helpers post JSON with fetch.",
+        "mode": "descriptive",
+        "scope": { "kind": "paths", "paths": ["src/client.ts"] },
+        "citations": [{ "item": "E-1", "lines": "8-8", "quote": "return fetch(url, { method: \"POST\", body: JSON.stringify(body) });" }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "revisions": [
+      { "target": "F-3", "action": "replace", "replacement": "f1", "reason": "The expansion shows a second helper." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": ["F-3"], "contentNotices": [] },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 1 },
+    "conflictOutcomes": []
+  }
+}

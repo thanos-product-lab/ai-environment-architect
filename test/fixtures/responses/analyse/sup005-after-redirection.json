@@ -1,0 +1,45 @@
+{
+  "description": "f2 cites the client but duplicates f1, which cites the guide; the conflict of f2 and f3 is checked after redirection as f1 and f3, which both rest only on docs/guide.md.",
+  "section": "IMPL §3.3.2 step 8 (SUP-005 over the members after redirection)",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "HTTP calls use the shared client.",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [{ "item": "T2-001", "lines": "4-4", "quote": "HTTP calls go through the shared client in src/client.ts." }]
+      },
+      {
+        "key": "f2",
+        "statement": "HTTP calls use the shared client.",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [{ "item": "T5-001", "lines": "4-4", "quote": "const res = await fetch(url);" }]
+      },
+      {
+        "key": "f3",
+        "statement": "The guide says errors are logged with the logger helper.",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [{ "item": "T2-001", "lines": "5-5", "quote": "Errors are logged with the logger helper." }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [
+      { "key": "c1", "description": "The client and the guide describe error handling differently.", "findings": ["f2", "f3"] }
+    ],
+    "expansionRequests": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "f2", "stage": "cross_item", "rule": "DUP-001", "outcome": "rejected" },
+      { "itemKey": "c1", "stage": "cross_item", "rule": "SUP-005", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": ["f1", "f3"], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 3 }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "description": "A read of a read entry whose name the secret scan withholds is rejected, and the detail must not name the path.",
+  "section": "IMPL §1.8 (EXP-001), §1.7",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      { "kind": "read", "entries": [{ "path": "src/secret-{{aws-access-key-id}}.ts", "lines": "1-5" }], "reason": "The file name suggests configuration." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "expansionRequests/0", "stage": "item", "rule": "EXP-001", "outcome": "rejected" }
+    ],
+    "detailExcludes": ["{{aws-access-key-id}}", "secret-"],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

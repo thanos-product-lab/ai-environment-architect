@@ -1,0 +1,34 @@
+{
+  "description": "The first question with resolves {F-3} fails SCOPE-001 on an invented path, so the second question with the same set is not a duplicate of anything that survived.",
+  "section": "IMPL §3.3.4 steps 3-4 (cross-item rules run only on items that passed the item stage)",
+  "nearMissOf": "dup003-repeated-alias-same-set.json",
+  "response": {
+    "questions": [
+      {
+        "key": "q1",
+        "prompt": "Is calling fetch directly acceptable in the client?",
+        "reason": "Some code in the client module calls fetch directly.",
+        "resolves": ["F-3"],
+        "scope": { "kind": "paths", "paths": ["src/http/client.ts"] },
+        "options": []
+      },
+      {
+        "key": "q2",
+        "prompt": "Should direct fetch calls be replaced?",
+        "reason": "Some code in the client module calls fetch directly.",
+        "resolves": ["F-3"],
+        "scope": { "kind": "paths", "paths": ["src/client.ts"] },
+        "options": []
+      }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "q1", "stage": "item", "rule": "SCOPE-001", "outcome": "rejected" }
+    ],
+    "accepted": { "questions": ["q2"] },
+    "presented": ["q2"],
+    "unreached": []
+  }
+}

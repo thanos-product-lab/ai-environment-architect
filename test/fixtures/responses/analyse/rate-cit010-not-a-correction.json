@@ -1,0 +1,32 @@
+{
+  "description": "A quote spanning lines 1-42 is cited as 1-40; its only occurrence would correct the range to 42 lines, so it is a CIT-010 rejection and not counted as corrected.",
+  "section": "IMPL §3.2.2 (corrected-citation rate; CIT-010 is not a correction)",
+  "context": "context-long.json",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "The long module has marker comments, and the server calls listen on its port.",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [
+          { "item": "T5-001", "lines": "1-40", "quote": "// start marker line\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n// end marker line" },
+          { "item": "T5-002", "lines": "8-8", "quote": "server.listen(port);" }
+        ]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "f1/citations/0", "stage": "item", "rule": "CIT-010", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 2 }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "description": "Both entries add nothing: docs/guide.md was sent in full and lines 1-6 of src/client.ts were sent.",
+  "section": "IMPL §1.8 (EXP-003: a request whose every entry adds nothing is rejected)",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      { "kind": "read", "entries": [{ "path": "docs/guide.md" }, { "path": "src/client.ts", "lines": "1-6" }], "reason": "Compare the guide with the client." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "expansionRequests/0", "stage": "item", "rule": "EXP-003", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}

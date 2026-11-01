@@ -1,0 +1,33 @@
+{
+  "description": "F-3 is replaced by f1, whose only quote has POST changed to PUT; f1 is rejected, so the revision fails and F-3 and its conflicts are kept.",
+  "section": "IMPL §3.3.3 (REV-001, cross-item, after REV-003)",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "Some client helpers post JSON with fetch.",
+        "mode": "descriptive",
+        "scope": { "kind": "paths", "paths": ["src/client.ts"] },
+        "citations": [{ "item": "E-1", "lines": "8-8", "quote": "return fetch(url, { method: \"PUT\", body: JSON.stringify(body) });" }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "revisions": [
+      { "target": "F-3", "action": "replace", "replacement": "f1", "reason": "The expansion shows a second helper." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "f1/citations/0", "stage": "item", "rule": "CIT-004", "outcome": "rejected" },
+      { "itemKey": "f1", "stage": "item", "rule": "CIT-008", "outcome": "rejected" },
+      { "itemKey": "F-3", "stage": "cross_item", "rule": "REV-001", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 1 },
+    "conflictOutcomes": []
+  }
+}

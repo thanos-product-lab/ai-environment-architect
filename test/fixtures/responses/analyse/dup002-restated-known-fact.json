@@ -1,0 +1,28 @@
+{
+  "description": "A finding restates known fact F-1 with an extra space and a trailing space, with the same repository scope.",
+  "section": "IMPL §3.3.2 step 7 (DUP-002), §3.2.5",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "`package.json`  defines the script `test`. ",
+        "mode": "descriptive",
+        "scope": { "kind": "repository" },
+        "citations": [{ "item": "T3-001", "lines": "4-4", "quote": "\"test\": \"vitest run\"" }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "f1", "stage": "cross_item", "rule": "DUP-002", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 1 }
+  }
+}

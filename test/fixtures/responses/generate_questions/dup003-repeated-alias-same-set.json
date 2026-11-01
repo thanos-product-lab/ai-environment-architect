@@ -1,0 +1,33 @@
+{
+  "description": "resolves [\"F-3\", \"F-3\"] is the set {F-3}, the same as the earlier question's.",
+  "section": "IMPL §3.3.4 step 4 (DUP-003, compared as a set)",
+  "response": {
+    "questions": [
+      {
+        "key": "q1",
+        "prompt": "Is calling fetch directly acceptable in the client?",
+        "reason": "Some code in the client module calls fetch directly.",
+        "resolves": ["F-3"],
+        "scope": { "kind": "paths", "paths": ["src/client.ts"] },
+        "options": []
+      },
+      {
+        "key": "q2",
+        "prompt": "Should direct fetch calls be replaced?",
+        "reason": "Some code in the client module calls fetch directly.",
+        "resolves": ["F-3", "F-3"],
+        "scope": { "kind": "paths", "paths": ["src"] },
+        "options": []
+      }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "q2", "stage": "cross_item", "rule": "DUP-003", "outcome": "rejected" }
+    ],
+    "accepted": { "questions": ["q1"] },
+    "presented": ["q1"],
+    "unreached": []
+  }
+}

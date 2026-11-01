@@ -1,0 +1,27 @@
+{
+  "description": "The known fact's statement with a paths scope instead of the fact's repository scope is not a restatement.",
+  "section": "IMPL §3.3.2 step 7 (DUP-002: same statement and scope)",
+  "nearMissOf": "dup002-restated-known-fact.json",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "`package.json` defines the script `test`.",
+        "mode": "descriptive",
+        "scope": { "kind": "paths", "paths": ["package.json"] },
+        "citations": [{ "item": "T3-001", "lines": "4-4", "quote": "\"test\": \"vitest run\"" }]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "known", "corrected": 0, "proposed": 1 }
+  }
+}

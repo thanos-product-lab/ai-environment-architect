@@ -1,0 +1,32 @@
+{
+  "description": "A citation of E-1 shifted by one line (7-7 for a quote on line 8) is corrected within E-1 only, giving a rate of 1 of 2.",
+  "section": "IMPL §3.2.2 (CIT-R01 searches the same item only; corrected-citation rate per call)",
+  "response": {
+    "findings": [
+      {
+        "key": "f1",
+        "statement": "Some client helpers call fetch directly, and one posts JSON.",
+        "mode": "descriptive",
+        "scope": { "kind": "paths", "paths": ["src/client.ts"] },
+        "citations": [
+          { "item": "T5-001", "lines": "4-4", "quote": "const res = await fetch(url);" },
+          { "item": "E-1", "lines": "7-7", "quote": "return fetch(url, { method: \"POST\", body: JSON.stringify(body) });" }
+        ]
+      }
+    ],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "revisions": [],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "f1/citations/1", "stage": "item", "rule": "CIT-R01", "outcome": "corrected", "original": { "originalLines": "7-7", "correctedLines": "8-8" } }
+    ],
+    "accepted": { "findings": ["f1"], "gaps": [], "absenceClaims": [], "conflicts": [], "revisions": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "known", "corrected": 1, "proposed": 2 },
+    "conflictOutcomes": []
+  }
+}

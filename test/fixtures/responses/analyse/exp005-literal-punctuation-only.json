@@ -1,0 +1,22 @@
+{
+  "description": "The literal \"=> {\" is four code points of symbols, punctuation and a space only.",
+  "section": "IMPL §1.8 (EXP-005: not only White_Space, punctuation or symbols)",
+  "response": {
+    "findings": [],
+    "gaps": [],
+    "absenceClaims": [],
+    "conflicts": [],
+    "expansionRequests": [
+      { "kind": "search", "literal": "=> {", "glob": "src/**/*.ts", "reason": "Find arrow functions." }
+    ],
+    "contentNotices": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "expansionRequests/0", "stage": "item", "rule": "EXP-005", "outcome": "rejected" }
+    ],
+    "accepted": { "findings": [], "gaps": [], "absenceClaims": [], "conflicts": [], "expansionRequests": [], "contentNotices": [] },
+    "correctedCitationRate": { "state": "unknown", "reason": "no_citations" }
+  }
+}
