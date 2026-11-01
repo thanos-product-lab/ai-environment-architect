@@ -2,8 +2,12 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 1 November 2026  
-**Version:** 0.34  
+**Version:** 0.35  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.34
+
+- **Load checks (§4.9).** Check 1 also rejects a file that isn't UTF-8 JSON, such as a truncated one. Check 5 also rejects superseding a revision whose status isn't current, such as a withdrawn finding, which the record log already refuses (§4.4.1). Check 7 also compares the destination's `hash` with its content. The schema (check 2) enforces how many evidence records a finding has; check 6 checks their kinds. A format refusal from a file that doesn't say which version wrote it names "an unknown version" and asks to update to the latest version.
 
 ### Changes from v0.33
 
@@ -2209,17 +2213,17 @@ This implements §1.12, which covers responses as well as requests.
 **Versions.** `schemaVersion` is an integer, 1 for now. Any change to a record type, field or derived rule that an older reader would misread increases it.
 
 - **Until v0.1.0 there are no migrations.** A session saved with an **older** format is refused: "This session was saved in session format 1 by version 0.0.3. This version reads only format 2, and doesn't convert older sessions before v0.1.0. Start a new session with `<cli> init`." Nothing is written, and the old session stays on disk until the developer deletes it. From v0.1.0 on, each format change needs a migration, specified with the change.
-- A session saved with a **newer** format is refused too: "This session was saved in session format 2 by version 0.3.0. This CLI reads format 1. Update to 0.3.0 or later." (§2.12).
+- A session saved with a **newer** format is refused too: "This session was saved in session format 2 by version 0.3.0. This CLI reads format 1. Update to 0.3.0 or later." (§2.12). If the file doesn't say which version wrote it, either message names "an unknown version" instead, and the newer-format one ends "Update to the latest version."
 
 **Load checks**, in order. The first failure rejects the session with a message naming the check and the record, and the file is left untouched:
 
-1. `format` and `schemaVersion` (above).
+1. The file is UTF-8 JSON, and its `format` and `schemaVersion` are this reader's (above). A truncated file fails here.
 2. The Zod schema for the whole file. Unknown fields are rejected, as in §3.3.
 3. Envelope: record IDs unique; lineage IDs never used as record IDs; `seq` is 1, 2, 3… in file order; each lineage's revisions are numbered 1, 2, 3… in `seq` order; each revision after the first supersedes the latest earlier revision of its lineage that isn't `failed_validation`, and a `failed_validation` revision supersedes nothing.
 4. References (§4.4.1): every record ID a record names belongs to a record of the right type with a lower `seq`; every lineage ID it names belongs to a lineage of the right type whose first revision has a lower `seq`. This covers every field in the references table. A record that isn't `failed_validation` never refers to one that is.
-5. Superseding: a record supersedes only records of its own type, each at most once; failed and immutable records are never superseded, except decisions and effort corrections by their own type.
-6. Evidence: every accepted finding that isn't a gap has evidence; an `absence` finding's is one `absence_check`, and a `claim`'s are `lines` or `entry`.
-7. Content: every `contentRef` exists and its bytes hash to its name; the destination's Guidance Block hashes match its bytes; each artifact revision's `proposedHash` matches its content. Every `retainedInputRef` and `retainedResponseRef` exists and matches, unless an `inputs_purged` record comes after the call.
+5. Superseding: a record supersedes only records of its own type, each at most once; failed and immutable records are never superseded, except decisions and effort corrections by their own type; a revision whose status isn't current (§4.4.1), such as a withdrawn finding, is never superseded.
+6. Evidence: every accepted finding that isn't a gap has evidence; an `absence` finding's is one `absence_check`, and a `claim`'s are `lines` or `entry`. The schema (check 2) already enforces the count, so a finding without evidence fails there; this check covers the kinds.
+7. Content: every `contentRef` exists and its bytes hash to its name; the destination's `hash` and its Guidance Block hashes match its bytes; each artifact revision's `proposedHash` matches its content. Every `retainedInputRef` and `retainedResponseRef` exists and matches, unless an `inputs_purged` record comes after the call.
 8. State: at most one `session_state` has an outcome, and it is the last one; every `apply_attempt` names an `approved` review of its artifact revision whose `contentHash` equals the revision's `proposedHash`.
 
 A session that passes is loaded as a list of typed records. On resume, the process holding the lock then runs the interrupted-work rules, in this order: apply recovery (DM §11.2), interrupted model calls and effort intervals (§4.6), and a `session_state` with the reason `interrupted` if the last state was `running`.

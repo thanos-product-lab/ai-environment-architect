@@ -96,11 +96,11 @@ The token check (IMPL §1.10) waits for M6, because it needs the provider's toke
 
 - [x] **Write IMPL §4, persistence and export,** from DM §14–§15 and the Evaluation Requirements. Review it before coding.
 - [x] Record types, IDs and lineage: the session file, the ID prefixes of every record type, the records of IMPL §4.4–§4.5 with their revisions and references, items that failed validation, and the conflict and finding records of the `analyse_expansion` outcomes, with `absence_check` evidence (IMPL §4.3–§4.5; DM §5, §6, §8). `/implement-spec IMPL 4.4`. The other record types get their fields with their own steps: model calls and effort (IMPL §4.6), purges (§4.8), and recommendations, selections, artifacts, reviews and apply (M5).
-- [ ] Load checks and schema versions, with no migrations before v0.1.0. `/implement-spec IMPL 4.9`
+- [x] Load checks and schema versions, with no migrations before v0.1.0. `/implement-spec IMPL 4.9`. The checks cover the record types the file schema accepts; each later step extends them for its own types.
 - [ ] Atomic storage and the lock: the storage directory and its refusal inside the target repository, content-addressed files, whole-file atomic writes, the lock and stale locks, and the data-notice state (IMPL §4.2, §4.7). `/implement-spec IMPL 4.7`
 - [ ] Derived current state: current records, corrected findings, the active snapshot and artifact revision, usable approval, and completeness. `/implement-spec IMPL 4.4.2`
-- [ ] Model-call and effort records with interruption: the `started` and ended revisions, retries as separate calls, the budget with unknown costs, and effort as a lower bound. `/implement-spec IMPL 4.6`
-- [ ] Retained inputs and responses, and `purge-inputs`. `/implement-spec IMPL 4.8`
+- [ ] Model-call and effort records with interruption: the `started` and ended revisions, retries as separate calls, the budget with unknown costs, and effort as a lower bound. `/implement-spec IMPL 4.6`. Extend load check 4 to model-call references (`producedBy`, `revisedBy`, `modelCallId`, `retryOf`) and the alias tables (IMPL §4.9).
+- [ ] Retained inputs and responses, and `purge-inputs`. `/implement-spec IMPL 4.8`. Extend load check 7 to `retainedInputRef` and `retainedResponseRef`, unless purged (IMPL §4.9).
 
 The export (IMPL §4.10) is specified here and built in M8.
 
@@ -114,7 +114,7 @@ The export (IMPL §4.10) is specified here and built in M8.
 - [ ] `recommend` item validation: evidence rules, `fact` and `policy`, directive-language guard, references, held back. `/implement-spec IMPL 3.3.5`
 - [ ] Selections and mutual exclusion (DM §9.1–§9.2).
 - [ ] Deterministic assembly with attribution. `/implement-spec DM 9.3`
-- [ ] Artifact revisions and reviews; approval validity (DM §9.4, §10).
+- [ ] Artifact revisions and reviews; approval validity (DM §9.4, §10). Extend the load checks (IMPL §4.9) to recommendation, selection, artifact, review and apply references, artifact content (check 7) and the apply-approval check (check 8), and test the branches of checks 3–5 that these records make reachable.
 - [ ] Tiered freshness. `/implement-spec DM 11.1`
 - [ ] Apply and recovery. `/implement-spec DM 11.2`
 - [ ] Change propagation and `regenerate_recommendations` validation (DM §12, IMPL §3.3.6).
@@ -180,3 +180,4 @@ Maintenance checks for stale paths and commands; scoped rule files; a local web 
 - **1 November 2026:** M3's fixture step covers the rules of the first three calls only. Fixtures for the `recommend` and regeneration rules and the reference detector move to M5, where those rules are built. M3 is done: every rule of the first three calls has a rejecting fixture and an accepted near miss, and the IMPL §3.8 property tests pass, with a whole-call determinism property added.
 - **1 November 2026:** M4 started. IMPL §4 is written (IMPL v0.31, DM v0.20), and the M4 steps now follow its subsections in dependency order, each naming its `/implement-spec` argument. The export stays specified only and is built in M8.
 - **1 November 2026:** the first M4 step covers the records of IMPL §4.4–§4.5 only; the other record types get their fields with their own steps. Building it settled `revisedBy`, single-rule `rejectedBy`, opaque ID suffixes, alias targets as record IDs and the content-notice fields (IMPL v0.32, DM v0.21).
+- **1 November 2026:** the load-check step covers the record types the file schema accepts so far. The steps that add model calls, retained exchanges and the M5 records each extend the load checks for their types (IMPL v0.35).

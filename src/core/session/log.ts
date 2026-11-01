@@ -25,7 +25,7 @@ type DeepReadonly<T> = T extends (infer U)[]
     ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
     : T;
 
-const LINEAGE_FIELDS = [
+export const LINEAGE_FIELDS = [
   "findingId",
   "conflictId",
   "questionId",
@@ -36,7 +36,7 @@ const LINEAGE_FIELDS = [
 ] as const;
 
 // Immutable records that a later one of their own type may supersede (IMPL §4.9 check 5).
-const SELF_SUPERSEDING: ReadonlySet<string> = new Set(["decision", "effort_correction"]);
+export const SELF_SUPERSEDING: ReadonlySet<string> = new Set(["decision", "effort_correction"]);
 
 type Envelope = "type" | "id" | "seq" | "createdAt";
 
