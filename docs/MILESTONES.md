@@ -24,7 +24,7 @@ The order is set by dependencies. Deterministic parts come first and are tested 
 | M2 | Context selection and "What we read" | No | Done |
 | M3 | Validation core | No (recorded responses) | Done |
 | M4 | Sessions and persistence | No | Done |
-| M5 | Recommendations, assembly, review and apply | No (recorded responses) | Not started |
+| M5 | Recommendations, assembly, review and apply | No (recorded responses) | In progress |
 | M6 | Claude adapter and model calls | Yes | Not started |
 | M7 | Interactive CLI | Yes | Not started |
 | M8 | Export and first-slice release | Yes | Not started |
@@ -110,15 +110,15 @@ The export (IMPL §4.10) is specified here and built in M8.
 
 **Goal:** the whole write path, driven by recorded recommendations instead of a model.
 
-- [ ] Reference detector. `/implement-spec IMPL 3.4`. It matches paths through `normalisePath` (`src/core/paths.ts`), the one path normalisation of IMPL §1.11.
-- [ ] `recommend` item validation: evidence rules, `fact` and `policy`, directive-language guard, references, held back. `/implement-spec IMPL 3.3.5`. Derive the current held-back entries and no-change reason (IMPL §4.4.2).
-- [ ] Selections and mutual exclusion (DM §9.1–§9.2), with the current selections (IMPL §4.4.2).
-- [ ] Deterministic assembly with attribution. `/implement-spec DM 9.3`
-- [ ] Artifact revisions and reviews; approval validity (DM §9.4, §10), with the active artifact revision and the usable approval (IMPL §4.4.2). Extend the load checks (IMPL §4.9) to recommendation, selection, artifact, review and apply references, artifact content (check 7) and the apply-approval check (check 8), and test the branches of checks 3–5 that these records make reachable, and list the fields a recommendation and apply-attempt revision may change (IMPL §4.4.1, check 3).
+- [ ] Reference detector, with an adversarial fixture and an accepted near miss for each token class and the path normalisation. `/implement-spec IMPL 3.4`. It matches paths through `normalisePath` (`src/core/paths.ts`), the one path normalisation of IMPL §1.11.
+- [ ] Deterministic assembly as a pure function over the parsed destination and accepted revisions: positions and anchors, section removal, additions anchored to removed content (including inside a section removed together with them), runs of removed blocks, separators copied from the anchor's next block, line-ending conversion, the reparse check, the failed-round-trip prefix check, conflicts between revisions that can't be combined, and attribution. Assembly fixtures in `test/fixtures/destinations/` (IMPL §3.8, "Selection and assembly"). `/implement-spec DM 9.3`
+- [ ] `recommend` item validation, with the valid and invalidated recommendation revisions, `held_back` and `no_change_reason` records, the `failed_item` collections `heldBack` and `noChangeReason`, and the current held-back entries and no-change reason (IMPL §4.4.2). Adversarial fixtures for every `REC`, `REF` and `HELD` rule and `DUP-004`, from the `fixture-adversary` agent. `/implement-spec IMPL 3.3.5`. Needs the two steps above: `REC-003` assembles each recommendation alone.
+- [ ] Selections and mutual exclusion, section removal included, with the current selections and selections, accepted or rejected, that count only while their revision is current (IMPL §4.4.2). `/implement-spec DM 9.1` for mutual exclusion, then `DM 9.2`
+- [ ] Artifact revisions, reviews and the usable approval, with the active artifact revision (IMPL §4.4.2). Extend the load checks (IMPL §4.9) to recommendation, selection, artifact and review references, target blocks (check 4) and artifact content (check 7), test the branches of checks 3–5 these records make reachable, and check the recommendation revision field list (IMPL §4.4.1). `/implement-spec DM 9.4`, then `DM 10`
 - [ ] Tiered freshness. `/implement-spec DM 11.1`
-- [ ] Apply and recovery. `/implement-spec DM 11.2`
-- [ ] Change propagation and `regenerate_recommendations` validation (DM §12, IMPL §3.3.6).
-- [ ] Adversarial fixtures for every rule of `recommend` and `regenerate_recommendations` and the reference detector (`REC`, `REF`, `HELD`, `REGEN`, `DUP-004`), each with a rejecting fixture and an accepted near miss, from the `fixture-adversary` agent.
+- [ ] Apply and recovery, with the apply-attempt field list (IMPL §4.4.1), apply-attempt references (load check 4) and the apply-approval load check (check 8). `/implement-spec DM 11.2`
+- [ ] Change propagation and `regenerate_recommendations` validation: the affected set, `target_changed` invalidation and derived target resolution, the trigger for an empty affected set, and the `actions` failed items. Adversarial fixtures for every `REGEN` rule and regeneration's `DUP-004`. `/implement-spec IMPL 3.3.6`, with DM §12.
+- [ ] Closing audit, with no `/implement-spec` argument: every `REC`, `REF`, `HELD` and `REGEN` rule and `DUP-004` has a rejecting fixture and an accepted near miss, and the IMPL §3.8 selection and assembly cases and the M5 items of IMPL §4.11 pass.
 
 **Done when:** DM §17 passes for assembly, approval, freshness, apply, recovery and no-change, using recorded responses only.
 
@@ -146,6 +146,7 @@ Live runs use the development repositories only.
 - [ ] Commands, start checks and the first-run data notice (IMPL §2.2–§2.3).
 - [ ] Inspect, findings and clarify screens (IMPL §2.4–§2.6), including "seen in N cited files" for each finding (IMPL §3.2.3).
 - [ ] Recommendation, final review and apply screens (IMPL §2.7–§2.10).
+- [ ] An explicit "regenerate recommendations" action on the recommendations screen, which runs `regenerate_recommendations` on demand (IMPL §3.3.6). Specify it in IMPL §2.7 first.
 - [ ] Resume, errors and effort measurement (IMPL §2.11–§2.13).
 - [ ] Opening a session under the lock: the storage directory resolved once at start and refused inside the repository before anything is read (IMPL §4.2); `init` and `resume` take the lock, release it on exit, `SIGINT` and `SIGTERM` with `releaseOnExit`, and change records only through `HeldSession` (IMPL §4.7); a load failure is shown with its check and record, and an older or newer format with its message (IMPL §2.12, §4.9).
 - [ ] `resume` runs recovery after the load checks, in order: apply recovery (DM §11.2, from M5), then `recoverInterruptedWork` for interrupted calls, effort intervals and the `interrupted` state (IMPL §4.6, §4.9).
@@ -192,3 +193,4 @@ Maintenance checks for stale paths and commands; scoped rule files; a local web 
 - **1 November 2026:** the first M4 step covers the records of IMPL §4.4–§4.5 only; the other record types get their fields with their own steps. Building it settled `revisedBy`, single-rule `rejectedBy`, opaque ID suffixes, alias targets as record IDs and the content-notice fields (IMPL v0.32, DM v0.21).
 - **1 November 2026:** the load-check step covers the record types the file schema accepts so far. The steps that add model calls, retained exchanges and the M5 records each extend the load checks for their types (IMPL v0.35).
 - **2 November 2026:** M4 is done. The core and the storage adapter are built and tested; everything that needs a command moves to explicit M7 steps: opening a session under the lock, recovery on `resume`, interruption shown read-only, the stale-lock prompt, `purge-inputs` and `delete`. Records are appended and saved only through `HeldSession`, and load check 4 puts the first `generation_config` before every model call (IMPL v0.39–v0.40).
+- **2 November 2026:** M5 started. IMPL §2.7, §2.11, §3.3.5, §3.3.6, §3.4, §3.5, §3.8, §3.9, §4.4, §4.9, §4.11 and §4.12 and DM §7, §9–§12 and §17–§18 were reconciled with M1–M4 (IMPL v0.41, DM v0.25). The M5 steps are reordered by dependency: assembly comes before `recommend` validation, which assembles each recommendation alone, and each rule's fixtures are written in the step that builds it, with a closing audit. M7 gains an explicit "regenerate recommendations" action.
