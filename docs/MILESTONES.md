@@ -1,7 +1,7 @@
 # Milestones
 
 **AI Environment Architect · First slice**  
-**Last updated:** 1 November 2026
+**Last updated:** 2 November 2026
 
 This is the build order for the first slice: inspect → clarify → recommend → review → apply, for one repository and its root `CLAUDE.md`. It says *what to build when*. *How it behaves* is in the specs. Each step points to a spec section rather than repeating it.
 
@@ -23,7 +23,7 @@ The order is set by dependencies. Deterministic parts come first and are tested 
 | M1 | Snapshot and destination parsing | No | Done |
 | M2 | Context selection and "What we read" | No | Done |
 | M3 | Validation core | No (recorded responses) | Done |
-| M4 | Sessions and persistence | No | In progress |
+| M4 | Sessions and persistence | No | Done |
 | M5 | Recommendations, assembly, review and apply | No (recorded responses) | Not started |
 | M6 | Claude adapter and model calls | Yes | Not started |
 | M7 | Interactive CLI | Yes | Not started |
@@ -147,6 +147,16 @@ Live runs use the development repositories only.
 - [ ] Inspect, findings and clarify screens (IMPL §2.4–§2.6), including "seen in N cited files" for each finding (IMPL §3.2.3).
 - [ ] Recommendation, final review and apply screens (IMPL §2.7–§2.10).
 - [ ] Resume, errors and effort measurement (IMPL §2.11–§2.13).
+- [ ] Opening a session under the lock: the storage directory resolved once at start and refused inside the repository before anything is read (IMPL §4.2); `init` and `resume` take the lock, release it on exit, `SIGINT` and `SIGTERM` with `releaseOnExit`, and change records only through `HeldSession` (IMPL §4.7); a load failure is shown with its check and record, and an older or newer format with its message (IMPL §2.12, §4.9).
+- [ ] `resume` runs recovery after the load checks, in order: apply recovery (DM §11.2, from M5), then `recoverInterruptedWork` for interrupted calls, effort intervals and the `interrupted` state (IMPL §4.6, §4.9).
+- [ ] Interruption only by the lock holder: `status` and `sessions` take no lock and write nothing, and show a `started` call or an `open` interval as in progress while a live process holds the session, and as interrupted otherwise (`unfinishedWork`, IMPL §4.6); `sessions` lists a session that fails the load checks as unreadable, with the check (IMPL §4.2).
+- [ ] The stale-lock prompt: a held lock names its process ID and host; a stale one on this host is offered for removal, defaulting to no, and removed only through `removeStaleLock`; an unreadable lock names its path for removal by hand (IMPL §4.7, §2.12).
+- [ ] `purge-inputs <session-id>`: takes the lock and calls `purgeInputs` (IMPL §4.8); the retention policy is shown at first run and in `status` (IMPL §1.12).
+- [ ] `delete <session-id>`: after a confirmation that defaults to no, takes the lock and removes the whole session directory, retained exchanges included, even for a session that fails the load checks; the exit handler then finds no lock to remove. The storage adapter has no session removal yet; add it here (IMPL §2.2, §4.8).
+- [ ] Finding the session: `resume` without an ID picks the most recent session whose root matches, loading each with the load checks and skipping unreadable ones (IMPL §4.2, §4.3); a session ID with no directory is reported and nothing is created, since only `init` creates one (IMPL §4.7).
+- [ ] Storage and lock refusals: a relative `$AI_ENVIRONMENT_ARCHITECT_HOME` is refused with a message (IMPL §4.2); a file system without hard links stops with `LockUnsupportedError`'s message naming the storage directory (IMPL §4.7).
+- [ ] A change that can't be saved: the message of IMPL §2.12, and the step can be repeated (IMPL §4.7).
+- [ ] Settle the `cancelled` outcome with the commands, probably a `cancel` command (IMPL §4.12).
 - [ ] Decide the command name and replace `<cli>` in the spec.
 
 **Done when:** IMPL §2.14 passes, and a full session on each development repository is completed through the CLI alone.
@@ -181,3 +191,4 @@ Maintenance checks for stale paths and commands; scoped rule files; a local web 
 - **1 November 2026:** M4 started. IMPL §4 is written (IMPL v0.31, DM v0.20), and the M4 steps now follow its subsections in dependency order, each naming its `/implement-spec` argument. The export stays specified only and is built in M8.
 - **1 November 2026:** the first M4 step covers the records of IMPL §4.4–§4.5 only; the other record types get their fields with their own steps. Building it settled `revisedBy`, single-rule `rejectedBy`, opaque ID suffixes, alias targets as record IDs and the content-notice fields (IMPL v0.32, DM v0.21).
 - **1 November 2026:** the load-check step covers the record types the file schema accepts so far. The steps that add model calls, retained exchanges and the M5 records each extend the load checks for their types (IMPL v0.35).
+- **2 November 2026:** M4 is done. The core and the storage adapter are built and tested; everything that needs a command moves to explicit M7 steps: opening a session under the lock, recovery on `resume`, interruption shown read-only, the stale-lock prompt, `purge-inputs` and `delete`. Records are appended and saved only through `HeldSession`, and load check 4 puts the first `generation_config` before every model call (IMPL v0.39–v0.40).
