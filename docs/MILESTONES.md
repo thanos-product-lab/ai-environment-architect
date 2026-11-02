@@ -99,7 +99,7 @@ The token check (IMPL §1.10) waits for M6, because it needs the provider's toke
 - [x] Load checks and schema versions, with no migrations before v0.1.0. `/implement-spec IMPL 4.9`. The checks cover the record types the file schema accepts; each later step extends them for its own types.
 - [x] Atomic storage and the lock: the storage directory and its refusal inside the target repository, content-addressed files, whole-file atomic writes, the lock and stale locks, and the data-notice state (IMPL §4.2, §4.7). `/implement-spec IMPL 4.7`
 - [ ] Derived current state: current records, corrected findings, the active snapshot and artifact revision, usable approval, and completeness. `/implement-spec IMPL 4.4.2`
-- [ ] Model-call and effort records with interruption: the `started` and ended revisions, retries as separate calls, the budget with unknown costs, and effort as a lower bound. `/implement-spec IMPL 4.6`. Extend load check 4 to model-call references (`producedBy`, `revisedBy`, `modelCallId`, `retryOf`) and the alias tables (IMPL §4.9).
+- [x] Model-call and effort records with interruption: the `started` and ended revisions, retries as separate calls, the budget with unknown costs, and effort as a lower bound. `/implement-spec IMPL 4.6`. Extend load check 4 to model-call references (`producedBy`, `revisedBy`, `modelCallId`, `retryOf`) and the alias tables (IMPL §4.9).
 - [ ] Retained inputs and responses, and `purge-inputs`. `/implement-spec IMPL 4.8`. Extend load check 7 to `retainedInputRef` and `retainedResponseRef`, unless purged (IMPL §4.9).
 
 The export (IMPL §4.10) is specified here and built in M8.

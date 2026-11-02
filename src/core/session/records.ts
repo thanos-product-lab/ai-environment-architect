@@ -6,10 +6,9 @@ import type { Hash } from "../hash.js";
 // list of immutable records. Every record shares an envelope: `type`, `id`, `seq`, `createdAt`.
 // A record that can change has a lineage ID as well, shared by its revisions, and a `revision`.
 //
-// This step defines the records §4.4–§4.5 produce. The other types in the §4.4.1 table have
-// their prefixes here, and get their fields with their own steps: model calls and effort (IMPL
-// §4.6), purges (§4.8), and recommendations, selections, artifacts, reviews and apply (M5).
-// Until then the file schema doesn't accept them.
+// This defines the records §4.4–§4.6 produce. The other types in the §4.4.1 table have their
+// prefixes here, and get their fields with their own steps: purges (§4.8), and recommendations,
+// selections, artifacts, reviews and apply (M5). Until then the file schema doesn't accept them.
 
 export const SESSION_FORMAT = "ai-environment-architect/session";
 export const SESSION_SCHEMA_VERSION = 1;
@@ -701,6 +700,305 @@ export const failedItemRecord = z.strictObject({
   producedBy: modelCallId,
 });
 
+// --- Model calls (§4.6, DM §13.1) ------------------------------------------------------------
+
+/** A measurement that can be missing (§4.1): unknown is never zero. */
+export const known = <T extends z.ZodType>(value: T) =>
+  z.union([
+    z.strictObject({ state: z.literal("known"), value }),
+    z.strictObject({ state: z.literal("unknown"), reason: nonEmpty }),
+  ]);
+
+/** A total of parts, any of which may be unknown (§4.10 "Totals and unknowns"). */
+export const total = z.union([
+  z.strictObject({ state: z.literal("known"), value: z.number().min(0) }),
+  z.strictObject({
+    state: z.literal("unknown"),
+    reason: nonEmpty,
+    knownPartsSum: z.number().min(0),
+  }),
+]);
+
+const aliasKind = z.enum(["T", "E", "F", "C", "Q", "D", "R", "B"]);
+
+/** IMPL §3.2.1. `F`, `C`, `Q`, `D` and `R` targets are record IDs: the exact revisions sent. */
+const ALIAS_TARGET_KINDS: Readonly<Record<z.infer<typeof aliasKind>, string>> = {
+  T: "item",
+  E: "item",
+  F: "record",
+  C: "record",
+  Q: "record",
+  D: "record",
+  R: "record",
+  B: "block",
+};
+
+export const aliasTable = z.strictObject({
+  call: callPurpose,
+  entries: z.array(
+    z
+      .strictObject({
+        alias: nonEmpty,
+        kind: aliasKind,
+        target: z.union([
+          z.strictObject({ kind: z.literal("item"), itemId: nonEmpty }),
+          z.strictObject({ kind: z.literal("record"), recordId: anyRecordId }),
+          z.strictObject({ kind: z.literal("block"), blockId: z.string(), hash }),
+        ]),
+      })
+      .refine((e) => ALIAS_TARGET_KINDS[e.kind] === e.target.kind, {
+        message: "an alias's target is of its kind: T and E items, B blocks, others records",
+      }),
+  ),
+});
+
+/** IMPL §3.5. No text from the response. */
+export const validationEvent = z.strictObject({
+  itemKey: nonEmpty,
+  stage: z.enum(["schema", "item", "cross_item"]),
+  rule: nonEmpty,
+  outcome: z.enum(["rejected", "corrected", "relabelled"]),
+  detail: z.string(),
+  // JSON, as the file is; `unknown` so the pipeline's events can be stored as they are.
+  original: z.unknown().optional(),
+});
+
+const inputsRef = z.string().regex(/^inputs\/sha256-[0-9a-f]{64}\.json$/);
+const responsesRef = z.string().regex(/^responses\/sha256-[0-9a-f]{64}\.json$/);
+
+const manifestTier = z.union([
+  z.strictObject({
+    tier: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(5)]),
+    capBytes: count,
+    budgetBytes: count,
+    usedBytes: count,
+    items: count,
+    skipped: count,
+    testExamples: count.optional(),
+  }),
+  z.strictObject({ tier: z.literal(4), capBytes: count, usedBytes: count, treeDepth: count }),
+]);
+
+/**
+ * IMPL §1.13: paths, hashes and reasons, never source content. `tokenCheck` and `expansion` are
+ * null until the token check (§1.10) and the expansion round (§1.8) record theirs, in M6.
+ */
+export const inputManifest = z.strictObject({
+  manifestVersion: z.literal(2),
+  algorithmVersion: nonEmpty,
+  secretRulesVersion: nonEmpty,
+  declarationPatternsVersion: nonEmpty,
+  settingsHash: hash,
+  snapshotId,
+  contextHash: hash,
+  retainedInputRef: inputsRef.nullable(),
+  budget: z.strictObject({ initialContextBytes: count, usedBytes: count }),
+  knownFacts: z.strictObject({
+    capBytes: count,
+    usedBytes: count,
+    facts: count,
+    leftOut: count,
+  }),
+  tokenCheck: z.null(),
+  tiers: z.array(manifestTier),
+  items: z.array(
+    z.strictObject({
+      id: nonEmpty,
+      path: z.string(),
+      fileHash: hash,
+      reason: nonEmpty,
+      excerpt: z.boolean(),
+      includedLines: z.string(),
+      totalLines: count,
+      bytes: count,
+    }),
+  ),
+  skipped: z.array(
+    z.union([
+      z.strictObject({ path: z.string(), reason: nonEmpty }),
+      z.strictObject({ pathHash: hash, reason: nonEmpty }),
+    ]),
+  ),
+  excluded: z.array(
+    z.union([
+      z.strictObject({ path: z.string(), rule: z.string() }),
+      z.strictObject({ pathHash: hash, rule: z.string() }),
+      z.strictObject({ path: z.string(), reason: z.string().regex(/^secret-scan:/) }),
+      z.strictObject({ pathHash: hash, reason: z.string().regex(/^secret-scan:/) }),
+    ]),
+  ),
+  ignoreRules,
+  ignored: z.array(recordedPath),
+  expansion: z.null(),
+});
+
+/** The limits in force when the call was sent, and the spend the §3.6 check counted (§4.6). */
+export const callBudget = z.strictObject({
+  maxTokens: z.int().min(1).optional(),
+  maxCostUsd: z.number().positive().optional(),
+  spentCostUsd: total,
+  spentTokens: total,
+});
+
+const modelCallStartedFields = {
+  ...envelope("model_call"),
+  modelCallId,
+  purpose: callPurpose,
+  /** The sends for one step, from 1. */
+  attempt: z.int().min(1),
+  /** The previous attempt's `modelCallId`. */
+  retryOf: modelCallId.optional(),
+  requestedModel: nonEmpty,
+  promptVersion: nonEmpty,
+  promptHash: hash,
+  schemaVersion: nonEmpty,
+  schemaHash: hash,
+  validatorVersion: nonEmpty,
+  detectorVersion: nonEmpty,
+  inputManifest,
+  retainedInputRef: inputsRef.nullable(),
+  aliases: aliasTable,
+  budget: callBudget,
+  /** The §3.6 estimate in USD: for the budget only, never reported as the call's cost. */
+  estimatedCost: known(z.number().min(0)),
+  startedAt: timestamp,
+};
+
+const correctedCitationRate = z.union([
+  z.strictObject({
+    state: z.literal("known"),
+    corrected: count,
+    checked: z.int().min(1),
+    rate: z.number().min(0).max(1),
+  }),
+  z.strictObject({
+    state: z.literal("unknown"),
+    reason: z.enum(["schema_failed", "no_citations"]),
+  }),
+]);
+
+const citationsProposed = z.union([
+  z.strictObject({ state: z.literal("known"), count }),
+  z.strictObject({ state: z.literal("unknown"), reason: z.literal("schema_failed") }),
+]);
+
+const modelCallStarted = z.strictObject({
+  ...modelCallStartedFields,
+  revision: z.literal(1),
+  state: z.literal("started"),
+});
+
+const modelCallEnded = z.strictObject({
+  ...modelCallStartedFields,
+  revision: z.literal(2),
+  supersedes: z.tuple([recordId("model_call")]),
+  state: z.enum(["completed", "failed", "interrupted"]),
+  returnedModel: known(nonEmpty),
+  retainedResponseRef: responsesRef.nullable(),
+  usage: z.strictObject({
+    input: known(count),
+    output: known(count),
+    cacheRead: known(count),
+    cacheWrite: known(count),
+  }),
+  cost: known(
+    z.strictObject({
+      amount: z.number().min(0),
+      currency: z.literal("USD"),
+      basis: z.enum(["reported", "estimated"]),
+    }),
+  ),
+  validationEvents: z.array(validationEvent),
+  counts: z.strictObject({
+    proposed: known(count),
+    accepted: count,
+    corrected: count,
+    relabelled: count,
+    rejectedByRule: z.record(nonEmpty, z.int().min(1)),
+  }),
+  /** `analyse` and `analyse_expansion` only (§3.2.2). */
+  correctedCitationRate: correctedCitationRate.optional(),
+  citationsProposed: citationsProposed.optional(),
+  /** `generate_questions` only: the model's order, for ranking class 5 (§3.3.4). */
+  questionOrder: z.array(nonEmpty).optional(),
+  /** Code-generated, with no source content. */
+  error: z.strictObject({ kind: nonEmpty, message: nonEmpty }).optional(),
+  endedAt: known(timestamp),
+  durationMs: known(count),
+});
+
+const CITED_PURPOSES: ReadonlySet<string> = new Set(["analyse", "analyse_expansion"]);
+
+export const modelCallRecord = z
+  .union([modelCallStarted, modelCallEnded])
+  .refine((r) => (r.attempt === 1) === (r.retryOf === undefined), {
+    message: "retryOf is set exactly when attempt is after the first",
+    path: ["retryOf"],
+  })
+  .refine(
+    (r) =>
+      r.state === "started" ||
+      CITED_PURPOSES.has(r.purpose) ||
+      (r.correctedCitationRate === undefined && r.citationsProposed === undefined),
+    { message: "only analyse and analyse_expansion record citation counts" },
+  )
+  .refine(
+    (r) =>
+      r.state === "started" || r.purpose === "generate_questions" || r.questionOrder === undefined,
+    { message: "only generate_questions records questionOrder" },
+  )
+  // It may have been billed, so its end, usage and cost are never known, let alone zero (§4.6).
+  .refine(
+    (r) =>
+      r.state !== "interrupted" ||
+      [
+        r.endedAt,
+        r.durationMs,
+        r.cost,
+        r.usage.input,
+        r.usage.output,
+        r.usage.cacheRead,
+        r.usage.cacheWrite,
+      ].every((value) => value.state === "unknown"),
+    { message: "an interrupted call's end, duration, usage and cost are unknown" },
+  );
+
+// --- Effort (§4.6, §2.13, DM §13.2) ----------------------------------------------------------
+
+const effortFields = {
+  ...envelope("effort_interval"),
+  effortIntervalId: lineageId(RECORD_KINDS.effort_interval.lineage.prefix),
+  /** The stage the developer was working on. */
+  stage,
+  enteredAt: timestamp,
+};
+
+export const effortIntervalRecord = z.union([
+  z.strictObject({ ...effortFields, revision: z.literal(1), state: z.literal("open") }),
+  z
+    .strictObject({
+      ...effortFields,
+      revision: z.literal(2),
+      supersedes: z.tuple([recordId("effort_interval")]),
+      state: z.literal("closed"),
+      /** Unknown, with the reason `interrupted`, for an interval closed on resume. */
+      leftAt: known(timestamp),
+    })
+    .refine((r) => r.leftAt.state === "unknown" || r.leftAt.value >= r.enteredAt, {
+      // Both are ISO 8601 UTC with milliseconds, so they compare as strings.
+      message: "leftAt is not before enteredAt",
+      path: ["leftAt"],
+    }),
+]);
+
+/** The developer's corrected total, with a reason; a later one supersedes it (§2.13). */
+export const effortCorrectionRecord = z.strictObject({
+  ...envelope("effort_correction"),
+  totalMs: count,
+  reason: nonEmpty,
+  supersedes: z.tuple([recordId("effort_correction")]).optional(),
+});
+
 // --- The file (§4.3) -------------------------------------------------------------------------
 
 // A plain union: the finding, conflict, question and evidence variants are unions themselves.
@@ -716,6 +1014,9 @@ export const sessionRecord = z.union([
   decisionRecord,
   recommendationRevisionRecord,
   failedItemRecord,
+  modelCallRecord,
+  effortIntervalRecord,
+  effortCorrectionRecord,
 ]);
 
 export const sessionHeader = z.strictObject({
@@ -745,3 +1046,8 @@ export type RecordOf<T extends SessionRecord["type"]> = Extract<SessionRecord, {
 export type FindingRecord = RecordOf<"finding">;
 export type ConflictRecord = RecordOf<"conflict">;
 export type EvidenceRecord = RecordOf<"evidence">;
+export type ModelCallRecord = RecordOf<"model_call">;
+export type EffortIntervalRecord = RecordOf<"effort_interval">;
+export type Known<T> = { state: "known"; value: T } | { state: "unknown"; reason: string };
+export type Total = z.infer<typeof total>;
+export type CallBudget = z.infer<typeof callBudget>;

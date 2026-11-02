@@ -2,7 +2,7 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 1 November 2026  
-**Version:** 0.23 — consolidated specification  
+**Version:** 0.24 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,10 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.23
+
+1. **Effort (§13.2).** An interval still open while another live process holds the session is in progress, and makes active effort a lower bound too, counted apart from interrupted ones ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.6).
 
 ### Changes from v0.22
 
@@ -609,7 +613,7 @@ Active developer effort is recorded separately from elapsed generation time.
 | `enteredAt`, `leftAt` | Period with status `awaiting_user` |
 | `stage` | Which stage the developer was working on |
 
-An interval is recorded as open when the prompt is shown and closed when it is answered. One still open when its session is resumed was interrupted: its end is unknown, and active effort is then reported as a lower bound with the number of interrupted intervals ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.6).
+An interval is recorded as open when the prompt is shown and closed when it is answered. One still open when its session is resumed was interrupted: its end is unknown, and active effort is then reported as a lower bound with the number of interrupted intervals. One still open while another live process holds the session is in progress, and also makes the effort a lower bound, counted separately ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.6).
 
 Active effort is the sum of these intervals. This is an approximation: a developer may step away while the tool is waiting. The CLI allows a manual correction, recorded with a reason. The export states which method produced the number.
 

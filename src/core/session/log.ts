@@ -19,7 +19,7 @@ import {
 type Type = SessionRecord["type"];
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 /** Inputs may be read-only: domain values are, and the log copies what it stores. */
-type DeepReadonly<T> = T extends (infer U)[]
+export type DeepReadonly<T> = T extends (infer U)[]
   ? readonly DeepReadonly<U>[]
   : T extends object
     ? { readonly [K in keyof T]: DeepReadonly<T[K]> }

@@ -2,8 +2,12 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 1 November 2026  
-**Version:** 0.36  
+**Version:** 0.37  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.36
+
+- **Model calls and effort (§4.6).** `CallBudget` is defined: the limits in force and the spend the check counted, cost and tokens, each a total that may be unknown with its known parts. Unknown token usage makes the token check impossible, as an unknown cost estimate does. Raising or confirming the budget appends a `generation_config` revision, with the reason `budget_raised` or `budget_confirmed`, which settles the unknowns before it; a settled call counts its known parts, and any other revision settles nothing. On resume, the `interrupted` session state has status `ready` (§4.9). An effort interval in progress in a session a live process holds makes active effort a lower bound, with `inProgressIntervals`. An `interrupted` call's end, duration, usage and cost are unknown in the file too, and an interval's `leftAt` is never before its `enteredAt` ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) v0.24).
 
 ### Changes from v0.35
 
@@ -2135,6 +2139,16 @@ The `started` revision is written before the request is sent:
 
 ```ts
 type Known<T> = { state: "known"; value: T } | { state: "unknown"; reason: string };
+// A total of parts, any of which may be unknown (§4.10 "Totals and unknowns").
+type Total = { state: "known"; value: number }
+  | { state: "unknown"; reason: string; knownPartsSum: number };
+
+// The limits in force when the call was sent, and the spend the §3.6 check counted.
+type CallBudget = {
+  maxTokens?: number; maxCostUsd?: number;   // from the latest generation_config
+  spentCostUsd: Total;                       // as "Budget with unknown costs" counts it
+  spentTokens: Total;
+};
 
 type ModelCallStarted = {
   type: "model_call"; id: string; seq: number; createdAt: string;
@@ -2179,11 +2193,13 @@ type ModelCallEnded = Omit<ModelCallStarted, "revision" | "state"> & {
 
 - **Interrupted.** A call still `started` when its session is resumed was interrupted. The process that holds the lock (§4.7) appends an `interrupted` revision, with `endedAt`, `durationMs`, `usage` and `cost` unknown for the reason `interrupted`. It may have been billed, so it is never counted as zero. Read-only commands, which take no lock, show such a call as in progress if the session is locked by a live process, and as interrupted otherwise, without writing anything.
 - **Budget with unknown costs.** For the §3.6 check, the spend so far is the sum of known costs plus, for each call whose cost is unknown, its `estimatedCost`. That estimate is used for the budget only, and is never reported as the call's cost. If an estimate is unknown too, the check can't be made, and the next call is not sent until the developer raises or confirms the budget (§2.12).
+- **Tokens.** The tokens spent so far are the sum of every call's four usage counts. A call with any usage unknown makes the token check impossible, as an unknown estimate does for cost: there is no token estimate to stand in for it. The check before sending compares the spend plus the call's own estimate, of cost and of tokens, with each ceiling that is set; an unset ceiling is never checked.
+- **Raising or confirming.** Either appends a `generation_config` revision: raising with the new limits and the reason `budget_raised`, confirming with the same limits and the reason `budget_confirmed`. Only a revision with one of these two reasons settles anything; one that changes another setting doesn't. It settles every unknown before it: the unknown parts of calls started before it count as their known parts only (`knownPartsSum`), and the next call may be sent with an unknown estimate. A call started after it, with unknown parts, makes the check impossible again.
 - `costBasis: "unknown"` in DM §13.1 is `cost.state: "unknown"` here.
 
 **Effort intervals.** An `open` revision is written when a prompt that waits for the developer is shown, and a `closed` revision with `leftAt` when it is answered (§2.13). An interval still `open` when its session is resumed was interrupted: the process holding the lock closes it with `leftAt` unknown, reason `interrupted`. Read-only commands treat it as they treat calls (above).
 
-**Active effort** is the sum of the closed intervals. When any interval was interrupted, it is reported as `{ "state": "lower_bound", "value": …, "interruptedIntervals": n }`. This is the one exception to the rule for totals (§4.10): effort the developer certainly spent is a real lower bound, not an unknown. An `effort_correction` holds the developer's corrected total and reason; the export reports both values (§2.13).
+**Active effort** is the sum of the closed intervals. When any interval was interrupted, it is reported as `{ "state": "lower_bound", "value": …, "interruptedIntervals": n, "inProgressIntervals": 0 }`. A read-only command that finds an interval open in a session a live process holds reports it in progress: the effort is a lower bound with `inProgressIntervals` counting them, because more is being spent. This is the one exception to the rule for totals (§4.10): effort the developer certainly spent is a real lower bound, not an unknown. An `effort_correction` holds the developer's corrected total and reason; the export reports both values (§2.13).
 
 ### 4.7 Atomic writes and the lock
 
@@ -2237,7 +2253,7 @@ This implements §1.12, which covers responses as well as requests.
 7. Content: every `contentRef` exists and its bytes hash to its name; the destination's `hash` and its Guidance Block hashes match its bytes; each artifact revision's `proposedHash` matches its content. Every `retainedInputRef` and `retainedResponseRef` exists and matches, unless an `inputs_purged` record comes after the call.
 8. State: at most one `session_state` has an outcome, and it is the last one; every `apply_attempt` names an `approved` review of its artifact revision whose `contentHash` equals the revision's `proposedHash`.
 
-A session that passes is loaded as a list of typed records. On resume, the process holding the lock then runs the interrupted-work rules, in this order: apply recovery (DM §11.2), interrupted model calls and effort intervals (§4.6), and a `session_state` with the reason `interrupted` if the last state was `running`.
+A session that passes is loaded as a list of typed records. On resume, the process holding the lock then runs the interrupted-work rules, in this order: apply recovery (DM §11.2), interrupted model calls and effort intervals (§4.6), and a `session_state` with the reason `interrupted` and status `ready`, at the same stage, if the last state was `running`.
 
 **Data notice.** `notices.json`, in the storage directory (§4.2), records each repository root whose data notice (§2.3) was confirmed, with the notice's version and the time. A changed notice text increases its version and is shown again. Two processes writing it at once can lose one confirmation; the cost is that the notice is shown once more. A missing or unreadable `notices.json` reads as no confirmations, at the same cost: the notice is shown again, and the next confirmation replaces the file.
 
