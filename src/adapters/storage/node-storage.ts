@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { readFileSync, unlinkSync } from "node:fs";
-import { link, mkdir, open, readFile, rename, stat, unlink } from "node:fs/promises";
+import { link, mkdir, open, readFile, rename, rm, stat, unlink } from "node:fs/promises";
 import { hostname as osHostname } from "node:os";
 import { dirname, join } from "node:path";
 import { z } from "zod";
@@ -234,6 +234,14 @@ export function openStorage(directory: string, options: StorageOptions = {}): No
         async replaceSessionFile(bytes) {
           ensureHeld();
           await writeAtomically(join(root, "session.json"), bytes);
+        },
+        async removeExchanges() {
+          // Core has already saved the `inputs_purged` record (IMPL §4.8), so a crash part way
+          // through leaves a session that loads.
+          ensureHeld();
+          for (const name of ["inputs", "responses"])
+            await rm(join(root, name), { recursive: true, force: true });
+          await syncDirectory(root);
         },
         async release() {
           if (released) return;

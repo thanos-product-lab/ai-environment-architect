@@ -8,6 +8,7 @@ import { type LoadFailure, loadSession } from "./load.js";
 import type { SessionLog } from "./log.js";
 import { SESSION_FORMAT, SESSION_SCHEMA_VERSION, type SessionFile } from "./records.js";
 import {
+  purgeInputs,
   type RetainedFile,
   retainedExchange,
   retainedFile,
@@ -317,6 +318,125 @@ describe("check 7: retained exchanges (IMPL §4.9)", () => {
   });
 });
 
+describe("purge-inputs (IMPL §4.8, §4.11)", () => {
+  async function purged() {
+    const log = baseLog(true);
+    const store = await saved(log, recordCall(log));
+    const record = await purgeInputs(store, HEADER, log);
+    return { log, store, record };
+  }
+
+  it("appends an inputs_purged record with only the envelope", async () => {
+    const { record } = await purged();
+    expect(Object.keys(record).sort()).toEqual(["createdAt", "id", "seq", "type"]);
+    expect(record).toMatchObject({ type: "inputs_purged", id: "pur_0001" });
+  });
+
+  it("deletes the retained requests and responses, and nothing else", async () => {
+    const log = baseLog(true);
+    const store = await saved(log, recordCall(log));
+    store.files.set("content/sha256-0", encode("kept"));
+    await purgeInputs(store, HEADER, log);
+    expect([...store.files.keys()]).toEqual(["content/sha256-0"]);
+  });
+
+  it("the session still loads after the purge, with the references pointing at missing files", async () => {
+    const { log, store } = await purged();
+    const result = await loadSession(store.sessionFile as Uint8Array, store);
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.file.records.at(-1)).toEqual(log.records.at(-1));
+  });
+
+  it("saves the record before deleting the files, so a crash in between leaves a session that loads", async () => {
+    const log = baseLog(true);
+    const store = await saved(log, recordCall(log));
+    store.removeExchanges = async () => {
+      throw new Error("crashed before removing");
+    };
+    await expect(purgeInputs(store, HEADER, log)).rejects.toThrow(/crashed/);
+    const result = await loadSession(store.sessionFile as Uint8Array, store);
+    expect(result.ok && result.file.records.at(-1)?.type).toBe("inputs_purged");
+  });
+
+  it("still checks a retained file that survived a purge", async () => {
+    const { store } = await purged();
+    store.files.set(retainedFile("inputs", REQUEST).ref, OTHER_REQUEST);
+    expect(await failure(store.sessionFile as Uint8Array, store)).toMatchObject({ check: 7 });
+  });
+
+  it("checks the references of a call made after the purge", async () => {
+    const { log, store } = await purged();
+    const files = recordCall(log, OTHER_REQUEST);
+    await saveSession(store, fileOf(log), [], files);
+    expect((await loadSession(store.sessionFile as Uint8Array, store)).ok).toBe(true);
+    store.files.delete(retainedFile("inputs", OTHER_REQUEST).ref);
+    expect(await failure(store.sessionFile as Uint8Array, store)).toMatchObject({
+      check: 7,
+      recordId: "callr_0003",
+    });
+  });
+
+  it("a purge between a call's start and its end covers the request, not a later response", async () => {
+    const log = baseLog(true);
+    const input = retainedExchange(true, "inputs", REQUEST);
+    const base = callDraft();
+    const call = log.start(
+      callDraft({
+        retainedInputRef: input.ref,
+        inputManifest: { ...base.inputManifest, retainedInputRef: input.ref },
+      }),
+    );
+    const store = await saved(log, input.file === undefined ? [] : [input.file]);
+    await purgeInputs(store, HEADER, log);
+    // Resume then marks the interrupted call; its request ref is covered by the purge.
+    log.revise(
+      "model_call",
+      call.modelCallId,
+      completedCall({ state: "interrupted", retainedResponseRef: null, ...interruptedEnd }),
+    );
+    await saveSession(store, fileOf(log), []);
+    expect((await loadSession(store.sessionFile as Uint8Array, store)).ok).toBe(true);
+  });
+
+  it("a purge before a call's end doesn't cover the response that end adds", async () => {
+    const log = baseLog(true);
+    const input = retainedExchange(true, "inputs", REQUEST);
+    const base = callDraft();
+    const call = log.start(
+      callDraft({
+        retainedInputRef: input.ref,
+        inputManifest: { ...base.inputManifest, retainedInputRef: input.ref },
+      }),
+    );
+    const store = await saved(log, input.file === undefined ? [] : [input.file]);
+    await purgeInputs(store, HEADER, log);
+    const responseRef = retainedFile("responses", RESPONSE).ref;
+    const ended = log.revise(
+      "model_call",
+      call.modelCallId,
+      completedCall({ retainedResponseRef: responseRef }),
+    );
+    // The response file was never written, and the purge came before the revision that added it.
+    const bytes = encode(serialiseSession(fileOf(log)));
+    expect(await failure(bytes, store)).toMatchObject({ check: 7, recordId: ended.id });
+  });
+
+  it("an inputs_purged record round-trips: the saved bytes load and serialise back unchanged", async () => {
+    const { store } = await purged();
+    const result = await loadSession(store.sessionFile as Uint8Array, store);
+    if (!result.ok) throw new Error("expected the session to load");
+    expect(encode(serialiseSession(result.file))).toEqual(store.sessionFile);
+  });
+});
+
+const unknown = { state: "unknown", reason: "interrupted" } as const;
+const interruptedEnd = {
+  usage: { input: unknown, output: unknown, cacheRead: unknown, cacheWrite: unknown },
+  cost: unknown,
+  endedAt: unknown,
+  durationMs: unknown,
+};
+
 describe("responses are for replay only (IMPL §4.8)", () => {
   it("no source file outside the schema, saving, loading and interruption mentions retained responses", () => {
     // A new file here would be a new reader: records, the export and the review are built from
@@ -337,6 +457,7 @@ describe("responses are for replay only (IMPL §4.8)", () => {
       "core/session/load.ts",
       "core/session/records.ts",
       "core/session/retained.ts",
+      "core/session/store.ts",
     ]);
   });
 });

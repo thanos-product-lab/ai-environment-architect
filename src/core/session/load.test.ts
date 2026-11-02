@@ -17,7 +17,7 @@ const DESTINATION_REF = `content/${DESTINATION_HASH.replace(":", "-")}`;
 
 /**
  * A session with every record type the schema accepts so far, in valid shape, except
- * retained exchanges, which retained.test.ts covers.
+ * `inputs_purged` and retained exchanges, which retained.test.ts covers.
  */
 function validLog(): SessionLog {
   const log = newLog();

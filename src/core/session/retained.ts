@@ -1,11 +1,16 @@
 import { sha256 } from "../hash.js";
-import type { SessionRecord } from "./records.js";
-import type { RetainedFile } from "./store.js";
+import type { SessionLog } from "./log.js";
+import type { RecordOf, SessionFile, SessionRecord } from "./records.js";
+import { type RetainedFile, type SessionWriter, saveSession } from "./store.js";
 
 // Retained model exchanges (IMPL §4.8, §1.12). With `retainModelInputs` on, the exact request
 // body of every call is stored as `inputs/sha256-<hex>.json` and the exact response body as
 // `responses/sha256-<hex>.json`, each named by the SHA-256 of its bytes. With it off, both
 // references are null. They are for replay only: nothing reads them to build records.
+//
+// `purge-inputs` saves an `inputs_purged` record first and only then deletes the files, so a
+// crash in between leaves a session that loads: load check 7 lets a reference made before a purge
+// point at a missing file, and still checks any file that is left.
 
 export type { RetainedFile } from "./store.js";
 
@@ -35,4 +40,21 @@ export function retainsModelInputs(records: readonly SessionRecord[]): boolean {
   const config = records.findLast((r) => r.type === "generation_config");
   if (config === undefined) throw new Error("the session has no generation_config yet");
   return config.retainModelInputs;
+}
+
+/**
+ * `purge-inputs`, for the process holding the lock: appends and saves an `inputs_purged`
+ * record, then deletes `inputs/` and `responses/`. Returns the record.
+ */
+export async function purgeInputs(
+  session: SessionWriter,
+  header: Omit<SessionFile, "records">,
+  log: SessionLog,
+): Promise<RecordOf<"inputs_purged">> {
+  // If the save is refused, the log holds a purge that isn't on disk; the caller must not save
+  // this log again. Nothing has been deleted, so the saved session still loads.
+  const record = log.append({ type: "inputs_purged" });
+  await saveSession(session, { ...header, records: [...log.records] }, []);
+  await session.removeExchanges();
+  return record;
 }

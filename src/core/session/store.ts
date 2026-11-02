@@ -25,6 +25,8 @@ export interface SessionWriter extends SessionReader {
   writeContent(ref: string, bytes: Uint8Array): Promise<void>;
   /** Replaces `session.json` atomically and durably; resolves only once it is saved. */
   replaceSessionFile(bytes: Uint8Array): Promise<void>;
+  /** Deletes `inputs/` and `responses/`, the retained model exchanges (IMPL §4.8). */
+  removeExchanges(): Promise<void>;
 }
 
 /** A retained request or response body and its content-addressed name (IMPL §4.8). */

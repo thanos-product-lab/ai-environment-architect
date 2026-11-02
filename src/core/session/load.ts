@@ -457,16 +457,24 @@ async function checkDestinations(records: readonly SessionRecord[], content: Con
 /**
  * Retained exchanges (§4.8). A call's request reference equals its manifest's; with
  * `retainModelInputs` off both references are null, and with it on the request reference is set.
- * Every reference names a file whose bytes hash to its name.
+ * Every reference names a file whose bytes hash to its name, unless an `inputs_purged` record
+ * comes after the call: after its first revision for the request, after the revision that added
+ * it for the response. A file that is still there is checked either way.
  */
 async function checkRetainedExchanges(records: readonly SessionRecord[], content: ContentReader) {
+  const purges = records.filter((r) => r.type === "inputs_purged").map((r) => r.seq);
+  const purgedAfter = (seq: number) => purges.some((purge) => purge > seq);
+  const callStart = new Map<string, number>();
   let retain: boolean | undefined;
   const verified = new Set<string>();
 
-  async function verify(ref: string, r: SessionRecord): Promise<void> {
-    if (verified.has(ref)) return;
+  async function verify(ref: string, since: number, r: SessionRecord): Promise<void> {
+    if (verified.has(ref) && !purgedAfter(since)) return;
     const bytes = await content.read(ref);
-    if (bytes === undefined) reject(7, `${ref} is missing`, r);
+    if (bytes === undefined) {
+      if (purgedAfter(since)) return;
+      reject(7, `${ref} is missing`, r);
+    }
     const hex = sha256(bytes).slice("sha256:".length);
     if (ref !== `${ref.slice(0, ref.indexOf("/"))}/sha256-${hex}.json`)
       reject(7, `${ref} doesn't hash to its name`, r);
@@ -478,6 +486,7 @@ async function checkRetainedExchanges(records: readonly SessionRecord[], content
     // writes the config before any call; no load check requires that order yet.
     if (r.type === "generation_config") retain = r.retainModelInputs;
     if (r.type !== "model_call") continue;
+    if (!callStart.has(r.modelCallId)) callStart.set(r.modelCallId, r.seq);
     const inputRef = r.retainedInputRef;
     const responseRef = r.state === "started" ? null : r.retainedResponseRef;
     if (inputRef !== r.inputManifest.retainedInputRef)
@@ -486,9 +495,25 @@ async function checkRetainedExchanges(records: readonly SessionRecord[], content
       reject(7, "retainModelInputs is off, so the call retains nothing", r);
     if (retain === true && inputRef === null)
       reject(7, "retainModelInputs is on, so the call's request is retained", r);
-    if (inputRef !== null) await verify(inputRef, r);
-    if (responseRef !== null) await verify(responseRef, r);
+    if (inputRef !== null) await verify(inputRef, callStart.get(r.modelCallId) ?? r.seq, r);
+    if (responseRef !== null) await verify(responseRef, firstWith(records, r, responseRef), r);
   }
+}
+
+/** The `seq` of the call's first revision that carries `ref` as its response. */
+function firstWith(
+  records: readonly SessionRecord[],
+  call: RecordOf<"model_call">,
+  ref: string,
+): number {
+  const first = records.find(
+    (r) =>
+      r.type === "model_call" &&
+      r.modelCallId === call.modelCallId &&
+      r.state !== "started" &&
+      r.retainedResponseRef === ref,
+  );
+  return first?.seq ?? call.seq;
 }
 
 // --- Check 8: state ---------------------------------------------------------------------------

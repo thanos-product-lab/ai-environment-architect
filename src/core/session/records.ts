@@ -6,9 +6,9 @@ import type { Hash } from "../hash.js";
 // list of immutable records. Every record shares an envelope: `type`, `id`, `seq`, `createdAt`.
 // A record that can change has a lineage ID as well, shared by its revisions, and a `revision`.
 //
-// This defines the records §4.4–§4.6 produce. The other types in the §4.4.1 table have their
-// prefixes here, and get their fields with their own steps: purges (§4.8), and recommendations,
-// selections, artifacts, reviews and apply (M5). Until then the file schema doesn't accept them.
+// This defines the records §4.4–§4.6 and §4.8 produce. The other types in the §4.4.1 table have
+// their prefixes here, and get their fields with their own steps: recommendations, selections,
+// artifacts, reviews and apply (M5). Until then the file schema doesn't accept them.
 
 export const SESSION_FORMAT = "ai-environment-architect/session";
 export const SESSION_SCHEMA_VERSION = 1;
@@ -1057,6 +1057,12 @@ export const effortCorrectionRecord = z.strictObject({
   supersedes: z.tuple([recordId("effort_correction")]).optional(),
 });
 
+/**
+ * Written by `purge-inputs` (§4.8): the retained exchanges of every call before it may be gone.
+ * Its place in `seq` is all it records.
+ */
+export const inputsPurgedRecord = z.strictObject({ ...envelope("inputs_purged") });
+
 // --- The file (§4.3) -------------------------------------------------------------------------
 
 // A plain union: the finding, conflict, question and evidence variants are unions themselves.
@@ -1075,6 +1081,7 @@ export const sessionRecord = z.union([
   modelCallRecord,
   effortIntervalRecord,
   effortCorrectionRecord,
+  inputsPurgedRecord,
 ]);
 
 export const sessionHeader = z.strictObject({

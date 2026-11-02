@@ -33,6 +33,11 @@ export class MemorySession implements SessionWriter {
     this.sessionFile = bytes.slice();
   }
 
+  async removeExchanges(): Promise<void> {
+    for (const ref of [...this.files.keys()])
+      if (ref.startsWith("inputs/") || ref.startsWith("responses/")) this.files.delete(ref);
+  }
+
   private step(): void {
     const index = this.writes++;
     if (index === this.stopBefore) throw new Error(`stopped before write ${index}`);

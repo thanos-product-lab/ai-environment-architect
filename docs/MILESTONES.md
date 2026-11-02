@@ -100,7 +100,7 @@ The token check (IMPL §1.10) waits for M6, because it needs the provider's toke
 - [x] Atomic storage and the lock: the storage directory and its refusal inside the target repository, content-addressed files, whole-file atomic writes, the lock and stale locks, and the data-notice state (IMPL §4.2, §4.7). `/implement-spec IMPL 4.7`
 - [x] Derived current state: current records, corrected findings, the active snapshot, stage, status and outcome, and completeness. `/implement-spec IMPL 4.4.2`. The derivations over M5's records move to the M5 steps that add them: held-back entries and the no-change reason, selections, the active artifact revision and the usable approval.
 - [x] Model-call and effort records with interruption: the `started` and ended revisions, retries as separate calls, the budget with unknown costs, and effort as a lower bound. `/implement-spec IMPL 4.6`. Extend load check 4 to model-call references (`producedBy`, `revisedBy`, `modelCallId`, `retryOf`) and the alias tables (IMPL §4.9).
-- [ ] Retained inputs and responses, and `purge-inputs`. `/implement-spec IMPL 4.8`. Extend load check 7 to `retainedInputRef` and `retainedResponseRef`, unless purged (IMPL §4.9).
+- [x] Retained inputs and responses, and `purge-inputs` in core and the storage adapter; the command itself comes with the CLI in M7. `/implement-spec IMPL 4.8`. Extend load check 7 to `retainedInputRef` and `retainedResponseRef`, unless purged (IMPL §4.9).
 
 The export (IMPL §4.10) is specified here and built in M8.
 
@@ -155,7 +155,7 @@ Live runs use the development repositories only.
 
 **Goal:** a complete, honest first slice that the evaluation pilot can use.
 
-- [ ] Session export, mapped to the Evaluation Requirements (DM §14, IMPL §4).
+- [ ] Session export, mapped to the Evaluation Requirements (DM §14, IMPL §4), with retained exchanges only under `--include-inputs`, and saying when they were purged (IMPL §4.8).
 - [ ] Check every item of ADR 0001's definition of done.
 - [ ] Dogfood: run the tool on this repository and compare its proposal with the hand-written setup. Write up the comparison.
 - [ ] Update the README status, and tag `v0.1.0`.

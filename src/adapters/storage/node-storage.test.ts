@@ -152,6 +152,53 @@ describe("session directory layout (IMPL §4.2)", () => {
   });
 });
 
+describe("retained exchanges (IMPL §4.2, §4.8)", () => {
+  const request = encode('{"messages":[]}');
+  const response = encode('{"content":[]}');
+  const inputRef = `inputs/sha256-${sha256(request).slice("sha256:".length)}.json`;
+  const responseRef = `responses/sha256-${sha256(response).slice("sha256:".length)}.json`;
+
+  it("writes requests under inputs/ and responses under responses/, and refuses a wrong name", async () => {
+    const dir = scratch();
+    const session = await acquire(dir);
+    await session.writeContent(inputRef, request);
+    await session.writeContent(responseRef, response);
+    const sessionDir = join(dir, "sessions", "ses_0001");
+    expect(readFileSync(join(sessionDir, inputRef))).toEqual(Buffer.from(request));
+    expect(readFileSync(join(sessionDir, responseRef))).toEqual(Buffer.from(response));
+    await expect(session.writeContent(inputRef, response)).rejects.toThrow(/hash/);
+  });
+
+  it("removeExchanges deletes inputs/ and responses/ and leaves the rest", async () => {
+    const dir = scratch();
+    const session = await acquire(dir);
+    const content = encode("# Guide\n");
+    await saveSession(session, sessionFile(1), [content]);
+    await session.writeContent(inputRef, request);
+    await session.writeContent(responseRef, response);
+    await session.removeExchanges();
+    const sessionDir = join(dir, "sessions", "ses_0001");
+    expect(readdirSync(sessionDir).sort()).toEqual(["content", "session.json", "session.lock"]);
+    expect(await session.read(inputRef)).toBeUndefined();
+    expect(Buffer.from((await session.read(contentRefOf(content))) ?? [])).toEqual(
+      Buffer.from(content),
+    );
+  });
+
+  it("removeExchanges succeeds when nothing was retained", async () => {
+    const session = await acquire(scratch());
+    await expect(session.removeExchanges()).resolves.toBeUndefined();
+  });
+
+  it("a released session can't remove exchanges", async () => {
+    const session = await acquire(scratch());
+    await session.writeContent(inputRef, request);
+    await session.release();
+    await expect(session.removeExchanges()).rejects.toThrow(/released/);
+    expect(Buffer.from((await session.read(inputRef)) ?? [])).toEqual(Buffer.from(request));
+  });
+});
+
 describe("atomic writes (IMPL §4.7)", () => {
   it("leaves no temporary file after a successful write", async () => {
     const dir = scratch();
