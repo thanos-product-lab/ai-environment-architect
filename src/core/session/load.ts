@@ -16,9 +16,8 @@ import {
 // rejects the session, naming the check and the record. Load only reads: it never repairs and
 // never writes, so a rejected file is left untouched.
 //
-// Checks 4, 7 and 8 cover the record types the file schema accepts so far. Model-call
-// references (`producedBy`, `revisedBy`, `modelCallId`), retained exchanges, artifact content
-// and the apply-approval check arrive with their record types (IMPL §4.6, §4.8, M5).
+// Checks 4, 7 and 8 cover the record types the file schema accepts so far. Retained exchanges,
+// artifact content and the apply-approval check arrive with their record types (IMPL §4.8, M5).
 //
 // Some branches can't be reached yet, because ID prefixes and the schema stop the input first:
 // a lineage ID used as a record ID, a record reference of the wrong type, a lineage whose
@@ -234,26 +233,76 @@ const lineage = (field: string, type: RecordTypeName): Reference => ({
  * The references table of IMPL §4.4.1, for the record types the file schema accepts so far.
  * `supersedes` is checked for every record; its type is check 5's.
  */
+const producedBy = lineage("producedBy", "model_call");
+const revisedBy = lineage("revisedBy", "model_call");
+
 const REFERENCES: Partial<Record<RecordTypeName, readonly Reference[]>> = {
-  content_notice: [record("snapshotId", "snapshot")],
+  content_notice: [record("snapshotId", "snapshot"), lineage("modelCallId", "model_call")],
   evidence: [record("snapshotId", "snapshot")],
-  finding: [record("snapshotId", "snapshot"), record("evidenceIds", "evidence")],
+  finding: [
+    record("snapshotId", "snapshot"),
+    record("evidenceIds", "evidence"),
+    producedBy,
+    revisedBy,
+  ],
   conflict: [
     record("snapshotId", "snapshot"),
     lineage("findingIds", "finding"),
     record("resolvingDecisionId", "decision"),
+    producedBy,
+    revisedBy,
   ],
   question: [
     lineage("findingIds", "finding"),
     lineage("gapIds", "finding"),
     lineage("conflictIds", "conflict"),
+    producedBy,
   ],
+  recommendation_revision: [producedBy],
+  failed_item: [producedBy],
+  model_call: [lineage("retryOf", "model_call")],
   decision: [
     lineage("questionId", "question"),
     lineage("conflictId", "conflict"),
     lineage("findingId", "finding"),
   ],
 };
+
+/** The record type each alias kind's target must be (IMPL §3.2.1, §4.4.1). */
+const ALIAS_TARGET_TYPES: Readonly<Record<string, RecordTypeName>> = {
+  F: "finding",
+  C: "conflict",
+  Q: "question",
+  D: "decision",
+  R: "recommendation_revision",
+};
+
+/** Not IDs: a finding code made, or a developer's edit. */
+const NOT_A_CALL: ReadonlySet<string> = new Set(["deterministic", "developer_edit"]);
+
+/**
+ * The references a record makes, with the type each one names. A model call's input manifest
+ * names its snapshot, and its alias table the exact revisions sent, by record ID; items and
+ * blocks aren't records.
+ */
+function referencesOf(r: SessionRecord): { reference: Reference; id: string }[] {
+  const found: { reference: Reference; id: string }[] = [];
+  for (const reference of [...(REFERENCES[r.type] ?? []), record("supersedes", r.type)])
+    for (const id of valuesOf(r, reference.field))
+      if (reference.field !== "producedBy" || !NOT_A_CALL.has(id)) found.push({ reference, id });
+  if (r.type === "model_call") {
+    found.push({
+      reference: record("inputManifest.snapshotId", "snapshot"),
+      id: r.inputManifest.snapshotId,
+    });
+    for (const entry of r.aliases.entries) {
+      const type = ALIAS_TARGET_TYPES[entry.kind];
+      if (entry.target.kind === "record" && type !== undefined)
+        found.push({ reference: record("aliases", type), id: entry.target.recordId });
+    }
+  }
+  return found;
+}
 
 function valuesOf(record: SessionRecord, field: string): readonly string[] {
   const value = (record as Record<string, unknown>)[field];
@@ -273,32 +322,28 @@ function checkReferences(records: readonly SessionRecord[]): void {
     lineages.set(key, [...(lineages.get(key) ?? []), r]);
   }
 
-  for (const r of records) {
-    const references = [...(REFERENCES[r.type] ?? []), record("supersedes", r.type)];
-    for (const reference of references)
-      for (const id of valuesOf(r, reference.field)) {
-        if (reference.names === "record") {
-          const target = byId.get(id);
-          if (target === undefined)
-            reject(4, `${reference.field} names ${id}, which isn't in the session`, r);
-          // `supersedes` names its own type; check 5 says so for another type.
-          if (reference.field !== "supersedes" && target.type !== reference.type)
-            reject(4, `${reference.field} names ${id}, a ${target.type}`, r);
-          if (target.seq >= r.seq) reject(4, `${reference.field} names the later ${id}`, r);
-          if (!isFailed(r) && isFailed(target))
-            reject(4, `${reference.field} names ${id}, which failed validation`, r);
-        } else {
-          const revisions = lineages.get(`${reference.type}\u0000${id}`);
-          if (revisions === undefined)
-            reject(4, `${reference.field} names ${id}, which isn't a ${reference.type}`, r);
-          const first = revisions[0] as SessionRecord;
-          if (first.seq >= r.seq)
-            reject(4, `${reference.field} names ${id}, which starts later`, r);
-          if (!isFailed(r) && revisions.every((rev) => rev.seq >= r.seq || isFailed(rev)))
-            reject(4, `${reference.field} names ${id}, which only failed validation`, r);
-        }
+  for (const r of records)
+    for (const { reference, id } of referencesOf(r)) {
+      if (reference.names === "record") {
+        const target = byId.get(id);
+        if (target === undefined)
+          reject(4, `${reference.field} names ${id}, which isn't in the session`, r);
+        // `supersedes` names its own type; check 5 says so for another type.
+        if (reference.field !== "supersedes" && target.type !== reference.type)
+          reject(4, `${reference.field} names ${id}, a ${target.type}`, r);
+        if (target.seq >= r.seq) reject(4, `${reference.field} names the later ${id}`, r);
+        if (!isFailed(r) && isFailed(target))
+          reject(4, `${reference.field} names ${id}, which failed validation`, r);
+      } else {
+        const revisions = lineages.get(`${reference.type}\u0000${id}`);
+        if (revisions === undefined)
+          reject(4, `${reference.field} names ${id}, which isn't a ${reference.type}`, r);
+        const first = revisions[0] as SessionRecord;
+        if (first.seq >= r.seq) reject(4, `${reference.field} names ${id}, which starts later`, r);
+        if (!isFailed(r) && revisions.every((rev) => rev.seq >= r.seq || isFailed(rev)))
+          reject(4, `${reference.field} names ${id}, which only failed validation`, r);
       }
-  }
+    }
 }
 
 // --- Check 5: superseding ---------------------------------------------------------------------

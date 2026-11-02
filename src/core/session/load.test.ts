@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { hashOf, newLog } from "../../../test/support/session.js";
+import { callDraft, completedCall, hashOf, newLog } from "../../../test/support/session.js";
 import { parseGuidanceBlocks } from "../destination/guidance-blocks.js";
 import { sha256 } from "../hash.js";
+import { recoverInterruptedWork } from "./calls.js";
 import { type ContentReader, type LoadFailure, loadSession } from "./load.js";
 import type { SessionLog } from "./log.js";
 import { SESSION_FORMAT, SESSION_SCHEMA_VERSION, type SessionFile } from "./records.js";
@@ -48,6 +49,21 @@ function validLog(): SessionLog {
       ignoreRules: { state: "applied" },
     },
     { id: SNAP },
+  );
+  // call_0001 to call_0003, which the records below name.
+  const first = log.start(callDraft());
+  log.revise("model_call", first.modelCallId, completedCall());
+  log.start(
+    callDraft({
+      purpose: "generate_questions",
+      aliases: { call: "generate_questions", entries: [] },
+    }),
+  );
+  log.start(
+    callDraft({
+      purpose: "analyse_expansion",
+      aliases: { call: "analyse_expansion", entries: [] },
+    }),
   );
   const claims = ["The guide asks for pnpm.", "The guide asks for npm."].map((statement) => {
     const ev = log.append({
@@ -155,6 +171,45 @@ function validLog(): SessionLog {
     status: "withdrawn",
     withdrawnReason: "withdrawn_by_model",
     revisedBy: "call_0003",
+  });
+  // A retry whose alias table names the revisions it sent.
+  const current = log.records.filter((r) => r.type === "finding" && r.status === "active");
+  const retry = log.start(
+    callDraft({
+      purpose: "generate_questions",
+      attempt: 2,
+      retryOf: "call_0002",
+      aliases: {
+        call: "generate_questions",
+        entries: [
+          ...current.map((r, i) => ({
+            alias: `F-${i + 1}`,
+            kind: "F" as const,
+            target: { kind: "record" as const, recordId: r.id },
+          })),
+          { alias: "C-1", kind: "C", target: { kind: "record", recordId: conflict.id } },
+          { alias: "B-1", kind: "B", target: { kind: "block", blockId: "b1", hash: hashOf("b") } },
+        ],
+      },
+    }),
+  );
+  log.revise("model_call", retry.modelCallId, completedCall({ questionOrder: ["q1"] }));
+  const interval = log.start({
+    type: "effort_interval",
+    state: "open",
+    stage: "clarify",
+    enteredAt: "2026-11-01T10:20:00.000Z",
+  });
+  log.revise("effort_interval", interval.effortIntervalId, {
+    state: "closed",
+    leftAt: { state: "known", value: "2026-11-01T10:21:00.000Z" },
+  });
+  const correction = log.append({ type: "effort_correction", totalMs: 1, reason: "Too short." });
+  log.append({
+    type: "effort_correction",
+    totalMs: 2,
+    reason: "Still short.",
+    supersedes: [correction.id],
   });
   log.revise("session_state", "session_state", { stage: "complete", status: "completed" });
   return log;
@@ -316,7 +371,7 @@ describe("check 2: the file schema (IMPL §4.9)", () => {
         byId(j, "ev_0001").note = "extra";
       }),
     );
-    expect(found).toMatchObject({ check: 2, name: "schema", recordId: "ev_0001", seq: 3 });
+    expect(found).toMatchObject({ check: 2, name: "schema", recordId: "ev_0001", seq: 7 });
   });
 
   it("rejects a claim or absence finding without evidence", async () => {
@@ -617,5 +672,180 @@ describe("check order and reporting (IMPL §4.9)", () => {
       writtenBy: undefined,
       readerFormat: 1,
     });
+  });
+});
+
+describe("check 4: model-call references (IMPL §4.6, §4.9)", () => {
+  const callRecord = (json: Json, lineage: string, state = "started"): Json =>
+    json.records.find((r: Json) => r.modelCallId === lineage && r.state === state);
+  const retry = (json: Json): Json =>
+    json.records.find((r: Json) => r.type === "model_call" && r.retryOf !== undefined);
+
+  it("rejects producedBy naming a model call that isn't in the session", async () => {
+    const bytes = corrupted((json) => {
+      json.records.find((r: Json) => r.type === "finding").producedBy = "call_9999";
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 4,
+      detail: expect.stringMatching(/producedBy/),
+    });
+  });
+
+  it("rejects producedBy naming a model call that starts later", async () => {
+    const bytes = corrupted((json) => {
+      json.records.find((r: Json) => r.type === "finding").producedBy = retry(json).modelCallId;
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 4,
+      detail: expect.stringMatching(/starts later/),
+    });
+  });
+
+  it("rejects a dangling revisedBy", async () => {
+    const bytes = corrupted((json) => {
+      json.records.find((r: Json) => r.revisedBy !== undefined).revisedBy = "call_9999";
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 4,
+      detail: expect.stringMatching(/revisedBy/),
+    });
+  });
+
+  it("rejects a content notice whose modelCallId is dangling", async () => {
+    const log = validLog();
+    log.append({
+      type: "content_notice",
+      snapshotId: SNAP,
+      modelCallId: "call_9999",
+      item: "T2-001",
+      path: "docs/guide.md",
+      fileHash: hashOf("a"),
+      lineStart: 1,
+      lineEnd: 1,
+      description: "Looks like an instruction.",
+    });
+    expect(await failure(encode(serialiseSession(fileOf(log))))).toMatchObject({
+      check: 4,
+      detail: expect.stringMatching(/modelCallId/),
+    });
+  });
+
+  it("rejects a dangling retryOf, on both revisions", async () => {
+    const bytes = corrupted((json) => {
+      for (const r of json.records) if (r.retryOf !== undefined) r.retryOf = "call_9999";
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 4,
+      detail: expect.stringMatching(/retryOf/),
+    });
+  });
+
+  it("rejects an alias target that isn't in the session", async () => {
+    const bytes = corrupted((json) => {
+      retry(json).aliases.entries[0].target.recordId = "fndr_9999";
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 4,
+      detail: expect.stringMatching(/aliases/),
+    });
+  });
+
+  it("rejects an alias target of the wrong type for its kind", async () => {
+    const bytes = corrupted((json) => {
+      const entries = retry(json).aliases.entries;
+      entries[0].target.recordId = entries.find((e: Json) => e.kind === "C").target.recordId;
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 4,
+      detail: expect.stringMatching(/a conflict/),
+    });
+  });
+
+  it("rejects an alias target written after the call", async () => {
+    const bytes = corrupted((json) => {
+      const later = json.records.filter((r: Json) => r.type === "finding").at(-1);
+      later.findingId = "fnd_0099";
+      retry(json).aliases.entries[0].target.recordId = later.id;
+      // Move the withdrawal to the end, after the retry, keeping its supersedes valid.
+      json.records = [...json.records.filter((r: Json) => r !== later), later];
+      later.revision = 1;
+      delete later.supersedes;
+      delete later.revisedBy;
+      later.status = "active";
+      delete later.withdrawnReason;
+      renumber(json);
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 4,
+      detail: expect.stringMatching(/later/),
+    });
+  });
+
+  it("rejects an alias target that failed validation", async () => {
+    const bytes = corrupted((json) => {
+      const failed = json.records.find((r: Json) => r.status === "failed_validation");
+      retry(json).aliases.entries[0].target.recordId = failed.id;
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 4,
+      detail: expect.stringMatching(/failed validation/),
+    });
+  });
+
+  it("rejects, at the schema, an alias whose target isn't of its kind", async () => {
+    const bytes = corrupted((json) => {
+      retry(json).aliases.entries[0].target = { kind: "item", itemId: "T2-001" };
+    });
+    expect(await failure(bytes)).toMatchObject({ check: 2 });
+  });
+
+  it("rejects an input manifest naming a snapshot that isn't in the session", async () => {
+    const bytes = corrupted((json) => {
+      retry(json).inputManifest.snapshotId = "snap_9999";
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 4,
+      detail: expect.stringMatching(/inputManifest.snapshotId/),
+    });
+  });
+
+  it("round-trips interrupted and failed calls and an interval closed on resume", async () => {
+    const log = validLog();
+    const failed = log.start(callDraft());
+    log.revise(
+      "model_call",
+      failed.modelCallId,
+      completedCall({ state: "failed", error: { kind: "transport", message: "Timed out." } }),
+    );
+    log.start(callDraft());
+    log.start({
+      type: "effort_interval",
+      state: "open",
+      stage: "review",
+      enteredAt: "2026-11-01T10:40:00.000Z",
+    });
+    recoverInterruptedWork(log);
+    const file = fileOf(log);
+    const bytes = encode(serialiseSession(file));
+    const result = await loadSession(bytes, memoryContent());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(serialiseSession(result.file)).toBe(serialiseSession(file));
+  });
+
+  it("accepts deterministic findings, which name no model call", async () => {
+    const bytes = corrupted((json) => {
+      const gap = json.records.find((r: Json) => r.kind === "gap");
+      gap.producedBy = "deterministic";
+    });
+    expect((await loadSession(bytes, memoryContent())).ok).toBe(true);
+  });
+
+  it("checks the started revision too, so the call record itself is referenced correctly", async () => {
+    const bytes = corrupted((json) => {
+      callRecord(json, retry(json).modelCallId).retryOf = "call_9999";
+      retry(json).retryOf = "call_9999";
+    });
+    expect(await failure(bytes)).toMatchObject({ check: 4 });
   });
 });
