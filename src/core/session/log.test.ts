@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { countingIds, hashOf, newLog, tickingClock } from "../../../test/support/session.js";
+import {
+  callDraft,
+  completedCall,
+  countingIds,
+  hashOf,
+  newLog,
+  tickingClock,
+} from "../../../test/support/session.js";
 import { settingsHash } from "../context/select.js";
 import { DEFAULT_CONTEXT_SETTINGS } from "../context/tiers.js";
 import { DEFAULT_SNAPSHOT_SETTINGS } from "../snapshot/snapshot.js";
@@ -403,11 +410,18 @@ describe("generation_config (IMPL §4.4.1)", () => {
     });
     // The schema's ceiling of 5 holds: a higher setting needs a new schema version (IMPL §3.3.2).
     expect(() =>
-      log.revise("generation_config", "generation_config", {
+      newLog().start({
+        ...first,
         expansion: { ...DEFAULT_EXPANSION_SETTINGS, maxExpansionRequests: 6 },
-        reason: "settings_changed",
-      }),
+      } as never),
     ).toThrow(/maxExpansionRequests/);
+    // A revision changes only the budget and its reason (IMPL §4.9 check 3).
+    expect(() =>
+      log.revise("generation_config", "generation_config", {
+        questionBudget: 3,
+        reason: "budget_confirmed",
+      }),
+    ).toThrow(/can't change questionBudget/);
     expect(raised).toMatchObject({
       revision: 2,
       supersedes: [first.id],
@@ -445,6 +459,56 @@ describe("refusals (IMPL §4.4.1, §4.4.3, §4.5)", () => {
       status: "unresolved",
     });
   }
+
+  it("a revision changes only the fields its type allows, and repeats the rest", () => {
+    const log = withSnapshot();
+    const a = claim(log);
+    expect(() =>
+      log.revise("finding", a.findingId, { status: "withdrawn", statement: "Changed." } as never),
+    ).toThrow(/can't change statement/);
+    const conflict = conflictOf(log);
+    expect(() =>
+      log.revise("conflict", conflict.conflictId, { description: "x" } as never),
+    ).toThrow(/conflict revision can't change description/);
+    const question = log.start({
+      type: "question",
+      producedBy: "call_0001",
+      prompt: "Which?",
+      reason: "Unclear.",
+      findingIds: [a.findingId],
+      conflictIds: [],
+      gapIds: [],
+      options: [],
+      scope: { kind: "repository" },
+      status: "open",
+    });
+    expect(() =>
+      log.revise("question", question.questionId, {
+        status: "answered",
+        prompt: "Other?",
+      } as never),
+    ).toThrow(/question revision can't change prompt/);
+    const call = log.start(callDraft());
+    expect(() =>
+      log.revise("model_call", call.modelCallId, {
+        ...completedCall(),
+        estimatedCost: { state: "known", value: 0 },
+      } as never),
+    ).toThrow(/model_call revision can't change estimatedCost/);
+    const interval = log.start({
+      type: "effort_interval",
+      state: "open",
+      stage: "clarify",
+      enteredAt: "2026-11-01T10:20:00.000Z",
+    });
+    expect(() =>
+      log.revise("effort_interval", interval.effortIntervalId, {
+        state: "closed",
+        leftAt: { state: "unknown", reason: "interrupted" },
+        stage: "review",
+      } as never),
+    ).toThrow(/effort_interval revision can't change stage/);
+  });
 
   it("a revision can't change producedBy, kind or snapshotId", () => {
     const log = withSnapshot();
@@ -618,7 +682,7 @@ describe("refusals (IMPL §4.4.1, §4.4.3, §4.5)", () => {
     expect(() => log.start({ ...draft, revisedBy: "call_0002" })).toThrow(/revisedBy/);
     const conflict = log.start(draft);
     expect(() =>
-      log.revise("conflict", conflict.conflictId, { description: "x", revisedBy: "developer" }),
+      log.revise("conflict", conflict.conflictId, { status: "unresolved", revisedBy: "developer" }),
     ).toThrow(/revisedBy/);
     expect(() =>
       log.revise("conflict", conflict.conflictId, {

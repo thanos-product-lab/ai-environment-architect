@@ -2,8 +2,10 @@ import type { Clock, IdSource } from "../ports.js";
 import {
   CURRENT_STATUSES,
   RECORD_KINDS,
+  REVISION_FIELDS,
   type RecordKind,
   type RecordOf,
+  type RevisableType,
   type SessionRecord,
   sessionRecord,
 } from "./records.js";
@@ -52,6 +54,9 @@ export type LineageStart<T extends Type> = DeepReadonly<
     Exclude<Envelope, "type"> | "revision" | (typeof LINEAGE_FIELDS)[number]
   >
 >;
+
+/** The only types a model call revises, so the only ones with `revisedBy` (§4.4.1). */
+const REVISED_BY_TYPES: ReadonlySet<string> = new Set(["finding", "conflict"]);
 
 /** Fields every revision repeats unchanged: what the lineage is, and what created it. */
 const FIXED_ON_REVISION = ["producedBy", "kind", "snapshotId"] as const;
@@ -202,6 +207,10 @@ export class SessionLog {
       throw new Error(`no ${type} revision to revise in ${lineage}`);
     for (const field of [...FIXED_ON_REVISION, ...LINEAGE_FIELDS, "type", "revision", "supersedes"])
       if (field in changes) throw new Error(`a revision can't change ${field}`);
+    const changeable = REVISION_FIELDS[type as RevisableType];
+    for (const field of Object.keys(changes))
+      if (!(field === "revisedBy" && REVISED_BY_TYPES.has(type)) && !changeable.includes(field))
+        throw new Error(`a ${type} revision can't change ${field}`);
     const {
       id: _id,
       seq: _seq,

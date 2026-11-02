@@ -50,6 +50,35 @@ function validLog(): SessionLog {
     },
     { id: SNAP },
   );
+  log.start({
+    type: "generation_config",
+    settings: {
+      snapshot: { maxReadableFileBytes: 1, userExclusions: [], includeIgnored: [] },
+      context: {
+        initialContextBytes: 1,
+        knownFactsBytes: 1,
+        tierCaps: { tier1: 0, tier2: 0, tier3: 0, tier4: 0, tier5: 0 },
+        maxDestinationBytes: 0,
+        perFileCaps: { tier2: 0, tier3: 0, tier5: 0 },
+        testReserveBytes: 0,
+        testExampleBytes: 0,
+        maxSourceFiles: 0,
+        sourceExtensions: [],
+        treeDepth: 0,
+        treeCollapseThreshold: 0,
+      },
+    },
+    settingsHash: hashOf("9"),
+    requestedModel: "claude-test",
+    budget: { maxCostUsd: 2 },
+    expansion: { maxExpansionRequests: 0, expansionBytes: 0, expansionEntryBytes: 0 },
+    questionBudget: 5,
+    retainModelInputs: true,
+  });
+  log.revise("generation_config", "generation_config", {
+    budget: { maxCostUsd: 4 },
+    reason: "budget_raised",
+  });
   // call_0001 to call_0003, which the records below name.
   const first = log.start(callDraft());
   log.revise("model_call", first.modelCallId, completedCall());
@@ -371,7 +400,7 @@ describe("check 2: the file schema (IMPL §4.9)", () => {
         byId(j, "ev_0001").note = "extra";
       }),
     );
-    expect(found).toMatchObject({ check: 2, name: "schema", recordId: "ev_0001", seq: 7 });
+    expect(found).toMatchObject({ check: 2, name: "schema", recordId: "ev_0001", seq: 9 });
   });
 
   it("rejects a claim or absence finding without evidence", async () => {
@@ -548,13 +577,22 @@ describe("check 5: superseding (IMPL §4.9)", () => {
 
 describe("check 6: evidence (IMPL §4.9)", () => {
   it("rejects a claim whose evidence is an absence check", async () => {
-    const found = await failure(
-      corrupted((j) => {
-        // The withdrawn claim revision comes after the absence check.
-        byId(j, "fndr_0006").evidenceIds = ["ev_0003"];
-      }),
-    );
-    expect(found).toMatchObject({ check: 6, name: "evidence", recordId: "fndr_0006" });
+    const log = validLog();
+    const check = log.records.find((r) => r.type === "evidence" && r.kind === "absence_check");
+    const claim = log.start({
+      type: "finding",
+      snapshotId: SNAP,
+      producedBy: "call_0001",
+      status: "active",
+      kind: "claim",
+      statement: "No tests.",
+      mode: "descriptive",
+      scope: { kind: "repository" },
+      basis: ["code_observation"],
+      evidenceIds: [check?.id as string],
+    });
+    const found = await failure(encode(serialiseSession(fileOf(log))));
+    expect(found).toMatchObject({ check: 6, name: "evidence", recordId: claim.id });
   });
 
   it("rejects an absence finding whose evidence isn't an absence check", async () => {
@@ -676,10 +714,13 @@ describe("check order and reporting (IMPL §4.9)", () => {
 });
 
 describe("check 4: model-call references (IMPL §4.6, §4.9)", () => {
-  const callRecord = (json: Json, lineage: string, state = "started"): Json =>
-    json.records.find((r: Json) => r.modelCallId === lineage && r.state === state);
-  const retry = (json: Json): Json =>
-    json.records.find((r: Json) => r.type === "model_call" && r.retryOf !== undefined);
+  /** Both revisions of the retry, so check 3 sees them repeat each other. */
+  const retries = (json: Json): Json[] =>
+    json.records.filter((r: Json) => r.type === "model_call" && r.retryOf !== undefined);
+  const retry = (json: Json): Json => retries(json)[0];
+  const everyRetry = (json: Json, edit: (record: Json) => void) => {
+    for (const record of retries(json)) edit(record);
+  };
 
   it("rejects producedBy naming a model call that isn't in the session", async () => {
     const bytes = corrupted((json) => {
@@ -742,7 +783,9 @@ describe("check 4: model-call references (IMPL §4.6, §4.9)", () => {
 
   it("rejects an alias target that isn't in the session", async () => {
     const bytes = corrupted((json) => {
-      retry(json).aliases.entries[0].target.recordId = "fndr_9999";
+      everyRetry(json, (r) => {
+        r.aliases.entries[0].target.recordId = "fndr_9999";
+      });
     });
     expect(await failure(bytes)).toMatchObject({
       check: 4,
@@ -752,8 +795,10 @@ describe("check 4: model-call references (IMPL §4.6, §4.9)", () => {
 
   it("rejects an alias target of the wrong type for its kind", async () => {
     const bytes = corrupted((json) => {
-      const entries = retry(json).aliases.entries;
-      entries[0].target.recordId = entries.find((e: Json) => e.kind === "C").target.recordId;
+      everyRetry(json, (r) => {
+        const entries = r.aliases.entries;
+        entries[0].target.recordId = entries.find((e: Json) => e.kind === "C").target.recordId;
+      });
     });
     expect(await failure(bytes)).toMatchObject({
       check: 4,
@@ -765,7 +810,9 @@ describe("check 4: model-call references (IMPL §4.6, §4.9)", () => {
     const bytes = corrupted((json) => {
       const later = json.records.filter((r: Json) => r.type === "finding").at(-1);
       later.findingId = "fnd_0099";
-      retry(json).aliases.entries[0].target.recordId = later.id;
+      everyRetry(json, (r) => {
+        r.aliases.entries[0].target.recordId = later.id;
+      });
       // Move the withdrawal to the end, after the retry, keeping its supersedes valid.
       json.records = [...json.records.filter((r: Json) => r !== later), later];
       later.revision = 1;
@@ -784,7 +831,9 @@ describe("check 4: model-call references (IMPL §4.6, §4.9)", () => {
   it("rejects an alias target that failed validation", async () => {
     const bytes = corrupted((json) => {
       const failed = json.records.find((r: Json) => r.status === "failed_validation");
-      retry(json).aliases.entries[0].target.recordId = failed.id;
+      everyRetry(json, (r) => {
+        r.aliases.entries[0].target.recordId = failed.id;
+      });
     });
     expect(await failure(bytes)).toMatchObject({
       check: 4,
@@ -794,14 +843,18 @@ describe("check 4: model-call references (IMPL §4.6, §4.9)", () => {
 
   it("rejects, at the schema, an alias whose target isn't of its kind", async () => {
     const bytes = corrupted((json) => {
-      retry(json).aliases.entries[0].target = { kind: "item", itemId: "T2-001" };
+      everyRetry(json, (r) => {
+        r.aliases.entries[0].target = { kind: "item", itemId: "T2-001" };
+      });
     });
     expect(await failure(bytes)).toMatchObject({ check: 2 });
   });
 
   it("rejects an input manifest naming a snapshot that isn't in the session", async () => {
     const bytes = corrupted((json) => {
-      retry(json).inputManifest.snapshotId = "snap_9999";
+      everyRetry(json, (r) => {
+        r.inputManifest.snapshotId = "snap_9999";
+      });
     });
     expect(await failure(bytes)).toMatchObject({
       check: 4,
@@ -840,12 +893,175 @@ describe("check 4: model-call references (IMPL §4.6, §4.9)", () => {
     });
     expect((await loadSession(bytes, memoryContent())).ok).toBe(true);
   });
+});
 
-  it("checks the started revision too, so the call record itself is referenced correctly", async () => {
+describe("check 3: a revision repeats what its type doesn't change (IMPL §4.9)", () => {
+  const revisionOf = (json: Json, type: string, revision = 2): Json =>
+    json.records.find((r: Json) => r.type === type && r.revision === revision);
+
+  it("rejects an ended model call whose estimatedCost differs from its started revision", async () => {
     const bytes = corrupted((json) => {
-      callRecord(json, retry(json).modelCallId).retryOf = "call_9999";
-      retry(json).retryOf = "call_9999";
+      revisionOf(json, "model_call").estimatedCost = { state: "known", value: 0.01 };
     });
-    expect(await failure(bytes)).toMatchObject({ check: 4 });
+    expect(await failure(bytes)).toMatchObject({
+      check: 3,
+      detail: expect.stringMatching(/estimatedCost/),
+    });
+  });
+
+  it("rejects a withdrawn finding whose statement changed", async () => {
+    const bytes = corrupted((json) => {
+      revisionOf(json, "finding").statement = "Something else.";
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 3,
+      detail: expect.stringMatching(/statement/),
+    });
+  });
+
+  it("rejects a revision that adds a field its type doesn't change", async () => {
+    const bytes = corrupted((json) => {
+      revisionOf(json, "finding").uncertainty = "Added later.";
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 3,
+      detail: expect.stringMatching(/uncertainty/),
+    });
+  });
+
+  it("rejects a revision that drops a field its type doesn't change", async () => {
+    const bytes = corrupted((json) => {
+      const withdrawn = revisionOf(json, "finding");
+      const first = json.records.find(
+        (r: Json) => r.findingId === withdrawn.findingId && r.revision === 1,
+      );
+      first.uncertainty = "Only one guide says so.";
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 3,
+      detail: expect.stringMatching(/uncertainty/),
+    });
+  });
+
+  it("rejects a resolved conflict whose description changed", async () => {
+    const bytes = corrupted((json) => {
+      revisionOf(json, "conflict").description = "Rewritten.";
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 3,
+      detail: expect.stringMatching(/description/),
+    });
+  });
+
+  it("rejects an answered question whose prompt changed", async () => {
+    const bytes = corrupted((json) => {
+      revisionOf(json, "question").prompt = "Rewritten?";
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 3,
+      detail: expect.stringMatching(/prompt/),
+    });
+  });
+
+  it("rejects a closed effort interval whose stage changed", async () => {
+    const bytes = corrupted((json) => {
+      revisionOf(json, "effort_interval").stage = "review";
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 3,
+      detail: expect.stringMatching(/stage/),
+    });
+  });
+
+  it("rejects a generation_config revision that changes more than the budget", async () => {
+    const bytes = corrupted((json) => {
+      revisionOf(json, "generation_config").questionBudget = 9;
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 3,
+      detail: expect.stringMatching(/questionBudget/),
+    });
+  });
+
+  it("accepts a session_state revision that changes productVersion, which its type allows", async () => {
+    const bytes = corrupted((json) => {
+      json.records.filter((r: Json) => r.type === "session_state").at(-1).productVersion = "0.2.0";
+    });
+    expect((await loadSession(bytes, memoryContent())).ok).toBe(true);
+  });
+
+  it("compares by value, not by key order", async () => {
+    const bytes = corrupted((json) => {
+      const ended = revisionOf(json, "model_call");
+      const { budget } = ended;
+      ended.budget = Object.fromEntries(Object.entries(budget).reverse());
+    });
+    expect((await loadSession(bytes, memoryContent())).ok).toBe(true);
+  });
+});
+
+describe("check 4: retryOf (IMPL §4.6, §4.9)", () => {
+  const retries = (json: Json): Json[] => json.records.filter((r: Json) => r.retryOf !== undefined);
+
+  it("rejects a retry of a call with another purpose", async () => {
+    const bytes = corrupted((json) => {
+      for (const r of retries(json)) r.retryOf = "call_0003";
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 4,
+      detail: expect.stringMatching(/retryOf.*purpose/),
+    });
+  });
+
+  it("rejects a retry whose attempt isn't one more than the call it retries", async () => {
+    const bytes = corrupted((json) => {
+      for (const r of retries(json)) r.attempt = 3;
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 4,
+      detail: expect.stringMatching(/retryOf.*attempt/),
+    });
+  });
+});
+
+describe("check 5: one current effort correction (IMPL §4.6, §4.9)", () => {
+  it("rejects a second correction that doesn't supersede the current one", async () => {
+    const bytes = corrupted((json) => {
+      delete json.records.filter((r: Json) => r.type === "effort_correction").at(-1).supersedes;
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 5,
+      detail: expect.stringMatching(/effort_correction/),
+    });
+  });
+
+  it("rejects a third correction that supersedes the first, already superseded, one", async () => {
+    const log = validLog();
+    const [first] = log.records.filter((r) => r.type === "effort_correction");
+    const file = fileOf(log);
+    const third = {
+      type: "effort_correction",
+      id: "effc_0099",
+      seq: file.records.length + 1,
+      createdAt: "2026-11-01T11:00:00.000Z",
+      totalMs: 3,
+      reason: "Again.",
+      supersedes: [first?.id],
+    };
+    const bytes = encode(serialiseSession({ ...file, records: [...file.records, third] } as never));
+    expect(await failure(bytes)).toMatchObject({
+      check: 5,
+      recordId: "effc_0099",
+      detail: expect.stringMatching(/current one/),
+    });
+  });
+
+  it("accepts one correction that supersedes nothing", async () => {
+    const bytes = corrupted((json) => {
+      const corrections = json.records.filter((r: Json) => r.type === "effort_correction");
+      json.records = json.records.filter((r: Json) => r !== corrections[1]);
+      renumber(json);
+    });
+    expect((await loadSession(bytes, memoryContent())).ok).toBe(true);
   });
 });

@@ -64,6 +64,64 @@ export const CURRENT_STATUSES: Partial<Record<RecordTypeName, ReadonlySet<string
   recommendation_revision: new Set(["valid"]),
 };
 
+/** The types whose records form revisions: a lineage, or the session's own (§4.4.1). */
+export type RevisableType =
+  | "session_state"
+  | "generation_config"
+  | "finding"
+  | "conflict"
+  | "question"
+  | "recommendation_revision"
+  | "apply_attempt"
+  | "model_call"
+  | "effort_interval";
+
+/**
+ * The fields a revision may change (IMPL §4.9 check 3). Every other field repeats the revision
+ * it supersedes exactly, besides the envelope, `revision`, `supersedes` and `revisedBy`, which
+ * names who appended that revision and is never repeated. A field may appear or disappear only
+ * if it is listed.
+ */
+export const REVISION_FIELDS: Readonly<Record<RevisableType, readonly string[]>> = {
+  session_state: ["productVersion", "stage", "status", "outcome", "reason", "unsentPurpose"],
+  // Raising or confirming the budget (§2.12, §4.6).
+  generation_config: ["budget", "reason"],
+  finding: ["status", "withdrawnReason"],
+  conflict: ["findingIds", "status", "withdrawnReason", "resolvingDecisionId"],
+  question: ["status", "unreachedReason"],
+  // Only the failed form exists until M5, and it supersedes nothing; M5 lists these.
+  recommendation_revision: [],
+  apply_attempt: [],
+  // What the end adds to the `started` revision (§4.6).
+  model_call: [
+    "state",
+    "returnedModel",
+    "retainedResponseRef",
+    "usage",
+    "cost",
+    "validationEvents",
+    "counts",
+    "correctedCitationRate",
+    "citationsProposed",
+    "questionOrder",
+    "error",
+    "endedAt",
+    "durationMs",
+  ],
+  effort_interval: ["state", "leftAt"],
+};
+
+/** Never compared between revisions: the envelope, and what says how one follows another. */
+export const REVISION_BOOKKEEPING: ReadonlySet<string> = new Set([
+  "type",
+  "id",
+  "seq",
+  "createdAt",
+  "revision",
+  "supersedes",
+  "revisedBy",
+]);
+
 // --- Building blocks -------------------------------------------------------------------------
 
 const HASH = /^sha256:[0-9a-f]{64}$/;
@@ -214,8 +272,8 @@ export const generationConfigRecord = z
   .strictObject({
     ...envelope("generation_config"),
     ...revisioned,
-    /** Why a revision after the first was appended, such as raising the budget (§2.12). */
-    reason: nonEmpty.optional(),
+    /** Why a revision after the first was appended: raising or confirming the budget (§4.6). */
+    reason: z.enum(["budget_raised", "budget_confirmed"]).optional(),
     settings: selectionSettings,
     settingsHash: hash,
     requestedModel: nonEmpty,

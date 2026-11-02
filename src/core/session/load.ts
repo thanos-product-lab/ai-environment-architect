@@ -1,16 +1,22 @@
 import { sha256 } from "../hash.js";
+import { comparePaths } from "../paths.js";
 import { isFailed, LINEAGE_FIELDS, lineageOf, SELF_SUPERSEDING } from "./log.js";
 import {
   CURRENT_STATUSES,
   RECORD_KINDS,
+  REVISION_BOOKKEEPING,
+  REVISION_FIELDS,
   type RecordKind,
+  type RecordOf,
   type RecordTypeName,
+  type RevisableType,
   SESSION_FORMAT,
   SESSION_SCHEMA_VERSION,
   type SessionFile,
   type SessionRecord,
   sessionFile,
 } from "./records.js";
+import { pretty } from "./serialise.js";
 
 // Load checks and schema versions (IMPL §4.9). The checks run in order; the first failure
 // rejects the session, naming the check and the record. Load only reads: it never repairs and
@@ -206,9 +212,25 @@ function checkEnvelope(records: readonly SessionRecord[]): void {
       const wanted = base === undefined ? [] : [base.id];
       if (supersedesOf(record).join() !== wanted.join())
         reject(3, `revision ${expected} must supersede ${wanted.join() || "nothing"}`, record);
+      if (base !== undefined) checkRepeats(base, record);
     }
     earlier.push(record);
     lineages.set(key, earlier);
+  }
+}
+
+/** A revision repeats every field of `base` that its type doesn't change (§4.4.1). */
+function checkRepeats(base: SessionRecord, revision: SessionRecord): void {
+  const changeable = new Set(REVISION_FIELDS[revision.type as RevisableType]);
+  const before = base as Record<string, unknown>;
+  const after = revision as Record<string, unknown>;
+  const fields = [...new Set([...Object.keys(before), ...Object.keys(after)])].sort(comparePaths);
+  for (const field of fields) {
+    if (REVISION_BOOKKEEPING.has(field) || changeable.has(field)) continue;
+    // Canonical JSON, so key order doesn't matter.
+    const a = before[field] === undefined ? undefined : pretty(before[field], "");
+    const b = after[field] === undefined ? undefined : pretty(after[field], "");
+    if (a !== b) reject(3, `a ${revision.type} revision can't change ${field}`, revision);
   }
 }
 
@@ -342,6 +364,14 @@ function checkReferences(records: readonly SessionRecord[]): void {
         if (first.seq >= r.seq) reject(4, `${reference.field} names ${id}, which starts later`, r);
         if (!isFailed(r) && revisions.every((rev) => rev.seq >= r.seq || isFailed(rev)))
           reject(4, `${reference.field} names ${id}, which only failed validation`, r);
+        if (reference.field === "retryOf" && r.type === "model_call") {
+          // Check 3 has made every revision of a call repeat its purpose and attempt.
+          const retried = first as RecordOf<"model_call">;
+          if (retried.purpose !== r.purpose)
+            reject(4, `retryOf names ${id}, a call with another purpose`, r);
+          if (retried.attempt !== r.attempt - 1)
+            reject(4, `retryOf names ${id}, attempt ${retried.attempt}, not ${r.attempt - 1}`, r);
+        }
       }
     }
 }
@@ -351,6 +381,14 @@ function checkReferences(records: readonly SessionRecord[]): void {
 function checkSuperseding(records: readonly SessionRecord[]): void {
   const byId = new Map(records.map((r) => [r.id, r]));
   const superseded = new Set<string>();
+  /** At most one effort correction is current: each later one supersedes it (§4.6). */
+  let currentCorrection: string | undefined;
+  for (const r of records) {
+    if (r.type !== "effort_correction") continue;
+    if (currentCorrection !== undefined && !supersedesOf(r).includes(currentCorrection))
+      reject(5, `an effort_correction must supersede the current one, ${currentCorrection}`, r);
+    currentCorrection = r.id;
+  }
   for (const r of records)
     for (const id of supersedesOf(r)) {
       // Check 4 has made sure the target exists, is earlier and didn't fail validation.

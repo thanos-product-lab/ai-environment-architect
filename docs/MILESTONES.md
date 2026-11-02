@@ -114,7 +114,7 @@ The export (IMPL §4.10) is specified here and built in M8.
 - [ ] `recommend` item validation: evidence rules, `fact` and `policy`, directive-language guard, references, held back. `/implement-spec IMPL 3.3.5`
 - [ ] Selections and mutual exclusion (DM §9.1–§9.2).
 - [ ] Deterministic assembly with attribution. `/implement-spec DM 9.3`
-- [ ] Artifact revisions and reviews; approval validity (DM §9.4, §10). Extend the load checks (IMPL §4.9) to recommendation, selection, artifact, review and apply references, artifact content (check 7) and the apply-approval check (check 8), and test the branches of checks 3–5 that these records make reachable.
+- [ ] Artifact revisions and reviews; approval validity (DM §9.4, §10). Extend the load checks (IMPL §4.9) to recommendation, selection, artifact, review and apply references, artifact content (check 7) and the apply-approval check (check 8), and test the branches of checks 3–5 that these records make reachable, and list the fields a recommendation and apply-attempt revision may change (IMPL §4.4.1, check 3).
 - [ ] Tiered freshness. `/implement-spec DM 11.1`
 - [ ] Apply and recovery. `/implement-spec DM 11.2`
 - [ ] Change propagation and `regenerate_recommendations` validation (DM §12, IMPL §3.3.6).

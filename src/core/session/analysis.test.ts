@@ -1077,7 +1077,7 @@ describe("acting on the revisions a call was sent, before anything is appended (
     const { log, recording, run, call1 } = expansionCall();
     const validation = run({ findings: [apiFinding("f1")], revisions: [replace("F-3", "f1")] });
     log.revise("conflict", call1.conflicts.get("c2") as string, {
-      description: "Edited elsewhere.",
+      status: "unresolved",
       revisedBy: "call_0009",
     });
     const from = log.records.length;

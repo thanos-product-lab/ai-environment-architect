@@ -2,8 +2,12 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 1 November 2026  
-**Version:** 0.37  
+**Version:** 0.38  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.37
+
+- **Load checks (§4.4.1, §4.9).** Each revisable type lists the fields a revision may change, and check 3 rejects a revision that changes, adds or drops any other field; a `generation_config` revision changes only the budget, with the reason `budget_raised` or `budget_confirmed`. Check 4 covers a model call's `inputManifest.snapshotId`, and requires `retryOf` to name a call with the same purpose and the previous attempt. Check 5 allows at most one current effort correction: each later one supersedes it.
 
 ### Changes from v0.36
 
@@ -2010,6 +2014,19 @@ The example leaves out most record fields.
 
 **Revising.** A change to a lineage appends its next revision. That revision repeats every field of the one before, changes what changed, and lists the one before in `supersedes`, by record ID. The one exception is a recommendation revision that fails validation, which supersedes nothing (below). A **replacement** starts a new lineage, with revision 1, whose `supersedes` also lists the current revision of every lineage it replaces; one replacement may stand for several (§3.3.3).
 
+**What a revision may change.** Each revisable type lists the fields a revision may change; every other field repeats the revision it supersedes exactly, and may neither appear nor disappear. The envelope, `revision`, `supersedes` and `revisedBy` aren't compared.
+
+| Type | Fields a revision may change |
+|---|---|
+| `session_state` | `productVersion`, `stage`, `status`, `outcome`, `reason`, `unsentPurpose` |
+| `generation_config` | `budget`, `reason` (raising or confirming the budget, §4.6) |
+| `finding` | `status`, `withdrawnReason` |
+| `conflict` | `findingIds`, `status`, `withdrawnReason`, `resolvingDecisionId` |
+| `question` | `status`, `unreachedReason` |
+| `model_call` | the fields the end adds (§4.6): `state`, `returnedModel`, `retainedResponseRef`, `usage`, `cost`, `validationEvents`, `counts`, `correctedCitationRate`, `citationsProposed`, `questionOrder`, `error`, `endedAt`, `durationMs` |
+| `effort_interval` | `state`, `leftAt` |
+| `recommendation_revision`, `apply_attempt` | listed with their records in M5 |
+
 **Who revised it.** `producedBy` names what created the lineage, and every revision repeats it. A revision appended by a model call, such as an `analyse_expansion` withdrawal or a conflict whose members changed, also records that call's lineage ID in `revisedBy`. A revision the developer causes names its decision instead, as `resolvingDecisionId` does. `revisedBy` is never repeated from the revision before, and never set on a first revision. Only findings and conflicts have it, because they are the only records a model call revises (§4.5). Decisions and selections record the developer as `actor` (DM §8.2, §9.2); a question changes by the developer's answer or skip, or is marked unreached by code, never by a model call.
 
 **Current.** A revision is current when no other record supersedes it and its status is a current one (the table's last column). So a lineage has at most one current revision, and a withdrawn or replaced one has none. Immutable records and records with status `failed_validation` (§4.4.3) supersede nothing and are never superseded.
@@ -2194,7 +2211,7 @@ type ModelCallEnded = Omit<ModelCallStarted, "revision" | "state"> & {
 - **Interrupted.** A call still `started` when its session is resumed was interrupted. The process that holds the lock (§4.7) appends an `interrupted` revision, with `endedAt`, `durationMs`, `usage` and `cost` unknown for the reason `interrupted`. It may have been billed, so it is never counted as zero. Read-only commands, which take no lock, show such a call as in progress if the session is locked by a live process, and as interrupted otherwise, without writing anything.
 - **Budget with unknown costs.** For the §3.6 check, the spend so far is the sum of known costs plus, for each call whose cost is unknown, its `estimatedCost`. That estimate is used for the budget only, and is never reported as the call's cost. If an estimate is unknown too, the check can't be made, and the next call is not sent until the developer raises or confirms the budget (§2.12).
 - **Tokens.** The tokens spent so far are the sum of every call's four usage counts. A call with any usage unknown makes the token check impossible, as an unknown estimate does for cost: there is no token estimate to stand in for it. The check before sending compares the spend plus the call's own estimate, of cost and of tokens, with each ceiling that is set; an unset ceiling is never checked.
-- **Raising or confirming.** Either appends a `generation_config` revision: raising with the new limits and the reason `budget_raised`, confirming with the same limits and the reason `budget_confirmed`. Only a revision with one of these two reasons settles anything; one that changes another setting doesn't. It settles every unknown before it: the unknown parts of calls started before it count as their known parts only (`knownPartsSum`), and the next call may be sent with an unknown estimate. A call started after it, with unknown parts, makes the check impossible again.
+- **Raising or confirming.** Either appends a `generation_config` revision: raising with the new limits and the reason `budget_raised`, confirming with the same limits and the reason `budget_confirmed`. These are the only reasons a `generation_config` revision may give, and it changes nothing but the budget (§4.4.1). It settles every unknown before it: the unknown parts of calls started before it count as their known parts only (`knownPartsSum`), and the next call may be sent with an unknown estimate. A call started after it, with unknown parts, makes the check impossible again.
 - `costBasis: "unknown"` in DM §13.1 is `cost.state: "unknown"` here.
 
 **Effort intervals.** An `open` revision is written when a prompt that waits for the developer is shown, and a `closed` revision with `leftAt` when it is answered (§2.13). An interval still `open` when its session is resumed was interrupted: the process holding the lock closes it with `leftAt` unknown, reason `interrupted`. Read-only commands treat it as they treat calls (above).
@@ -2246,9 +2263,9 @@ This implements §1.12, which covers responses as well as requests.
 
 1. The file is UTF-8 JSON, and its `format` and `schemaVersion` are this reader's (above). A truncated file fails here.
 2. The Zod schema for the whole file. Unknown fields are rejected, as in §3.3.
-3. Envelope: record IDs unique; lineage IDs never used as record IDs; `seq` is 1, 2, 3… in file order; each lineage's revisions are numbered 1, 2, 3… in `seq` order; each revision after the first supersedes the latest earlier revision of its lineage that isn't `failed_validation`, and a `failed_validation` revision supersedes nothing.
-4. References (§4.4.1): every record ID a record names belongs to a record of the right type with a lower `seq`; every lineage ID it names belongs to a lineage of the right type whose first revision has a lower `seq`. This covers every field in the references table. A record that isn't `failed_validation` never refers to one that is.
-5. Superseding: a record supersedes only records of its own type, each at most once; failed and immutable records are never superseded, except decisions and effort corrections by their own type; a revision whose status isn't current (§4.4.1), such as a withdrawn finding, is never superseded.
+3. Envelope: record IDs unique; lineage IDs never used as record IDs; `seq` is 1, 2, 3… in file order; each lineage's revisions are numbered 1, 2, 3… in `seq` order; each revision after the first supersedes the latest earlier revision of its lineage that isn't `failed_validation`, and a `failed_validation` revision supersedes nothing; a revision changes only the fields its type may change (§4.4.1), compared as canonical JSON, and repeats the rest of the revision it supersedes.
+4. References (§4.4.1): every record ID a record names belongs to a record of the right type with a lower `seq`; every lineage ID it names belongs to a lineage of the right type whose first revision has a lower `seq`. This covers every field in the references table, and a model call's `inputManifest.snapshotId`. A record that isn't `failed_validation` never refers to one that is. A model call's `retryOf` names a call with the same purpose whose `attempt` is one less.
+5. Superseding: a record supersedes only records of its own type, each at most once; failed and immutable records are never superseded, except decisions and effort corrections by their own type; every effort correction after the first supersedes the current one, so at most one is current; a revision whose status isn't current (§4.4.1), such as a withdrawn finding, is never superseded.
 6. Evidence: every accepted finding that isn't a gap has evidence; an `absence` finding's is one `absence_check`, and a `claim`'s are `lines` or `entry`. The schema (check 2) already enforces the count, so a finding without evidence fails there; this check covers the kinds.
 7. Content: every `contentRef` exists and its bytes hash to its name; the destination's `hash` and its Guidance Block hashes match its bytes; each artifact revision's `proposedHash` matches its content. Every `retainedInputRef` and `retainedResponseRef` exists and matches, unless an `inputs_purged` record comes after the call.
 8. State: at most one `session_state` has an outcome, and it is the last one; every `apply_attempt` names an `approved` review of its artifact revision whose `contentHash` equals the revision's `proposedHash`.

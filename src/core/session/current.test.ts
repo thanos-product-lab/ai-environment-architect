@@ -164,9 +164,8 @@ describe("current revisions (IMPL §4.4.1)", () => {
     const log = newLog();
     const snap = snapshot(log);
     const f = claim(log, snap.id);
-    const revised = log.revise("finding", f.findingId, {
-      statement: "The guide asks for X, always.",
-    });
+    // A revision that changes nothing still becomes the latest.
+    const revised = log.revise("finding", f.findingId, { revisedBy: "call_0002" });
     const state = currentState(log.records);
     expect(state.findings.size).toBe(1);
     expect(state.findings.get(f.findingId)?.id).toBe(revised.id);
@@ -175,11 +174,11 @@ describe("current revisions (IMPL §4.4.1)", () => {
   it("a revised conflict's current revision is the latest one", () => {
     const log = newLog();
     const snap = snapshot(log);
-    const c = conflict(log, snap.id, [
-      claim(log, snap.id).findingId,
-      claim(log, snap.id).findingId,
-    ]);
-    const revised = log.revise("conflict", c.conflictId, { description: "Sharper." });
+    const [a, b, d] = [claim(log, snap.id), claim(log, snap.id), claim(log, snap.id)];
+    const c = conflict(log, snap.id, [a.findingId, b.findingId]);
+    const revised = log.revise("conflict", c.conflictId, {
+      findingIds: [a.findingId, d.findingId],
+    });
     expect(currentState(log.records).conflicts.get(c.conflictId)?.id).toBe(revised.id);
   });
 

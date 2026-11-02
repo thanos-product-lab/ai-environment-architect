@@ -438,17 +438,14 @@ describe("the budget: review fixes (IMPL §4.6)", () => {
     expect(check).toMatchObject({ result: "budget_reached", exceeded: ["tokens"] });
   });
 
-  it("a generation_config revision that neither raises nor confirms the budget settles nothing", () => {
+  it("a generation_config revision is a raise or a confirmation, never another reason", () => {
     const log = withConfig({ maxCostUsd: 10 });
-    log.start(callDraft({ estimatedCost: unknown("no_price") }));
-    recoverInterruptedWork(log);
-    log.revise("generation_config", "generation_config", {
-      reason: "question_budget_changed",
-      questionBudget: 3,
-    });
-    expect(checkBudget(log.records, { cost: known(0.1), tokens: known(1) }).result).toBe(
-      "cannot_check",
-    );
+    expect(() =>
+      log.revise("generation_config", "generation_config", {
+        reason: "budget_lowered",
+        budget: { maxCostUsd: 5 },
+      } as never),
+    ).toThrow(/invalid generation_config record/);
   });
 });
 
