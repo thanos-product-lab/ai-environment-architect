@@ -344,6 +344,16 @@ function checkReferences(records: readonly SessionRecord[]): void {
     lineages.set(key, [...(lineages.get(key) ?? []), r]);
   }
 
+  // A model call is sent under the session's settings, so the first generation_config comes
+  // before every call.
+  const firstConfig = records.find((r) => r.type === "generation_config")?.seq;
+  for (const r of records)
+    if (r.type === "model_call") {
+      if (firstConfig === undefined) reject(4, "the session has no generation_config", r);
+      if (firstConfig > r.seq)
+        reject(4, "the call comes before the session's first generation_config", r);
+    }
+
   for (const r of records)
     for (const { reference, id } of referencesOf(r)) {
       if (reference.names === "record") {
@@ -465,6 +475,7 @@ async function checkRetainedExchanges(records: readonly SessionRecord[], content
   const purges = records.filter((r) => r.type === "inputs_purged").map((r) => r.seq);
   const purgedAfter = (seq: number) => purges.some((purge) => purge > seq);
   const callStart = new Map<string, number>();
+  // Check 4 put the first generation_config before every call, so this is set at any call.
   let retain: boolean | undefined;
   const verified = new Set<string>();
 
@@ -482,18 +493,17 @@ async function checkRetainedExchanges(records: readonly SessionRecord[], content
   }
 
   for (const r of records) {
-    // A call before any generation_config has no setting to check against. The session start
-    // writes the config before any call; no load check requires that order yet.
     if (r.type === "generation_config") retain = r.retainModelInputs;
     if (r.type !== "model_call") continue;
+    if (retain === undefined) throw new Error("check 4 puts a generation_config before every call");
     if (!callStart.has(r.modelCallId)) callStart.set(r.modelCallId, r.seq);
     const inputRef = r.retainedInputRef;
     const responseRef = r.state === "started" ? null : r.retainedResponseRef;
     if (inputRef !== r.inputManifest.retainedInputRef)
       reject(7, "the call's retainedInputRef differs from its input manifest's", r);
-    if (retain === false && (inputRef !== null || responseRef !== null))
+    if (!retain && (inputRef !== null || responseRef !== null))
       reject(7, "retainModelInputs is off, so the call retains nothing", r);
-    if (retain === true && inputRef === null)
+    if (retain && inputRef === null)
       reject(7, "retainModelInputs is on, so the call's request is retained", r);
     if (inputRef !== null) await verify(inputRef, callStart.get(r.modelCallId) ?? r.seq, r);
     if (responseRef !== null) await verify(responseRef, firstWith(records, r, responseRef), r);

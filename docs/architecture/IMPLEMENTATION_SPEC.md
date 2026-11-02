@@ -2,8 +2,12 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 1 November 2026  
-**Version:** 0.39  
+**Version:** 0.40  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.39
+
+- **Load check 4 (§4.9).** Every model call comes after the session's first `generation_config`.
 
 ### Changes from v0.38
 
@@ -2268,7 +2272,7 @@ This implements §1.12, which covers responses as well as requests.
 1. The file is UTF-8 JSON, and its `format` and `schemaVersion` are this reader's (above). A truncated file fails here.
 2. The Zod schema for the whole file. Unknown fields are rejected, as in §3.3.
 3. Envelope: record IDs unique; lineage IDs never used as record IDs; `seq` is 1, 2, 3… in file order; each lineage's revisions are numbered 1, 2, 3… in `seq` order; each revision after the first supersedes the latest earlier revision of its lineage that isn't `failed_validation`, and a `failed_validation` revision supersedes nothing; a revision changes only the fields its type may change (§4.4.1), compared as canonical JSON, and repeats the rest of the revision it supersedes.
-4. References (§4.4.1): every record ID a record names belongs to a record of the right type with a lower `seq`; every lineage ID it names belongs to a lineage of the right type whose first revision has a lower `seq`. This covers every field in the references table, and a model call's `inputManifest.snapshotId`. A record that isn't `failed_validation` never refers to one that is. A model call's `retryOf` names a call with the same purpose whose `attempt` is one less.
+4. References (§4.4.1): every record ID a record names belongs to a record of the right type with a lower `seq`; every lineage ID it names belongs to a lineage of the right type whose first revision has a lower `seq`. This covers every field in the references table, and a model call's `inputManifest.snapshotId`. A record that isn't `failed_validation` never refers to one that is. A model call's `retryOf` names a call with the same purpose whose `attempt` is one less. Every model call comes after the session's first `generation_config`, so it was sent under recorded settings.
 5. Superseding: a record supersedes only records of its own type, each at most once; failed and immutable records are never superseded, except decisions and effort corrections by their own type; every effort correction after the first supersedes the current one, so at most one is current; a revision whose status isn't current (§4.4.1), such as a withdrawn finding, is never superseded.
 6. Evidence: every accepted finding that isn't a gap has evidence; an `absence` finding's is one `absence_check`, and a `claim`'s are `lines` or `entry`. The schema (check 2) already enforces the count, so a finding without evidence fails there; this check covers the kinds.
 7. Content: every `contentRef` exists and its bytes hash to its name; the destination's `hash` and its Guidance Block hashes match its bytes; each artifact revision's `proposedHash` matches its content. A call's `retainedInputRef` equals its input manifest's; with `retainModelInputs` off both references are `null`, and with it on `retainedInputRef` isn't. Every `retainedInputRef` and `retainedResponseRef` exists and matches, unless an `inputs_purged` record comes after the call: after its first revision for the request, after the revision that added it for the response. A file that is still there is checked either way.

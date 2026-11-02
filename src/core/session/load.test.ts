@@ -726,6 +726,37 @@ describe("check 4: model-call references (IMPL §4.6, §4.9)", () => {
     for (const record of retries(json)) edit(record);
   };
 
+  it("rejects a model call before the session's first generation_config", async () => {
+    const bytes = corrupted((json) => {
+      // Move both generation_config revisions to the end, after every call.
+      const configs = json.records.filter((r: Json) => r.type === "generation_config");
+      json.records = [
+        ...json.records.filter((r: Json) => r.type !== "generation_config"),
+        ...configs,
+      ];
+      renumber(json);
+    });
+    const firstCall = JSON.parse(serialiseSession(fileOf(validLog()))).records.find(
+      (r: Json) => r.type === "model_call",
+    );
+    expect(await failure(bytes)).toMatchObject({
+      check: 4,
+      recordId: firstCall.id,
+      detail: expect.stringMatching(/comes before the session's first generation_config/),
+    });
+  });
+
+  it("rejects a model call in a session with no generation_config", async () => {
+    const bytes = corrupted((json) => {
+      json.records = json.records.filter((r: Json) => r.type !== "generation_config");
+      renumber(json);
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 4,
+      detail: expect.stringMatching(/no generation_config/),
+    });
+  });
+
   it("rejects producedBy naming a model call that isn't in the session", async () => {
     const bytes = corrupted((json) => {
       json.records.find((r: Json) => r.type === "finding").producedBy = "call_9999";
