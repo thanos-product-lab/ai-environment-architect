@@ -22,8 +22,8 @@ import { pretty } from "./serialise.js";
 // rejects the session, naming the check and the record. Load only reads: it never repairs and
 // never writes, so a rejected file is left untouched.
 //
-// Checks 4, 7 and 8 cover the record types the file schema accepts so far. Retained exchanges,
-// artifact content and the apply-approval check arrive with their record types (IMPL §4.8, M5).
+// Checks 4, 7 and 8 cover the record types the file schema accepts so far. Artifact content and
+// the apply-approval check arrive with their record types (M5).
 //
 // Some branches can't be reached yet, because ID prefixes and the schema stop the input first:
 // a lineage ID used as a record ID, a record reference of the wrong type, a lineage whose
@@ -430,6 +430,11 @@ function checkEvidence(records: readonly SessionRecord[]): void {
 // --- Check 7: content -------------------------------------------------------------------------
 
 async function checkContent(records: readonly SessionRecord[], content: ContentReader) {
+  await checkDestinations(records, content);
+  await checkRetainedExchanges(records, content);
+}
+
+async function checkDestinations(records: readonly SessionRecord[], content: ContentReader) {
   for (const r of records) {
     if (r.type !== "snapshot" || r.destination.state !== "present") continue;
     const { contentRef, hash, blocks } = r.destination;
@@ -446,6 +451,43 @@ async function checkContent(records: readonly SessionRecord[], content: ContentR
       if (sha256(bytes.subarray(start, end)) !== block.hash)
         reject(7, `block ${block.blockId}'s hash doesn't match its bytes`, r);
     }
+  }
+}
+
+/**
+ * Retained exchanges (§4.8). A call's request reference equals its manifest's; with
+ * `retainModelInputs` off both references are null, and with it on the request reference is set.
+ * Every reference names a file whose bytes hash to its name.
+ */
+async function checkRetainedExchanges(records: readonly SessionRecord[], content: ContentReader) {
+  let retain: boolean | undefined;
+  const verified = new Set<string>();
+
+  async function verify(ref: string, r: SessionRecord): Promise<void> {
+    if (verified.has(ref)) return;
+    const bytes = await content.read(ref);
+    if (bytes === undefined) reject(7, `${ref} is missing`, r);
+    const hex = sha256(bytes).slice("sha256:".length);
+    if (ref !== `${ref.slice(0, ref.indexOf("/"))}/sha256-${hex}.json`)
+      reject(7, `${ref} doesn't hash to its name`, r);
+    verified.add(ref);
+  }
+
+  for (const r of records) {
+    // A call before any generation_config has no setting to check against. The session start
+    // writes the config before any call; no load check requires that order yet.
+    if (r.type === "generation_config") retain = r.retainModelInputs;
+    if (r.type !== "model_call") continue;
+    const inputRef = r.retainedInputRef;
+    const responseRef = r.state === "started" ? null : r.retainedResponseRef;
+    if (inputRef !== r.inputManifest.retainedInputRef)
+      reject(7, "the call's retainedInputRef differs from its input manifest's", r);
+    if (retain === false && (inputRef !== null || responseRef !== null))
+      reject(7, "retainModelInputs is off, so the call retains nothing", r);
+    if (retain === true && inputRef === null)
+      reject(7, "retainModelInputs is on, so the call's request is retained", r);
+    if (inputRef !== null) await verify(inputRef, r);
+    if (responseRef !== null) await verify(responseRef, r);
   }
 }
 

@@ -27,6 +27,12 @@ export interface SessionWriter extends SessionReader {
   replaceSessionFile(bytes: Uint8Array): Promise<void>;
 }
 
+/** A retained request or response body and its content-addressed name (IMPL §4.8). */
+export interface RetainedFile {
+  readonly ref: string;
+  readonly bytes: Uint8Array;
+}
+
 /** `content/sha256-<hex>`: the name is the SHA-256 of the exact bytes (IMPL §4.2). */
 export function contentRefOf(bytes: Uint8Array): `content/sha256-${string}` {
   return `content/sha256-${sha256(bytes).slice("sha256:".length)}`;
@@ -34,11 +40,15 @@ export function contentRefOf(bytes: Uint8Array): `content/sha256-${string}` {
 
 export class SaveRefused extends Error {}
 
-/** Writes `contents` (the bytes behind any new `contentRef`), then the session file. */
+/**
+ * Writes `contents` (the bytes behind any new `contentRef`) and `retained` (the request and
+ * response bodies behind any new retained reference), then the session file.
+ */
 export async function saveSession(
   session: SessionWriter,
   file: SessionFile,
   contents: readonly Uint8Array[],
+  retained: readonly RetainedFile[] = [],
 ): Promise<void> {
   if (file.session.id !== session.sessionId)
     throw new SaveRefused(
@@ -47,6 +57,11 @@ export async function saveSession(
   const written = new Set<string>();
   for (const bytes of contents) {
     const ref = contentRefOf(bytes);
+    if (written.has(ref)) continue;
+    written.add(ref);
+    await session.writeContent(ref, bytes);
+  }
+  for (const { ref, bytes } of retained) {
     if (written.has(ref)) continue;
     written.add(ref);
     await session.writeContent(ref, bytes);

@@ -15,7 +15,10 @@ const DESTINATION = new TextEncoder().encode("# Guide\n\nUse pnpm.\n\n- Run the 
 const DESTINATION_HASH = sha256(DESTINATION);
 const DESTINATION_REF = `content/${DESTINATION_HASH.replace(":", "-")}`;
 
-/** A session with every record type the schema accepts so far, in valid shape. */
+/**
+ * A session with every record type the schema accepts so far, in valid shape, except
+ * retained exchanges, which retained.test.ts covers.
+ */
 function validLog(): SessionLog {
   const log = newLog();
   log.start({
@@ -73,7 +76,8 @@ function validLog(): SessionLog {
     budget: { maxCostUsd: 2 },
     expansion: { maxExpansionRequests: 0, expansionBytes: 0, expansionEntryBytes: 0 },
     questionBudget: 5,
-    retainModelInputs: true,
+    // Off, so the calls below retain nothing; retained exchanges are in retained.test.ts.
+    retainModelInputs: false,
   });
   log.revise("generation_config", "generation_config", {
     budget: { maxCostUsd: 4 },

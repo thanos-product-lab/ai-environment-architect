@@ -2,8 +2,12 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 1 November 2026  
-**Version:** 0.38  
+**Version:** 0.39  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.38
+
+- **Retained model exchanges (§4.8, §4.9).** Check 7 also requires a call's `retainedInputRef` to equal its input manifest's, both references to be `null` with `retainModelInputs` off, and the request reference to be set with it on.
 
 ### Changes from v0.37
 
@@ -2250,7 +2254,7 @@ This implements §1.12, which covers responses as well as requests.
 - Retained responses are for replay only. Nothing reads them to build records, the export or the review: items that failed validation have their own records (§4.4.3).
 - Retained exchanges are never in an export unless `--include-inputs` is given.
 - `purge-inputs` deletes `inputs/` and `responses/` and appends an `inputs_purged` record. Load then allows those references to point at missing files. `delete` removes the whole session directory.
-- With retention off, both references are `null`, and replay needs the original files at their recorded hashes (§1.12).
+- With retention off, both references are `null`, and replay needs the original files at their recorded hashes (§1.12). With it on, the request reference is always set; the response reference is `null` when there is no response body, as after a transport failure or an interruption.
 
 ### 4.9 Schema versions and load validation
 
@@ -2267,7 +2271,7 @@ This implements §1.12, which covers responses as well as requests.
 4. References (§4.4.1): every record ID a record names belongs to a record of the right type with a lower `seq`; every lineage ID it names belongs to a lineage of the right type whose first revision has a lower `seq`. This covers every field in the references table, and a model call's `inputManifest.snapshotId`. A record that isn't `failed_validation` never refers to one that is. A model call's `retryOf` names a call with the same purpose whose `attempt` is one less.
 5. Superseding: a record supersedes only records of its own type, each at most once; failed and immutable records are never superseded, except decisions and effort corrections by their own type; every effort correction after the first supersedes the current one, so at most one is current; a revision whose status isn't current (§4.4.1), such as a withdrawn finding, is never superseded.
 6. Evidence: every accepted finding that isn't a gap has evidence; an `absence` finding's is one `absence_check`, and a `claim`'s are `lines` or `entry`. The schema (check 2) already enforces the count, so a finding without evidence fails there; this check covers the kinds.
-7. Content: every `contentRef` exists and its bytes hash to its name; the destination's `hash` and its Guidance Block hashes match its bytes; each artifact revision's `proposedHash` matches its content. Every `retainedInputRef` and `retainedResponseRef` exists and matches, unless an `inputs_purged` record comes after the call.
+7. Content: every `contentRef` exists and its bytes hash to its name; the destination's `hash` and its Guidance Block hashes match its bytes; each artifact revision's `proposedHash` matches its content. A call's `retainedInputRef` equals its input manifest's; with `retainModelInputs` off both references are `null`, and with it on `retainedInputRef` isn't. Every `retainedInputRef` and `retainedResponseRef` exists and matches, unless an `inputs_purged` record comes after the call.
 8. State: at most one `session_state` has an outcome, and it is the last one; every `apply_attempt` names an `approved` review of its artifact revision whose `contentHash` equals the revision's `proposedHash`.
 
 A session that passes is loaded as a list of typed records. On resume, the process holding the lock then runs the interrupted-work rules, in this order: apply recovery (DM §11.2), interrupted model calls and effort intervals (§4.6), and a `session_state` with the reason `interrupted` and status `ready`, at the same stage, if the last state was `running`.
