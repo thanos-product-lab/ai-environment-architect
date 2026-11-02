@@ -1,7 +1,6 @@
 import { sha256 } from "../hash.js";
-import type { SessionLog } from "./log.js";
-import type { RecordOf, SessionFile, SessionRecord } from "./records.js";
-import { type RetainedFile, type SessionWriter, saveSession } from "./store.js";
+import type { RecordOf, SessionRecord } from "./records.js";
+import type { HeldSession, RetainedFile } from "./store.js";
 
 // Retained model exchanges (IMPL §4.8, §1.12). With `retainModelInputs` on, the exact request
 // body of every call is stored as `inputs/sha256-<hex>.json` and the exact response body as
@@ -46,15 +45,8 @@ export function retainsModelInputs(records: readonly SessionRecord[]): boolean {
  * `purge-inputs`, for the process holding the lock: appends and saves an `inputs_purged`
  * record, then deletes `inputs/` and `responses/`. Returns the record.
  */
-export async function purgeInputs(
-  session: SessionWriter,
-  header: Omit<SessionFile, "records">,
-  log: SessionLog,
-): Promise<RecordOf<"inputs_purged">> {
-  // If the save is refused, the log holds a purge that isn't on disk; the caller must not save
-  // this log again. Nothing has been deleted, so the saved session still loads.
-  const record = log.append({ type: "inputs_purged" });
-  await saveSession(session, { ...header, records: [...log.records] }, []);
+export async function purgeInputs(session: HeldSession): Promise<RecordOf<"inputs_purged">> {
+  const record = await session.change((log) => log.append({ type: "inputs_purged" }));
   await session.removeExchanges();
   return record;
 }

@@ -1,6 +1,7 @@
 import { sha256 } from "../hash.js";
 import { type ContentReader, type LoadOptions, type LoadResult, loadSession } from "./load.js";
-import type { SessionFile } from "./records.js";
+import type { SessionLog } from "./log.js";
+import type { SessionFile, SessionRecord } from "./records.js";
 import { serialiseSession } from "./serialise.js";
 
 // The storage port and the save order (IMPL §4.1 "Layout", §4.7 "Writing"). Core decides what
@@ -87,4 +88,98 @@ export async function openSession(
   const bytes = await session.readSessionFile();
   if (bytes === undefined) return { ok: false, missing: true };
   return loadSession(bytes, session, options);
+}
+
+/** The files a change adds, saved before `session.json` (IMPL §4.7 step 1). */
+export interface PendingFiles {
+  /** The bytes behind any new `contentRef`. */
+  readonly contents: Uint8Array[];
+  /** The request and response bodies behind any new retained reference. */
+  readonly retained: RetainedFile[];
+}
+
+/**
+ * A session held under the lock, and the one place records are appended and saved. A change
+ * runs on a fork of the saved log; the fork replaces it only once the save succeeds. So a failed
+ * or refused save leaves the records in memory exactly as last saved (IMPL §4.7), and nothing
+ * appended can be written later by accident. The log itself is never handed out, only its records.
+ *
+ * - `apply` is synchronous, and one change runs at a time: a change made while another is being
+ *   saved, or from inside its `apply`, is refused, so no two forks of the same log race.
+ * - A failed change has still drawn IDs and timestamps from the shared ports. They are skipped,
+ *   which load allows: only `seq` must be contiguous, and it comes from the record count.
+ */
+export class HeldSession {
+  readonly #writer: SessionWriter;
+  readonly #header: Omit<SessionFile, "records">;
+  #log: SessionLog;
+  #changing = false;
+
+  /**
+   * `log` holds the session's records as loaded, or as about to be saved first by `save`. The
+   * session keeps a fork: anything appended to `log` afterwards isn't part of it.
+   */
+  constructor(writer: SessionWriter, header: Omit<SessionFile, "records">, log: SessionLog) {
+    this.#writer = writer;
+    this.#header = header;
+    this.#log = log.fork();
+  }
+
+  /** The records as last saved, or as given before the first save. */
+  get records(): readonly SessionRecord[] {
+    return this.#log.records;
+  }
+
+  /** Saves the records as they are, with `files`: for a new session's first save. */
+  async save(files: PendingFiles = { contents: [], retained: [] }): Promise<void> {
+    await this.#exclusively(() => this.#write(this.#log, files));
+  }
+
+  /** Applies `apply` to a fork of the log, saves it with the files it adds, then adopts it. */
+  async change<T>(
+    apply: (log: SessionLog, files: PendingFiles) => T extends PromiseLike<unknown> ? never : T,
+  ): Promise<T> {
+    return this.#exclusively(async () => {
+      const next = this.#log.fork();
+      const files: PendingFiles = { contents: [], retained: [] };
+      const result = apply(next, files);
+      if (isThenable(result))
+        throw new Error("a change's apply must be synchronous: await before calling change");
+      await this.#write(next, files);
+      this.#log = next;
+      return result as T;
+    });
+  }
+
+  /** Deletes the retained model exchanges (IMPL §4.8), once a purge is saved. */
+  async removeExchanges(): Promise<void> {
+    await this.#exclusively(() => this.#writer.removeExchanges());
+  }
+
+  async #exclusively<R>(run: () => Promise<R>): Promise<R> {
+    if (this.#changing) throw new Error("this session is already being changed");
+    this.#changing = true;
+    try {
+      return await run();
+    } finally {
+      this.#changing = false;
+    }
+  }
+
+  async #write(log: SessionLog, files: PendingFiles): Promise<void> {
+    await saveSession(
+      this.#writer,
+      { ...this.#header, records: [...log.records] },
+      files.contents,
+      files.retained,
+    );
+  }
+}
+
+function isThenable(value: unknown): boolean {
+  return (
+    (typeof value === "object" || typeof value === "function") &&
+    value !== null &&
+    typeof (value as { then?: unknown }).then === "function"
+  );
 }

@@ -6,7 +6,7 @@ import { sha256 } from "../hash.js";
 import type { SessionLog } from "./log.js";
 import { SESSION_FORMAT, SESSION_SCHEMA_VERSION, type SessionFile } from "./records.js";
 import { serialiseSession } from "./serialise.js";
-import { contentRefOf, openSession, saveSession } from "./store.js";
+import { contentRefOf, HeldSession, openSession, SaveRefused, saveSession } from "./store.js";
 
 // Saving through the storage port (IMPL §4.7 "Writing", §4.11 "A session interrupted after any
 // write … loads as either the previous or the next state, never a mix").
@@ -164,5 +164,133 @@ describe("saving a session (IMPL §4.7)", () => {
       expect(loaded.file).toEqual(saved ? next : previous);
       expect(saved).toBe(stop === writesInSave);
     }
+  });
+});
+
+describe('append then save, in one place (IMPL §4.7 "Writing")', () => {
+  /** The records `session.json` holds now, as loaded. */
+  async function savedRecords(store: MemorySession) {
+    const loaded = await openSession(store);
+    if (!loaded.ok) throw new Error("the saved session didn't load");
+    return loaded.file.records;
+  }
+  const plain = (value: unknown) => JSON.parse(JSON.stringify(value));
+  const { records: _records, ...fileHeader } = header([]);
+
+  async function held() {
+    const store = new MemorySession();
+    const session = new HeldSession(store, fileHeader, started());
+    await session.save();
+    return { store, session };
+  }
+
+  it("adopts the appended records only once they are saved", async () => {
+    const { store, session } = await held();
+    const before = session.records;
+    const appended = await session.change((log) =>
+      log.revise("session_state", "session_state", { status: "awaiting_user" }),
+    );
+    expect(before).toHaveLength(1);
+    expect(session.records.at(-1)).toEqual(appended);
+    expect(plain(session.records)).toEqual(await savedRecords(store));
+  });
+
+  it("a write failure after an append leaves the in-memory log equal to the last saved log", async () => {
+    const { store, session } = await held();
+    store.writes = 0;
+    store.stopBefore = 0;
+    await expect(
+      session.change((log) =>
+        log.revise("session_state", "session_state", { status: "awaiting_user" }),
+      ),
+    ).rejects.toThrow(/stopped/);
+    expect(session.records).toHaveLength(1);
+    expect(plain(session.records)).toEqual(await savedRecords(store));
+  });
+
+  it("a refused save leaves the in-memory log equal to the last saved log", async () => {
+    const { store, session } = await held();
+    await expect(
+      session.change((log) => addSnapshot(log, encode("# Guide\n"))), // its content is never given
+    ).rejects.toThrow(SaveRefused);
+    expect(plain(session.records)).toEqual(await savedRecords(store));
+  });
+
+  it("a later change after a failed one continues from the saved log", async () => {
+    const { store, session } = await held();
+    store.writes = 0;
+    store.stopBefore = 0;
+    await expect(
+      session.change((log) => log.revise("session_state", "session_state", { status: "failed" })),
+    ).rejects.toThrow();
+    store.stopBefore = undefined;
+    const next = await session.change((log) =>
+      log.revise("session_state", "session_state", { status: "awaiting_user" }),
+    );
+    expect(next).toMatchObject({ seq: 2, revision: 2, status: "awaiting_user" });
+    expect(plain(session.records)).toEqual(await savedRecords(store));
+  });
+
+  it("refuses an async apply before writing, so nothing appended after an await is adopted", async () => {
+    const { store, session } = await held();
+    const saved = store.sessionFile;
+    await expect(
+      // biome-ignore lint/suspicious/noExplicitAny: the type refuses this; the runtime must too.
+      session.change((async (log: SessionLog) => {
+        await Promise.resolve();
+        log.revise("session_state", "session_state", { status: "awaiting_user" });
+      }) as any),
+    ).rejects.toThrow(/synchronous/);
+    expect(store.sessionFile).toEqual(saved);
+    expect(plain(session.records)).toEqual(await savedRecords(store));
+  });
+
+  it("refuses a change while another is being saved, so neither is lost", async () => {
+    const { store, session } = await held();
+    const first = session.change((log) =>
+      log.revise("session_state", "session_state", { status: "awaiting_user" }),
+    );
+    await expect(
+      session.change((log) => log.revise("session_state", "session_state", { status: "failed" })),
+    ).rejects.toThrow(/already/);
+    await first;
+    expect(session.records.map((r) => r.seq)).toEqual([1, 2]);
+    expect(plain(session.records)).toEqual(await savedRecords(store));
+  });
+
+  it("refuses a change nested inside another's apply", async () => {
+    const { session } = await held();
+    let nested: Promise<unknown> | undefined;
+    await session.change((log) => {
+      nested = session.change((inner) => inner.append({ type: "inputs_purged" }));
+      return log.revise("session_state", "session_state", { status: "awaiting_user" });
+    });
+    await expect(nested).rejects.toThrow(/already/);
+    expect(session.records).toHaveLength(2);
+  });
+
+  it("an apply that throws writes nothing and leaves the records as saved", async () => {
+    const { store, session } = await held();
+    store.writes = 0;
+    await expect(
+      session.change((log) => {
+        log.revise("session_state", "session_state", { status: "awaiting_user" });
+        throw new Error("the developer cancelled");
+      }),
+    ).rejects.toThrow(/cancelled/);
+    expect(store.writes).toBe(0);
+    expect(plain(session.records)).toEqual(await savedRecords(store));
+    await session.change((log) => log.append({ type: "inputs_purged" }));
+  });
+
+  it("saves the files a change adds before the session file", async () => {
+    const { store, session } = await held();
+    const destination = encode("# Guide\n");
+    await session.change((log, files) => {
+      addSnapshot(log, destination);
+      files.contents.push(destination);
+    });
+    expect(store.files.get(contentRefOf(destination))).toEqual(destination);
+    expect(plain(session.records)).toEqual(await savedRecords(store));
   });
 });

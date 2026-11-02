@@ -8,6 +8,7 @@
 ### Changes from v0.39
 
 - **Load check 4 (§4.9).** Every model call comes after the session's first `generation_config`.
+- **Failed saves (§4.7, §2.12).** A save that fails or is refused leaves the session as last saved, in memory as on disk: the change isn't kept, and the developer is told it wasn't saved. One change is saved at a time.
 
 ### Changes from v0.38
 
@@ -1258,6 +1259,7 @@ Repository check: 3 files changed since inspection, none cited.
 | All output from a call fails validation | Retry offered once, then the stage can be skipped (no findings or recommendations from it) or the session saved. |
 | Generation budget reached | What was completed is kept; what remains is listed; the developer can raise the budget and continue, or proceed with what exists. |
 | Session locked by another process | Names the process ID, if available, and exits without changes. |
+| A change can't be saved (disk full, or the save's load checks refuse it) | Says the last change wasn't saved and why, without source content; the session stays as last saved, and the developer can repeat the step or quit (§4.7). |
 | Session saved by a newer version | Names the session format, the version that wrote it, and the version to update to (§4.9). |
 | Session saved in an older format | Before v0.1.0, says older sessions aren't converted and tells the developer to start a new one with `init` (§4.9). |
 
@@ -2233,6 +2235,8 @@ type ModelCallEnded = Omit<ModelCallStarted, "revision" | "state"> & {
 1. Write any new `content/`, `inputs/` or `responses/` files first, each to a temporary file in the same directory, synced and renamed into place. A file that already exists is not rewritten.
 2. Serialise `session.json` (§4.3) to `session.json.tmp-<random>` in the session directory, sync it, rename it over `session.json`, and sync the directory.
 3. Only then report the change as saved.
+
+A save that fails or is refused leaves the session as last saved, in memory as on disk: the change isn't kept to retry, and the developer is told it wasn't saved (§2.12). One change is saved at a time.
 
 Before step 2, the save runs the load checks (§4.9) on the bytes it is about to write, and refuses to write a session that wouldn't load, or whose header names another session, leaving the saved one in place. New directories are created one level at a time, and each parent is synced after its new entry.
 

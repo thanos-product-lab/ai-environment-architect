@@ -118,6 +118,11 @@ export class SessionLog {
     return this.#records;
   }
 
+  /** A new log with the same records and ports. Appending to it leaves this one unchanged. */
+  fork(): SessionLog {
+    return new SessionLog(this.#ports, this.#records);
+  }
+
   get(id: string): SessionRecord | undefined {
     return this.#byId.get(id);
   }

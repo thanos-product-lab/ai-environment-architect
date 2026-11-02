@@ -15,7 +15,7 @@ import {
   retainsModelInputs,
 } from "./retained.js";
 import { serialiseSession } from "./serialise.js";
-import { saveSession } from "./store.js";
+import { HeldSession, saveSession } from "./store.js";
 
 // Retained model exchanges (IMPL §4.8, §1.12) and load check 7 for their references (§4.9).
 
@@ -322,8 +322,9 @@ describe("purge-inputs (IMPL §4.8, §4.11)", () => {
   async function purged() {
     const log = baseLog(true);
     const store = await saved(log, recordCall(log));
-    const record = await purgeInputs(store, HEADER, log);
-    return { log, store, record };
+    const session = new HeldSession(store, HEADER, log);
+    const record = await purgeInputs(session);
+    return { session, store, record };
   }
 
   it("appends an inputs_purged record with only the envelope", async () => {
@@ -336,15 +337,15 @@ describe("purge-inputs (IMPL §4.8, §4.11)", () => {
     const log = baseLog(true);
     const store = await saved(log, recordCall(log));
     store.files.set("content/sha256-0", encode("kept"));
-    await purgeInputs(store, HEADER, log);
+    await purgeInputs(new HeldSession(store, HEADER, log));
     expect([...store.files.keys()]).toEqual(["content/sha256-0"]);
   });
 
   it("the session still loads after the purge, with the references pointing at missing files", async () => {
-    const { log, store } = await purged();
+    const { session, store } = await purged();
     const result = await loadSession(store.sessionFile as Uint8Array, store);
     expect(result.ok).toBe(true);
-    expect(result.ok && result.file.records.at(-1)).toEqual(log.records.at(-1));
+    expect(result.ok && result.file.records.at(-1)).toEqual(session.records.at(-1));
   });
 
   it("saves the record before deleting the files, so a crash in between leaves a session that loads", async () => {
@@ -353,9 +354,26 @@ describe("purge-inputs (IMPL §4.8, §4.11)", () => {
     store.removeExchanges = async () => {
       throw new Error("crashed before removing");
     };
-    await expect(purgeInputs(store, HEADER, log)).rejects.toThrow(/crashed/);
+    await expect(purgeInputs(new HeldSession(store, HEADER, log))).rejects.toThrow(/crashed/);
     const result = await loadSession(store.sessionFile as Uint8Array, store);
     expect(result.ok && result.file.records.at(-1)?.type).toBe("inputs_purged");
+  });
+
+  it("a failed save deletes nothing and leaves the in-memory log as saved", async () => {
+    const log = baseLog(true);
+    const store = await saved(log, recordCall(log));
+    const before = [...store.files.keys()];
+    store.replaceSessionFile = async () => {
+      throw new Error("disk full");
+    };
+    const session = new HeldSession(store, HEADER, log);
+    await expect(purgeInputs(session)).rejects.toThrow(/disk full/);
+    expect([...store.files.keys()]).toEqual(before);
+    expect(session.records.some((r) => r.type === "inputs_purged")).toBe(false);
+    const result = await loadSession(store.sessionFile as Uint8Array, store);
+    expect(result.ok && JSON.parse(JSON.stringify(session.records))).toEqual(
+      result.ok && result.file.records,
+    );
   });
 
   it("still checks a retained file that survived a purge", async () => {
@@ -365,9 +383,10 @@ describe("purge-inputs (IMPL §4.8, §4.11)", () => {
   });
 
   it("checks the references of a call made after the purge", async () => {
-    const { log, store } = await purged();
-    const files = recordCall(log, OTHER_REQUEST);
-    await saveSession(store, fileOf(log), [], files);
+    const { session, store } = await purged();
+    await session.change((log, files) => {
+      files.retained.push(...recordCall(log, OTHER_REQUEST));
+    });
     expect((await loadSession(store.sessionFile as Uint8Array, store)).ok).toBe(true);
     store.files.delete(retainedFile("inputs", OTHER_REQUEST).ref);
     expect(await failure(store.sessionFile as Uint8Array, store)).toMatchObject({
@@ -387,14 +406,16 @@ describe("purge-inputs (IMPL §4.8, §4.11)", () => {
       }),
     );
     const store = await saved(log, input.file === undefined ? [] : [input.file]);
-    await purgeInputs(store, HEADER, log);
+    const session = new HeldSession(store, HEADER, log);
+    await purgeInputs(session);
     // Resume then marks the interrupted call; its request ref is covered by the purge.
-    log.revise(
-      "model_call",
-      call.modelCallId,
-      completedCall({ state: "interrupted", retainedResponseRef: null, ...interruptedEnd }),
+    await session.change((log) =>
+      log.revise(
+        "model_call",
+        call.modelCallId,
+        completedCall({ state: "interrupted", retainedResponseRef: null, ...interruptedEnd }),
+      ),
     );
-    await saveSession(store, fileOf(log), []);
     expect((await loadSession(store.sessionFile as Uint8Array, store)).ok).toBe(true);
   });
 
@@ -409,16 +430,20 @@ describe("purge-inputs (IMPL §4.8, §4.11)", () => {
       }),
     );
     const store = await saved(log, input.file === undefined ? [] : [input.file]);
-    await purgeInputs(store, HEADER, log);
+    const session = new HeldSession(store, HEADER, log);
+    await purgeInputs(session);
     const responseRef = retainedFile("responses", RESPONSE).ref;
-    const ended = log.revise(
-      "model_call",
-      call.modelCallId,
-      completedCall({ retainedResponseRef: responseRef }),
-    );
-    // The response file was never written, and the purge came before the revision that added it.
-    const bytes = encode(serialiseSession(fileOf(log)));
-    expect(await failure(bytes, store)).toMatchObject({ check: 7, recordId: ended.id });
+    // The response file is never written, and the purge came before the revision that adds it,
+    // so the save's load checks refuse it.
+    await expect(
+      session.change((log) =>
+        log.revise(
+          "model_call",
+          call.modelCallId,
+          completedCall({ retainedResponseRef: responseRef }),
+        ),
+      ),
+    ).rejects.toThrow(`check 7 (content): ${responseRef} is missing`);
   });
 
   it("an inputs_purged record round-trips: the saved bytes load and serialise back unchanged", async () => {
