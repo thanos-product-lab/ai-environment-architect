@@ -1,8 +1,8 @@
 # Domain Model
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 1 November 2026  
-**Version:** 0.24 — consolidated specification  
+**Date:** 2 November 2026  
+**Version:** 0.25 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,21 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.24
+
+1. **Line endings (§7).** A `mixed` file uses its most frequent ending, ties broken in the order LF, CRLF, CR. `none`, and an absent destination, use LF.
+2. **Targets (§9.1).** `section` names the section's heading block, which settles the §18 open point. A heading may be revised as one line at the same level. Removing a heading removes its whole section, as one recommendation; a heading is never removed on its own. `newSection` goes after a heading's whole section, or at the end of the file.
+3. **Support and references (§9.1).** Support holds findings and decisions; evidence is reached through the findings. A reference records its supporting finding and the evidence code chose. Each new revision with new content has its own `producedBy`; an invalidation repeats it. A developer edit records its validation events; `validation` is gone.
+4. **Mutual exclusion (§9.1).** Between `revise` and `remove` recommendations on one block, and between removing a section and any `revise` or `remove` inside it. Additions are never exclusive.
+5. **Selections (§9.2).** A selection, accepted or rejected, counts only while the revision it names is current.
+6. **Assembly (§9.3).** Ordered by position, then by the `seq` of each recommendation's first revision, because IDs carry no order. Placement, removal, separators and line-ending conversion are exact. An addition anchored to removed content goes where that content was. The assembled file must parse back into the expected blocks.
+7. **Artifact revision (§9.4).** Attribution is a list of entries. `validation` is gone, because a failed assembly creates no artifact revision.
+8. **Apply recovery (§11.2).** A `started` attempt whose destination still holds the original is recorded `failed`; a retry is a new attempt.
+9. **Reference verification (§9.1).** A path reference is `exists_in_snapshot` when created; `missing` is derived from a later snapshot, never written.
+10. **Unassemblable combinations (§9.3, §9.4).** Accepted recommendations that assemble alone but not together are a conflict the developer resolves by rejecting one; only a single revision that fails is an internal error. A destination whose round trip failed is verified by its unchanged prefix.
+11. **Verification (§17).** Lines for line endings, list markers, separators, the reparse check, section removal and additions anchored to removed content.
+12. **Change propagation (§12).** A changed decision also affects recommendations supported by findings its question or conflict covers. A selection returns to pending by derivation. Re-anchoring is derived, and a target that no longer resolves is invalidated by code. A new decision that affects no recommendation calls the model only if it unblocks a held-back entry.
 
 ### Changes from v0.23
 
@@ -347,7 +362,7 @@ The captured `CLAUDE.md` is parsed into an ordered list of blocks so that recomm
 | `hash` | Hash of the block's exact bytes |
 | `listMarker` | `list_item` only: the exact indentation and marker of its first line, such as `-`, `*` or `2.` |
 
-The parsed destination also records its **line endings**: the number of LF, CRLF and lone CR endings, and the style (`lf`, `crlf`, `cr`, `mixed`, or `none` when there are none). Assembly (§9.3) converts new content to this style; how it treats `mixed` and `none` is decided with assembly.
+The parsed destination also records its **line endings**: the number of LF, CRLF and lone CR endings, and the style (`lf`, `crlf`, `cr`, `mixed`, or `none` when there are none). Assembly (§9.3) converts new content to this style. A `mixed` file uses its most frequent ending, ties broken in the order LF, CRLF, CR; `none`, and an absent destination, use LF.
 
 **Parsing** is a line-based subset of CommonMark, read on bytes, with no Markdown library:
 
@@ -420,23 +435,24 @@ A revision's `status` is `valid`, `failed_validation`, or `invalidated` with a r
 |---|---|
 | `operation` | `add`, `revise`, `remove` |
 | `kind` | `fact` (describes the repository) or `policy` (states what agents should do). Policy needs a decision or uncontested documented prescriptive support ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.3.5) |
-| `target` | For `revise`/`remove`: `{ blockId, blockHash }`, which must match exactly one captured block. For `add`: an insertion point (`after: blockId`, or `section: headingPath`, or `newSection: heading`) |
+| `target` | For `revise`/`remove`: `{ blockId, blockHash }` of one captured block. For `add`: an insertion point: `after: { blockId, blockHash }`; `section: { blockId, blockHash }` of the section's heading block; or `newSection: { heading, after? }`, where `after` names a heading block. Code resolves these from block aliases; the model never sees an ID or a hash ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.3.5) |
 | `content` | Proposed wording for `add`/`revise` |
 | `rationale` | Why this helps an agent working in this repository |
-| `support` | Evidence, finding and decision IDs; at least one, satisfying §6.4 |
+| `support` | Finding and decision IDs; at least one, satisfying §6.4. Evidence is reached through the findings |
 | `references` | Structured references (below) |
 | `scope` | `repository` or explicit paths; the scope the instruction describes, even though the file is root-level |
-| `producedBy` | Model call ID, or `developer_edit` |
-| `validation` | Result of deterministic checks |
+| `producedBy` | The model call that wrote this revision's content, or `developer_edit`. A new revision with new content has its own; an invalidation repeats it, and the call that caused it, if any, is recorded separately ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.4.1) |
+| `validationEvents?` | On a `developer_edit` revision, valid or failed, the events of its validation. A model-produced revision's events are on its model call (§13.1) |
 
 **Structured references** list every concrete path, command or named file the wording mentions:
 
 | Field | Notes |
 |---|---|
 | `kind` | `path`, `command` |
-| `value` | For example `src/lib/api/client.ts`, or `pnpm test` |
-| `evidenceId` | Where it was found |
-| `verification` | Paths: `exists_in_snapshot` or `missing`. Commands: `found_not_run` in the first slice |
+| `value` | As written in `content`, for example `src/lib/api/client.ts`, or `pnpm test` |
+| `supportingFindingId` | The finding whose evidence contains the value; it is in the recommendation's `support` |
+| `evidenceId` | The first evidence of that finding that contains the value, chosen by code |
+| `verification` | Paths: `exists_in_snapshot`, recorded when created. `missing` is derived, never written: a path a later snapshot or the freshness check (§11.1) no longer finds. Commands: `found_not_run` in the first slice |
 
 Deterministic validation runs on every revision:
 
@@ -446,11 +462,13 @@ Deterministic validation runs on every revision:
 - the support satisfies the evidence rules;
 - the target block exists and its hash matches.
 
+**Headings.** A `revise` of a heading replaces it with one ATX heading line of the same level. A `remove` of a heading removes its whole **section**: the heading and every block after it up to the next heading of the same or a higher level, or the end of the file. A heading's level is its number of `#`, or 1 for a setext `=` underline and 2 for `-`. It is one recommendation and one change. A heading is never removed on its own.
+
 A revision that fails validation is not shown for selection. It is recorded with status `failed_validation`, its text as written and the rule that rejected it ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.4.3).
 
 These references are also the basis for later maintenance checks: stale paths and commands are detected by comparing stored references with a new snapshot.
 
-**No dependencies between recommendations.** If two changes only make sense together, they are one recommendation. Two recommendations that target the same block are mutually exclusive: accepting one blocks accepting the other, and the reason is shown. The system never selects or deselects a recommendation for the developer.
+**No dependencies between recommendations.** If two changes only make sense together, they are one recommendation. Two `revise` or `remove` recommendations that target the same block are mutually exclusive, and so are a `remove` of a heading and any `revise` or `remove` of a block in its section, the heading included: accepting one blocks accepting the other, and the reason is shown. Additions are never exclusive: an addition anchored to removed content goes where that content was (§9.3). The system never selects or deselects a recommendation for the developer.
 
 Editing a recommendation's wording creates a new revision with `producedBy: developer_edit`. It is revalidated and must be selected again.
 
@@ -464,22 +482,32 @@ The current selection is **one per stable `recommendationId`**, pointing at one 
 | `state` | `pending`, `accepted`, `rejected` |
 | `actor`, `selectedAt` | |
 
-Selecting a new revision replaces the previous selection for that recommendation. Selection history is retained. Rejecting a proposed addition never removes similar existing guidance; removal happens only through an accepted `remove` recommendation.
+Selecting a new revision replaces the previous selection for that recommendation. Selection history is retained. A selection, accepted or rejected, counts only while the revision it names is current: when a regeneration or an edit creates a new revision, the recommendation is pending again, without any selection being written for the developer (§12). A recommendation with no current revision, such as an invalidated one, is not shown for selection. Rejecting a proposed addition never removes similar existing guidance; removal happens only through an accepted `remove` recommendation.
 
 ### 9.3 Assembly
 
 Assembly is application code, not a model call.
 
 1. Start from the captured destination blocks (or an empty document if `absent`).
-2. Apply accepted revisions in a deterministic order: by target position in the original file, then by `recommendationId`.
+2. Resolve each accepted revision to a **position** in the original file, and, for an addition, an **anchor**:
+   - `revise` and `remove`: the target block; for a `remove` of a heading, its whole section (§9.1).
+   - `add` with `after`: directly after the named block, which is the anchor.
+   - `add` with `section`: after the section's own blocks, before its first subsection heading. The anchor is the last of those blocks, or the heading if it has none.
+   - `add` with `newSection` and `after`: after the named heading's whole section, subsections included, at the heading's level. The anchor is the section's last block.
+   - `add` with `newSection` and no `after`: at the end of the file, at level 2. The anchor is the file's last block, if any.
+   An anchor that an accepted `remove` deletes keeps its position: the addition goes where the block was, or, for an anchor inside a removed section, where the section was.
+3. Apply accepted revisions in a deterministic order: by position in the original file; at one position, a `revise` or `remove` of the block before any addition after it; then by the `seq` of each recommendation's first revision. IDs carry no order ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.4.1).
    - `revise` replaces the target block's bytes with the new content.
-   - `remove` deletes the target block.
-   - `add` inserts content at the insertion point. A `newSection` addition creates its heading.
-3. Serialise. Untouched blocks keep their original bytes, including surrounding whitespace.
-4. Verify:
+   - `remove` deletes the target block, or the whole section. Consecutive removed blocks, from one revision or several, are deleted as one run: from the start of the run's first block to the start of the next remaining block. When no block remains after the run, the deletion runs from the end of the last remaining block before it to the end of the run's last block, so the bytes after the last block are kept. When no block remains at all, only the byte order mark, if any, and those trailing bytes are kept.
+   - `add` inserts content at its position. A `newSection` addition creates its heading: `#` repeated for its level, a space and the heading text.
+4. **Separators and line endings.** Untouched blocks keep their original bytes, including the separators around them. Inserted content is separated from its neighbours by a copy of the separator between its anchor and the block after the anchor in the original file, so a loose list stays loose. A removed anchor keeps its place in the separators: the separator before it stays with the untouched block before it, and the inserted content is followed by the anchor's original separator after it. So removing `B` from `A s1 B s2 C` and adding `X` after `B` gives `A s1 X s2 C`. When there is no such block, as at the end of the file, or no anchor, as in an empty or absent file, the separator is one blank line, or one line ending between a list item and the list item it follows. Content keeps its own separators between its blocks. Every line ending in new content, including a rendered heading, is converted to the file's style (§7). A new file ends with one line ending.
+5. Serialise.
+6. Verify:
    - every changed, inserted or removed block maps to exactly one accepted revision;
-   - every accepted revision produced exactly one change;
-   - untouched blocks are byte-identical to the original.
+   - every accepted revision produced exactly one change; removing a section is one change spanning its blocks;
+   - untouched blocks are byte-identical to the original, and in their original order;
+   - unless the destination's round trip failed (below), the assembled file parses, with a verified round trip (§7), into the untouched blocks and the new blocks, with the types validated for each revision. Block IDs are not compared, because an insertion shifts the ordinals after it.
+   - when the destination's round trip failed (§7), this check replaces the reparse above. Only a new section at the end is possible: the original bytes must be an unchanged prefix of the result, and the appended bytes, parsed alone, must give the new section's blocks.
 
 If any check fails, assembly fails and no artifact revision is created. The resulting file may read as slightly stitched together. That is the intended trade: every line of change is attributable.
 
@@ -487,17 +515,16 @@ If any check fails, assembly fails and no artifact revision is created. The resu
 
 | Field | Notes |
 |---|---|
-| `id`, `revision` | Immutable |
+| `id`, `revision` | Immutable. `revision` numbers the session's artifact revisions from 1 |
 | `snapshotId` | |
 | `targetPath` | |
 | `original` | `absent`, or hash (bytes are in the snapshot) |
-| `proposedContent`, `proposedHash` | |
+| `proposedContent`, `proposedHash` | The content is in a content-addressed file (§15) |
 | `selectedRevisionIds` | Accepted recommendation revisions used |
 | `decisionIds` | Current decision versions those revisions depend on |
-| `attribution` | Map from changed block to recommendation revision (from §9.3) |
-| `validation` | Assembly checks result |
+| `attribution` | One entry per change, in file order: the recommendation revision; the operation; for a `revise` or `remove`, the original block, with one entry per removed block of a section; and for new content, its byte span in the proposed content (§9.3) |
 
-If no revision is accepted, no artifact revision is created, and the session can complete as `no_change`. The diff shown at review is computed from the original and proposed content; it is not stored as a separate record.
+If assembly fails, no artifact revision is created. When every accepted revision passes assembly alone but some cannot be combined, such as an indented code block that would merge into a list item added before it, the failure is a conflict between the revisions involved: the developer is asked to reject one ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §2.7). Code finds them deterministically: it adds the accepted revisions one at a time in the order of §9.3, and names the first whose addition makes the checks fail, together with the revision whose block it merges into or breaks. After a refresh, every current revision whose target was re-anchored is checked alone again and, if it fails, invalidated as `target_changed` (§12), so failing alone is never a conflict. Any other failure is reported as an internal error. If no revision is accepted, no artifact revision is created, and the session can complete as `no_change`. The diff shown at review is computed from the original and proposed content; it is not stored as a separate record.
 
 ## 10. Review
 
@@ -541,6 +568,7 @@ This keeps application safe without blocking a developer who is editing unrelate
 | `id`, `applyAttemptId`, `artifactRevisionId`, `reviewId` | `id` names one revision; `applyAttemptId` is stable across states |
 | `expectedOriginal` | Hash or `absent` |
 | `intendedHash` | |
+| `resultHash?` | The destination's hash after the write, recorded with `succeeded` |
 | `freshness` | Result of §11.1, including acknowledged warnings |
 | `state` | `started`, `succeeded`, `blocked`, `failed`, `recovery_required` |
 | `error?`, timestamps | |
@@ -561,7 +589,7 @@ A session lock prevents two instances of this CLI from operating on one session.
 | Destination now | Action |
 |---|---|
 | Matches the intended hash | Record `succeeded`; do not write again |
-| Matches the expected original | Allow a checked retry |
+| Matches the expected original | Record `failed` with the reason `interrupted_before_write`. A retry is a new apply attempt, which confirms a usable approval and runs the freshness checks again |
 | Matches neither | Record `recovery_required`; report a conflict |
 
 ## 12. Change propagation
@@ -570,11 +598,11 @@ Currency is determined by the versions of dependencies, not by timestamps.
 
 | Change | Consequence |
 |---|---|
-| Decision answered, corrected or superseded | Recommendations depending on affected findings, conflicts or decisions are regenerated as new revisions. Their selections return to `pending`. The active artifact becomes outdated. |
+| Decision answered, corrected or superseded | Recommendations whose support includes a changed or superseded decision, a finding that is no longer current, or a finding that the decision's question or conflict covers, are regenerated as new revisions. Their selections no longer count, so they are pending again (§9.2). The active artifact becomes outdated. A new decision that affects no recommendation calls the model only if it unblocks a held-back entry ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.3.6). |
 | Recommendation edited | New revision; selection required |
 | Selection changed | New assembly and artifact revision; fresh review required |
 | Blocking freshness failure | New snapshot; affected findings refreshed; recommendations revalidated or regenerated; new review |
-| Destination changed | New snapshot with re-parsed blocks. Revisions targeting changed blocks become invalid; others are re-anchored only if their block hash still matches exactly one block. |
+| Destination changed | New snapshot with re-parsed blocks. A target resolves to the block with the same ID and hash, otherwise to the only block with that hash; this re-anchoring is derived, never written. A revision whose target resolves to no block, or whose re-anchored target no longer passes the content checks alone, is invalidated by code (`target_changed`), and the next regeneration's summary names it; it is not sent for reconsideration. |
 | All recommendations rejected | Session completes as `no_change` |
 
 In the first slice, invalidating the whole proposal is acceptable wherever the narrower impact cannot be established reliably.
@@ -669,7 +697,9 @@ The export always states whether its artifact content is proposed, approved or a
 - Commands are labelled found, not run.
 - Block parsing is lossless for every destination fixture.
 - Assembly attributes every change to exactly one accepted revision and leaves untouched blocks byte-identical.
-- Two recommendations targeting one block cannot both be accepted.
+- Assembly converts new content to the file's line endings, keeps list markers, and copies separators, so a loose list stays loose; the assembled file parses back into the expected blocks.
+- Removing a heading removes its whole section as one change, and an addition anchored to removed content goes where that content was.
+- Two recommendations revising or removing one block, or one removing a section and one revising or removing a block in it, cannot both be accepted.
 - Changed decisions, selections or content invalidate earlier approval.
 - Freshness blocks relevant changes, warns on unrelated ones, and records acknowledgement.
 - Absent and empty destinations are distinguished.
@@ -686,6 +716,5 @@ The export always states whether its artifact content is proposed, approved or a
 - Context selection for model calls: which files and excerpts are sent within the budget. It must be deterministic and recorded in each call's `inputManifest`.
 - CLI interaction for answering questions, editing recommendation wording and reviewing the diff.
 - Handling of unsupported encodings.
-- **For M5:** how an `add` names its section (§9.1). `section: headingPath` is ambiguous when sibling sections repeat a heading, such as two `## Notes` under `# A`, which §7 tells apart only by block ID (`A/Notes`, `A/Notes[2]`). Probably target the section's heading block ID, or require the path to match exactly one section.
 
 Resolve these in the implementation specification without expanding the first slice to multiple repositories, other configuration files or a general policy engine.

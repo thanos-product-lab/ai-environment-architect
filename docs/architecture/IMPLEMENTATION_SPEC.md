@@ -1,9 +1,21 @@
 # Implementation Specification
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 1 November 2026  
-**Version:** 0.40  
+**Date:** 2 November 2026  
+**Version:** 0.41  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.40
+
+- **`recommend` targets (§3.3.5, `REC-002`).** A `section` target and a `newSection`'s `after` name a heading block. A heading may be revised as one line at the same level, and removing one removes its whole section. Only `newSection` without `after` is allowed when the round trip failed or the destination is absent. This settles the open point of DM §18.
+- **`recommend` content (§3.3.5, `REC-003`).** Content is parsed with the Guidance Block parser. List markers must match, and the recommendation must pass assembly's checks when assembled alone.
+- **`recommend` support and references (§3.3.5).** Support entries are typed, findings by lineage and decisions by record, with no evidence entries. `REC-007`'s sentences, `REF-003`'s known commands, `REF-004`'s evidence, decisions in `REF-005`, `REC-009` against the proposed list and `DUP-004`'s identity are exact. A rejected `noChangeReason` is kept as a failed item.
+- **Regeneration (§3.3.6).** The affected set follows DM §12, including findings no longer current for any reason, and recommendations whose target no longer resolves are invalidated by code before the call. A new decision with an empty affected set calls the model only if it unblocks a held-back entry, judged as the entries stood before the decision. A failed action invalidates its recommendation as `not_reconsidered`. After a refresh, a re-anchored target is checked by `REC-003` again. A `revise` revision's `producedBy` is the call; invalidations by the call record it in `revisedBy`. `DUP-004` also compares with unaffected recommendations. Failed actions have their records.
+- **Reference detector (§3.4).** Exact token classes, runners matched as whole words, fenced lines classified as inline spans are, bare text outside code only, versioned extension and file-name lists, URLs as identifiers, and a runner-prefixed span with no arguments is a path when it is path-like. Detector version `references/1.0.0`. Settles the §3.9 open point on `./scripts/build.sh`.
+- **Records (§4.4, §4.9).** The fields a recommendation or apply-attempt revision may change; `producedBy` per recommendation revision; `revisedBy` on recommendation invalidations; target and attribution references; load check 4 for targets, against the snapshot of the revision that set the target, and for apply-attempt references; selections, accepted or rejected, that count only while their revision is current; validation events on failed developer edits; derived target resolution; current held-back entries across regeneration, which settles the §4.12 open point; `failed_item` collections `heldBack`, `actions` and `noChangeReason`.
+- **Fixtures (§3.8, §4.11).** Cases for the new `recommend`, detector and regeneration rules, for selection and assembly, and verification items for target resolution, held-back entries, selections across revisions, load check 4's target clause and apply recovery.
+- **CLI (§2.7, §2.11).** Wording for a section removal, its exclusion, and accepted recommendations that can't be combined. An interrupted apply whose write didn't happen retries under the existing approval.
+- **Validation events (§3.5).** The cross-item order of `recommend` and regeneration; a rejected `noChangeReason` is named `noChangeReason`.
 
 ### Changes from v0.39
 
@@ -1140,7 +1152,9 @@ References
 
 - Commands are always labelled **found, not run**.
 - **Edit** opens the wording in `$EDITOR` (or an inline editor if it is unset). On save, the new revision is validated ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §9.1). Failures are shown with the reason, for example "Mentions `src/api.ts`, which doesn't exist in this repository". The developer can edit again or discard the edit.
-- If two recommendations target the same block, accepting one shows: "This replaces the same text as recommendation 5, which can't also be accepted," and leaves recommendation 5 unchanged.
+- If two `revise` or `remove` recommendations target the same block, accepting one shows: "This replaces the same text as recommendation 5, which can't also be accepted," and leaves recommendation 5 unchanged.
+- A `remove` of a heading is shown as removing its whole section, with the section's first lines and its block count: "Removes the section Testing (6 blocks)." If it and a recommendation that revises or removes a block inside the section are both candidates, accepting one shows: "This changes text inside the section recommendation 5 removes, so they can't both be accepted," and leaves the other unchanged. Additions inside a removed section are not affected: they go where the section was.
+- If the accepted recommendations pass on their own but can't be combined into one file ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §9.3), the CLI says which, for example: "Recommendations 2 and 4 both add text after Conventions › item 3, and together the second would merge into the first. Reject one of them to continue." It returns to the recommendations, and final review isn't reached until one is rejected.
 - **Accept remaining:** after at least one item has been reviewed individually, `A` accepts all remaining **add** recommendations, after showing a list of them. Revisions and removals always need individual decisions, because they change existing guidance.
 - When all items have a decision, the CLI moves to final review. If none were accepted, it offers to finish without changes (§2.10).
 
@@ -1248,7 +1262,7 @@ Repository check: 3 files changed since inspection, none cited.
 ```
 
 - If a blocking change is found, the developer is offered a refresh before continuing.
-- **Interrupted apply:** the destination is checked against the recovery table ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §11.2). The CLI reports one of: "The write had completed. Nothing more to do." / "The write didn't happen. You can approve and write again." / "CLAUDE.md now contains something else. Review it before continuing."
+- **Interrupted apply:** the destination is checked against the recovery table ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §11.2). The CLI reports one of: "The write had completed. Nothing more to do." / "The write didn't happen. Write it now?", which shows the path, size and content hash as in §2.8, defaults to no (`[y/N]`), and retries under the existing approval after the freshness checks run again / "CLAUDE.md now contains something else. Review it before continuing."
 
 ### 2.12 Errors and limits
 
@@ -1682,8 +1696,8 @@ When the developer answers, code creates the Decision; the model is not called. 
 type Target =
   | { kind: "block"; block: string }                    // revise, remove
   | { kind: "after"; block: string }                    // add after a block
-  | { kind: "section"; heading: string }                // add at end of section; heading block alias
-  | { kind: "newSection"; heading: string; after?: string };  // heading text ≤ 80
+  | { kind: "section"; heading: string }                // add after the section's own blocks; heading block alias
+  | { kind: "newSection"; heading: string; after?: string };  // heading text ≤ 80; after: heading block alias
 
 type RecommendOutput = {
   recommendations: Array<{    // max 15
@@ -1711,36 +1725,50 @@ type RecommendOutput = {
 
 **Validation**, in order:
 
-1. Schema and aliases. All support must be current: not withdrawn, not superseded, not corrected by the developer, and of the active snapshot (`REC-001`, §4.4.2, §4.5).
-2. **Operation and target.** `revise` and `remove` need a `block` target; `add` needs `after`, `section` or `newSection`; `remove` has no content (`REC-002`). Code attaches block IDs and hashes.
-3. **Content shape**, by parsing the content (`REC-003`):
-   - `revise`: exactly one block, of the same type as the target block; for a `list_item`, with the same marker and indentation as the target ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §7);
-   - `add` with `after` or `section`: one to five blocks, of types paragraph, list item or code block, with no headings;
-   - `add` with `newSection`: the same, plus the heading, which code renders from `heading`.
+1. Schema and aliases. All support must be current: the record each `F` or `D` alias names is still the current revision of its finding, or a current decision, so not withdrawn, not superseded, not corrected by the developer, and of the active snapshot (`REC-001`, §4.4.2, §4.5). The same holds for each reference's `support`. Support is stored as typed entries, a finding by lineage ID and a decision by record ID (§4.4.1).
+2. **Operation and target** (`REC-002`). `revise` and `remove` need a `block` target; `add` needs `after`, `section` or `newSection`; `remove` has no content, and `add` and `revise` have content. A `section` target and a `newSection`'s `after` name a heading block. When the destination's round trip failed ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §7), or it is absent, only `newSection` without `after` is allowed. Code attaches the block ID and hash of each `B` alias from the alias table (§3.2.1).
+3. **Content shape** (`REC-003`). Content is parsed with the Guidance Block parser ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §7); a failed round trip rejects it. Blank lines before the first block and after the last are ignored.
+   - `revise` of a heading: one ATX heading line, of the same level as the target;
+   - `revise` of any other block: exactly one block, of the same type as the target block; for a `list_item`, with the same `listMarker`, indentation and marker exactly;
+   - `add` with `after` or `section`: one to five blocks, of types paragraph, list item or code block, with no headings. List items placed directly after a list item have its indentation and the same bullet character (`-`, `*`, `+`), or, in a numbered list, the same delimiter (`.` or `)`); numbers aren't checked;
+   - `add` with `newSection`: the same, and the heading is one line, not empty after trimming spaces and tabs. Code renders it (DM §9.3);
+   - finally, the recommendation is assembled alone into the destination (DM §9.3) and must pass assembly's checks. This catches content that would merge into its neighbour, such as an indented code block after a list item.
+
+   A `remove` of a heading removes its whole section (DM §9.1), and has no content to check.
 4. **Evidence rules** ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.4):
    - support from `existing_guidance` alone cannot justify a new recommendation (`REC-004`);
    - a `policy` recommendation needs a current decision, or a `prescriptive` finding with `documentation` basis that is not part of an unresolved conflict (`REC-005`);
    - a `fact` recommendation may cite only `descriptive` findings (`REC-006`).
-5. **Directive-language guard** (`REC-007`). A `fact` recommendation whose content contains directive language (§3.2.3 word list), or a sentence beginning with an imperative verb from a versioned list (*Use, Prefer, Avoid, Always, Never, Run, Do not*), is rejected. This is the check against policy presented as fact. It is imperfect, and its misses are measured in evaluation through the invented-policy rate.
+5. **Directive-language guard** (`REC-007`). A `fact` recommendation whose content contains directive language (§3.2.3 word list), or a sentence beginning with an imperative verb from a versioned list (*Use, Prefer, Avoid, Always, Never, Run, Do not*), is rejected. Words match as in `SUP-004` (§3.2.3), whole and case-insensitively. A sentence begins at the start of a block's text, after its list marker or heading marks, and after `.`, `!` or `?` followed by whitespace. Inline code spans and code blocks are not checked. This is the check against policy presented as fact. It is imperfect, and its misses are measured in evaluation through the invented-policy rate.
 6. **Unresolved dependencies** (`REC-008`). A recommendation is rejected if any supporting finding is part of an unresolved conflict that no decision resolves, or if its only support is resolved by a skipped or unreached question. Such recommendations belong in `heldBack`.
 7. **References**, using the detector (§3.4):
-   - every path and command the detector finds in the content is declared, and every declared reference appears in the content (`REF-001`);
-   - paths exist in the snapshot (`REF-002`);
-   - commands match a known command or appear in a cited excerpt of the reference's supporting finding (`REF-003`);
-   - each reference's supporting finding is in the recommendation's support (`REF-004`).
-   Code sets each command's verification to `found_not_run`.
-8. Scope paths are listed (§1.11, `SCOPE-001`).
-9. **Duplicates:** identical target and content keep the first (`DUP-004`).
-10. **Held back:** each `blockedBy` alias must refer to a skipped or unreached question, or an unresolved conflict. Entries that fail are dropped (`HELD-001`).
-11. **No change:** `noChangeReason` is accepted only when `recommendations` is empty (`REC-009`). If every recommendation fails validation, the session shows that results couldn't be verified (§2.12). This is never presented as a no-change outcome.
+   - every path and command the detector finds in the content is declared, and every declared reference appears in the content, compared as written (`REF-001`);
+   - paths are listed and not withheld, as for `SUP-001` (§3.2.3), after the path normalisation of §1.11 (`REF-002`);
+   - commands match a **known command** whose fact is the reference's supporting finding, or appear, as written, in an excerpt of that finding (`REF-003`). A known command is a runner form followed by the name of a command known fact (§3.2.5), with any arguments after it:
 
-Two recommendations targeting the same block are allowed in the output. Mutual exclusion is handled at selection ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §9.1).
+     | Fact from | Runner forms |
+     |---|---|
+     | `package.json` | `npm run N`, `npm test` and `npm start` for those names, `pnpm N`, `pnpm run N`, `yarn N`, `yarn run N`, `bun run N` |
+     | Makefile | `make N` |
+     | `justfile` | `just N` |
+     | Taskfile | `task N` |
+     | `pyproject.toml` | `uv run N`, `poetry run N` |
+
+   - each reference's supporting finding is in the recommendation's support, and has evidence that contains the value: for a known command, the fact's evidence; otherwise an excerpt holding the value as written, or, for a path, `lines` or `entry` evidence whose path is the normalised path or lies under it (`REF-004`). Code records the first such evidence, in the finding's evidence order, as the reference's `evidenceId`.
+
+   Code sets each command's verification to `found_not_run`, and each path's to `exists_in_snapshot`.
+8. Scope paths are listed (§1.11, `SCOPE-001`).
+9. **Duplicates:** recommendations with the same operation, the same target after alias resolution, and the same content after line-ending conversion keep the first (`DUP-004`).
+10. **Held back:** each `blockedBy` alias must refer to a skipped or unreached question, or an unresolved conflict. Entries that fail are dropped (`HELD-001`).
+11. **No change:** `noChangeReason` is accepted only when the response's `recommendations` is empty, as proposed, before validation (`REC-009`, cross-item, last). A rejected one is kept as a `failed_item` named `noChangeReason` (§4.4.3). If every recommendation fails validation, the session shows that results couldn't be verified (§2.12). This is never presented as a no-change outcome.
+
+Two recommendations targeting the same block, or the same section, are allowed in the output. Mutual exclusion is handled at selection ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §9.1).
 
 #### 3.3.6 `regenerate_recommendations`
 
 **When:** a decision is added, corrected or superseded after recommendations exist; or a refresh withdraws findings or changes blocks that recommendations depend on.
 
-**Affected set**, computed by code: current recommendations whose support includes a changed or superseded decision, or a withdrawn or corrected finding (§4.5), or whose target block no longer matches its hash. Unaffected recommendations are not sent, and their selections are unchanged. An affected set larger than 30, the schema's `actions` ceiling, is split by code into calls of at most 30, in recommendation order; each call is validated on its own, and `REGEN-001` applies to the part each call was sent.
+**Affected set**, computed by code: current recommendations whose support includes a changed or superseded decision, a finding that is no longer current (withdrawn, corrected or of an earlier snapshot, §4.4.2, §4.5), or a finding that the changed decision's question resolves or that is a member of the conflict it resolves ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §12). Before the call, code invalidates every current recommendation whose target no longer resolves in the active snapshot (§4.4.2), with the reason `target_changed`; these are not sent, and the change summary names them. Unaffected recommendations are not sent, and their selections are unchanged. A new decision with an empty affected set calls the model only if it unblocks a held-back entry that was current just before the decision was appended: its question is one the entry's `blockedBy` names, or it resolves a conflict the entry names. Otherwise no call is made. An affected set larger than 30, the schema's `actions` ceiling, is split by code into calls of at most 30, in recommendation order; each call is validated on its own, and `REGEN-001` applies to the part each call was sent.
 
 **Input:** everything `recommend` receives, plus the affected recommendations as `R-*` (target, content, support), plus a code-generated summary of what changed.
 
@@ -1764,24 +1792,31 @@ type RegenerateOutput = {
 
 **Validation and effect:**
 
-- Every affected recommendation must appear exactly once (`REGEN-001`). One that is missing is marked invalid, with reason "not reconsidered". It is never kept by default.
-- **keep:** the existing revision is revalidated against the current state. If it fails, it is marked invalid. Its selection is unchanged only if it passes.
-- **revise:** a new revision of the same `recommendationId`, fully validated as in §3.3.5. Its selection returns to `pending`.
-- **drop:** the recommendation is withdrawn, and its selection history kept.
+- Every affected recommendation must appear exactly once (`REGEN-001`). One that is missing, or whose only action failed validation, is invalidated with the reason `not_reconsidered`. It is never kept by default.
+- **keep:** the existing revision is revalidated against the current state. If it fails, it is invalidated with the reason `revalidation_failed`. Its selection is unchanged only if it passes.
+- **revise:** a new revision of the same `recommendationId`, whose `producedBy` is this call, fully validated as in §3.3.5. Its selection no longer counts, so the recommendation is pending again (§4.4.2).
+- **drop:** the recommendation is invalidated with the reason `dropped_by_model`, and its selection history kept.
+- An invalidation this call causes records it in `revisedBy` (§4.4.1).
 - **additions:** validated as in §3.3.5, with new IDs.
+- **Duplicates:** `DUP-004` compares the additions and revisions with each other, and with the current valid recommendations not in the affected set and those this call keeps. The existing recommendation is kept and the new item rejected.
+- **heldBack:** validated as in §3.3.5 (`HELD-001`). Which entries are current is derived (§4.4.2). After a refresh, an entry whose blockers are no longer current stops being current; the regeneration that follows restates what is still blocked.
+- **Failed actions:** a failed `keep` or `drop` is a `failed_item` with the collection `actions`; a failed `revise` is a failed revision of the target's recommendation (§4.4.3). Both are named `actions/<n>`. Either way the recommendation is then invalidated as `not_reconsidered` (`REGEN-001`), so a failed `revise` doesn't leave the earlier revision current.
 
 Any change creates a new artifact revision and requires fresh review ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §12).
 
 ### 3.4 Reference detector
 
-A small deterministic component, versioned (`detectorVersion`), with its own fixtures. It finds references in recommendation content:
+A small deterministic component, versioned (`detectorVersion`, `references/1.0.0`), with its own fixtures. It finds references in recommendation content, and each reference's `value` is the span or line as written:
 
-- **Inline code spans:**
-  - path-like (contains `/`, or ends in a known file extension, and has no spaces) → `path`;
-  - command-like (starts with a known runner: `npm`, `pnpm`, `yarn`, `npx`, `bun`, `make`, `just`, `task`, `python`, `pytest`, `uv`, `poetry`, `cargo`, `go`, `docker`, `./`) → `command`;
-  - anything else is an identifier. Identifiers are not declared as references, but must appear in at least one excerpt of the recommendation's supporting findings (`REF-005`).
-- **Fenced code blocks:** each non-empty line starting with a known runner → `command`.
-- **Bare text:** tokens matching a path pattern (segments separated by `/`, ending in a file extension) → `path`.
+- **Inline code spans**, paired as in §3.2.3:
+  - **command-like:** starts with a known runner and holds whitespace after it → `command`. The runners are the words `npm`, `pnpm`, `yarn`, `npx`, `bun`, `make`, `just`, `task`, `python`, `pytest`, `uv`, `poetry`, `cargo`, `go` and `docker`, each matched as a whole word, so followed by whitespace or the end of the text (`gofmt` is not `go`), and the prefix `./` followed by a path, as in `./scripts/build.sh --fast`;
+  - **path-like:** holds no whitespace, isn't a URL (holding `://`), and either contains `/` or ends in a known file extension or is a known file name → `path`;
+  - a span that starts with a runner and holds no whitespace is a path if it is path-like, as `./scripts/build.sh` is, and a command otherwise, as `make` is;
+  - anything else is an identifier, URLs included. Identifiers are not declared as references, but must appear in at least one excerpt of the recommendation's supporting findings, or in the statement or exceptions of a supporting decision (`REF-005`).
+- **Fenced code blocks:** each non-empty line, without leading and trailing whitespace, is classified as an inline span is; a line that is a command gives a `command` with that value, and other lines give nothing.
+- **Bare text:** path-like tokens as §3.2.3 defines them, except URLs → `path`. Bare text is the content outside inline code spans and code blocks, so nothing is detected twice.
+
+**Known file extensions**, after a final `.`: `md`, `mdx`, `txt`, `json`, `jsonc`, `yaml`, `yml`, `toml`, `ini`, `cfg`, `lock`, `js`, `mjs`, `cjs`, `jsx`, `ts`, `mts`, `cts`, `tsx`, `py`, `go`, `rs`, `rb`, `java`, `kt`, `swift`, `c`, `h`, `cpp`, `hpp`, `cs`, `php`, `sh`, `bash`, `zsh`, `sql`, `html`, `css`, `scss`, `vue`, `svelte`. **Known file names:** `Makefile`, `makefile`, `GNUmakefile`, `Dockerfile`, `justfile`, `Justfile`, `Procfile`, `Gemfile`, `LICENSE`. Both lists are versioned with the detector: a change increases `detectorVersion`.
 
 The detector is deliberately conservative. Content it can't classify is left alone, not guessed at.
 
@@ -1813,7 +1848,7 @@ type ValidationEvent = {
 
 A schema failure rejects the whole response with one event per issue, in the order the schema reports them: `itemKey` is `$response`, `rule` is `SCHEMA`, and `detail` is the issue's path and code only, never the value received, because the model may have copied source text into it. A path segment that isn't a field name the schema defines, such as a record key, is written `<key>`. The proposed count is then unknown, with the reason `schema_failed`, never zero.
 
-No event repeats text from the response. An `itemKey` is a local key or alias only when it is well formed (a local key is one or two lowercase letters and a number, an alias as in §3.2.1); otherwise the item is named by its position, `<collection>/<index>`, and a malformed local key defines nothing. An item with no key of its own, such as an expansion request, a content notice or a revision, is always named by its position. A detail names only code-made values, such as an alias from the table, never an unknown value the model wrote. A rejected item keeps the events of its sub-items, such as each failed citation. Events are ordered by stage. In the item stage they follow the response's item order, collections in schema order, and within an item the rule order, except that a sub-item's events are in sub-item order, each sub-item's in rule order; `ALIAS-002` is checked first, for each item in turn. In the cross-item stage they follow the order in which the call's cross-item checks run (§3.3.2–§3.3.4), then item order.
+No event repeats text from the response. An `itemKey` is a local key or alias only when it is well formed (a local key is one or two lowercase letters and a number, an alias as in §3.2.1); otherwise the item is named by its position, `<collection>/<index>`, and a malformed local key defines nothing. An item with no key of its own, such as an expansion request, a content notice or a revision, is always named by its position. The one exception is `noChangeReason`, which is not in a collection and is named `noChangeReason`. A detail names only code-made values, such as an alias from the table, never an unknown value the model wrote. A rejected item keeps the events of its sub-items, such as each failed citation. Events are ordered by stage. In the item stage they follow the response's item order, collections in schema order, and within an item the rule order, except that a sub-item's events are in sub-item order, each sub-item's in rule order; `ALIAS-002` is checked first, for each item in turn. In the cross-item stage they follow the order in which the call's cross-item checks run (§3.3.2–§3.3.6), then item order.
 
 Each call also records counts: proposed, accepted, corrected and relabelled items, and rejections by rule. An item counts as corrected or relabelled if it was accepted with such an event. Rule IDs are stable across versions. The validator has its own version (`validatorVersion`, `validate/0.12.0` since the withdrawn reasons of v0.29), recorded with every call, because changing a rule changes what is accepted even when the model output is identical. Any change to what is accepted increases it, changed thresholds and word lists included. A test pins the list of rule IDs to the version, together with the runtime's Unicode version (`process.versions.unicode`), because `CIT-007`'s and `SUP-002`'s character classes follow it.
 
@@ -1879,6 +1914,17 @@ A change to any prompt, schema, validator or detector requires the fixture suite
   - a recommendation depending on a skipped question;
   - `noChangeReason` alongside recommendations;
   - a regeneration response that omits an affected recommendation;
+  - a `revise` of a list item with another marker or indentation, of a heading at another level or over two lines, and of a heading with a paragraph (`REC-003`), with accepted near misses: a heading revised as one line at the same level, and a list item with the same marker;
+  - a numbered list item added after a bulleted one, and an indented code block added after a list item, which the assembly check rejects (`REC-003`);
+  - a `section` target or a `newSection`'s `after` naming a block that isn't a heading, and a `block` or `after` target when the round trip failed or the destination is absent (`REC-002`);
+  - a `remove` of a heading, accepted as one recommendation for its whole section;
+  - a command in each known-command form, a command found only in an excerpt (accepted), a reference whose supporting finding's evidence doesn't contain it (`REF-004`), and an identifier found only in a supporting decision (accepted, `REF-005`);
+  - `./scripts/build.sh` declared as a path (accepted) and as a command (`REF-001`), `./scripts/build.sh --fast` as a command, `gofmt -w .` in a fenced block detecting nothing, a path in inline code not detected again as bare text, and a URL in inline code treated as an identifier;
+  - `REC-007` sentence boundaries: an imperative verb after a list marker, after heading marks and after `.`, `!` or `?`, and one inside an inline code span or code block (accepted);
+  - `REF-002` near misses: `./src/a.ts` and `src/` accepted after normalisation, a `..` path and a withheld path rejected;
+  - a reference whose `support` names a withdrawn or corrected finding (`REC-001`);
+  - a held-back entry blocked by an answered question or a resolved conflict (`HELD-001`), two identical recommendations (`DUP-004`), and a rejected `noChangeReason` kept as a failed item;
+  - a regeneration `keep` that fails revalidation, a `revise` and an addition that duplicate a current unaffected recommendation (`DUP-004`), and failed `keep`, `drop` and `revise` actions;
   - instructions embedded in repository content;
   - an expansion request beyond `maxExpansionRequests` (`LIMIT-002`), on an excluded, ignored, withheld or unlisted path, or a file that isn't valid UTF-8 (`EXP-001`), a whole-file read of a file too large to excerpt (`EXP-006`), with a reversed range (`EXP-002`), asking only for lines already sent (`EXP-003`), with a search glob outside the scope roots or matching no searchable file (`EXP-004`), and with a literal holding a line break (`EXP-005`);
   - a conflict whose members are a finding and its duplicate (`DUP-001`, then `CONF-001`), a duplicate gap and absence claim, and a restated known fact (`DUP-002`);
@@ -1886,6 +1932,21 @@ A change to any prompt, schema, validator or detector requires the fixture suite
   - a question tied only to documented, uncontested findings (`Q-001`), one tied to a documented finding in an unresolved conflict (accepted), duplicate `resolves` sets in another order (`DUP-003`), more valid questions than twice the budget (`LIMIT-002`) with the rest `unreached`, and a question resolving a resolved conflict, which doesn't rank first;
   - a call-1 conflict that loses one of three members and is revised, and a conflict member naming a call-1 gap (`ALIAS-003`);
   - an outcome for every call-1 conflict: `kept`, `revised`, `replaced` (naming the kept conflict when the replacement was a duplicate), `withdrawn` with `withdrawn_by_model`, `withdrawn` with `members_merged` when one replacement stands for both members, and every conflict `kept` after a schema failure.
+
+**Selection and assembly** ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §9.2–§9.3), with no model involved:
+
+- a heading revised as one line at the same level;
+- a heading `remove` that removes its section as one change, with one attribution entry per removed block, and that excludes any `revise` or `remove` of a block in the section, the heading's own `revise` included;
+- an addition anchored to a removed block, and one anchored inside a removed section, each placed where the removed content was;
+- separators copied from between the anchor and its next block, so a loose list stays loose, and the fixed separators at the end of the file and in an empty or absent one;
+- line-ending conversion for `lf`, `crlf`, `cr`, `mixed`, a `mixed` tie and `none`, and files with a byte order mark or without a final line ending;
+- the order of additions at one position follows the `seq` of each recommendation's first revision, whatever their IDs, and a `revise` or `remove` of the anchor comes before them;
+- a section `remove` together with an addition anchored inside that section, both accepted: the addition goes where the section was;
+- consecutive removed blocks, the last blocks of the file, and every block, removed as one run;
+- two accepted additions that pass alone but can't be combined, such as a list item and an indented code block after one paragraph, reported as a conflict naming both, not as an internal error; with three additions at that position, the first whose addition fails is named, with the one it merges into;
+- removing `B` from `A s1 B s2 C` and adding `X` after `B` gives `A s1 X s2 C`;
+- after a refresh, a re-anchored revision that no longer passes `REC-003` alone is invalidated as `target_changed`;
+- a destination whose round trip failed, with a new section appended: the original bytes are an unchanged prefix.
 
 **Evidence basis and known facts** (§3.2.4–§3.2.5), with no model involved:
 
@@ -1929,7 +1990,6 @@ A change to any prompt, schema, validator or detector requires the fixture suite
 - Output limits per call (finding, question and recommendation counts).
 - `SUP-002` misses counts outside its lists, such as *once*, *twice*, *a couple* and ordinals.
 - `SUP-001` matches a token in an excerpt as a substring, so `./format.ts` is anchored by an excerpt holding `../format.ts`, which names another file. A path-aware excerpt match would be stricter.
-- In recommendation content, `` `./scripts/build.sh` `` is both path-like and command-like (§3.4). Which class wins is settled when the detector is built.
 - Which known facts calls 2–5 number first: those sent in call 1, or every known fact, including those left out (§3.2.1). Settle when the alias tables are built.
 - A command name holding a line or paragraph separator (U+2028, U+2029) gives a statement that spans lines, because only `Cc` is refused (§3.2.5). Calibrate with the rendering of known facts.
 - The justfile reader is line-based, so a column-0 `name:` inside a multi-line string (`'''`, `"""`) reads as a recipe (§3.2.5).
@@ -2035,9 +2095,10 @@ The example leaves out most record fields.
 | `question` | `status`, `unreachedReason` |
 | `model_call` | the fields the end adds (§4.6): `state`, `returnedModel`, `retainedResponseRef`, `usage`, `cost`, `validationEvents`, `counts`, `correctedCitationRate`, `citationsProposed`, `questionOrder`, `error`, `endedAt`, `durationMs` |
 | `effort_interval` | `state`, `leftAt` |
-| `recommendation_revision`, `apply_attempt` | listed with their records in M5 |
+| `recommendation_revision` | every field but the lineage: `kind`, `operation`, `target`, `content`, `rationale`, `support`, `references`, `scope`, `producedBy`, `validationEvents`, `status`, `invalidatedReason` |
+| `apply_attempt` | `state`, `error`, `resultHash`, `endedAt` |
 
-**Who revised it.** `producedBy` names what created the lineage, and every revision repeats it. A revision appended by a model call, such as an `analyse_expansion` withdrawal or a conflict whose members changed, also records that call's lineage ID in `revisedBy`. A revision the developer causes names its decision instead, as `resolvingDecisionId` does. `revisedBy` is never repeated from the revision before, and never set on a first revision. Only findings and conflicts have it, because they are the only records a model call revises (§4.5). Decisions and selections record the developer as `actor` (DM §8.2, §9.2); a question changes by the developer's answer or skip, or is marked unreached by code, never by a model call.
+**Who revised it.** `producedBy` names what created the lineage, and every revision repeats it, except a recommendation revision with new content, whose `producedBy` names the model call or `developer_edit` that wrote it (DM §9.1). An invalidation repeats `producedBy`. A revision appended by a model call, such as an `analyse_expansion` withdrawal or a conflict whose members changed, also records that call's lineage ID in `revisedBy`. A revision the developer causes names its decision instead, as `resolvingDecisionId` does. `revisedBy` is never repeated from the revision before, and never set on a first revision. Findings, conflicts and recommendation revisions have it, because they are the only records a model call revises (§4.5, §3.3.6). On a recommendation revision only an invalidation sets it, since a new revision's own `producedBy` names its call, and an invalidation code makes itself, `target_changed`, has none. Decisions and selections record the developer as `actor` (DM §8.2, §9.2); a question changes by the developer's answer or skip, or is marked unreached by code, never by a model call.
 
 **Current.** A revision is current when no other record supersedes it and its status is a current one (the table's last column). So a lineage has at most one current revision, and a withdrawn or replaced one has none. Immutable records and records with status `failed_validation` (§4.4.3) supersede nothing and are never superseded.
 
@@ -2047,9 +2108,10 @@ The example leaves out most record fields.
 |---|---|
 | `findingIds`, `findingId`, `conflictIds`, `conflictId`, `gapIds`, `questionId`, `recommendationId`, `blockedBy`, `modelCallId`, `retryOf`, `producedBy` (a model call) | Lineage IDs |
 | `supersedes`, `snapshotId`, `evidenceIds`, `decisionIds`, `resolvingDecisionId`, `revisionId`, `selectedRevisionIds`, `artifactRevisionId`, `reviewId` | Record IDs |
-| A recommendation revision's `support` | Each entry is typed: a finding by lineage ID, so `REC-001` sees its current state; a decision or evidence by record ID, so a superseded decision makes the recommendation affected (DM §12) |
+| A recommendation revision's `support` | Each entry is typed: a finding by lineage ID, so `REC-001` sees its current state; a decision by record ID, so a superseded decision makes the recommendation affected (DM §12). There are no evidence entries: evidence is reached through the findings |
+| A recommendation revision's `target` | A block ID and hash in the snapshot active when the revision was created. A block is not a record; §4.4.2 resolves it in later snapshots |
 | A reference's `supportingFindingId` and `evidenceId` (DM §9.1) | The finding by lineage ID; the evidence by record ID |
-| An artifact revision's `attribution` (DM §9.4) | Recommendation revisions by record ID |
+| An artifact revision's `attribution` (DM §9.4): entries `{ revisionId, operation, originalBlockId?, proposedSpan? }`, in file order | Recommendation revisions by record ID; original blocks by block ID in the artifact's snapshot |
 | `revisedBy` | A model call by lineage ID |
 | A model call's alias table (§3.2.1): the target of each `F`, `C`, `Q`, `D` and `R` alias | Record IDs: the exact revisions sent. Code maps one to its lineage through the record |
 
@@ -2066,7 +2128,7 @@ The lineage of `session_state` and `generation_config` is the session itself, so
 | `conflict` | `conflictId` (`conf_`) | `confr_` | §4.5. Carries `snapshotId` | `unresolved` or `resolved`, of the active snapshot, with every member finding current |
 | `question` | `questionId` (`q_`) | `qr_` | `open` → `answered`, `skipped` or `unreached`. A skipped question answered later gets another revision | `open`, `answered`, `skipped`, `unreached`, while at least one finding, gap or conflict it resolves is current |
 | `decision` | — | `dec_` | A correction is a new decision whose `supersedes` names the old one (DM §8.2) | not superseded |
-| `recommendation_revision` | `recommendationId` (`rec_`) | `rrev_` | DM §9.1. A new revision per regeneration `revise` or developer edit. Invalidation: a revision with status `invalidated` and `invalidatedReason` (below) | `valid` |
+| `recommendation_revision` | `recommendationId` (`rec_`) | `rrev_` | DM §9.1. A new revision per regeneration `revise` or developer edit, with its own `producedBy`. Invalidation: a revision with status `invalidated` and `invalidatedReason` (below) | `valid` |
 | `held_back` | — | `hb_` | Immutable. One per accepted `heldBack` entry (§3.3.5), with its `topic`, `blockedBy` and `modelCallId` | §4.4.2 |
 | `no_change_reason` | — | `ncr_` | Immutable. An accepted `noChangeReason` (§3.3.5, `REC-009`), with its `modelCallId` | §4.4.2 |
 | `selection` | — | `sel_` | Immutable. DM §9.2. A new selection per change, naming its `recommendationId` and `revisionId` | the latest per `recommendationId` |
@@ -2084,9 +2146,9 @@ The lineage of `session_state` and `generation_config` is the session itself, so
 | `invalidatedReason` | When |
 |---|---|
 | `revalidation_failed` | A regeneration `keep` whose revision fails revalidation (§3.3.6) |
-| `not_reconsidered` | An affected recommendation the regeneration response left out (`REGEN-001`) |
+| `not_reconsidered` | An affected recommendation the regeneration response left out, or whose only action failed validation (`REGEN-001`) |
 | `dropped_by_model` | A regeneration `drop` |
-| `target_changed` | A refresh changed or removed its target block, and it couldn't be re-anchored (DM §12) |
+| `target_changed` | A refresh changed or removed its target block, and it couldn't be re-anchored, or it was re-anchored and no longer passes `REC-003` alone (DM §9.4, §12) |
 
 An `invalidated` revision supersedes the valid one before it. A `failed_validation` revision supersedes nothing, so a failed regeneration `revise` or developer edit leaves the earlier valid revision current.
 
@@ -2103,9 +2165,11 @@ These are pure functions over the records, in `src/core/session/`. DM §5's "act
   Completeness is separate from the outcome: an `applied` session can be `incomplete`. It is derived, never stored, and can be computed at any point.
 - **Active snapshot:** the latest `snapshot`.
 - **Current findings, conflicts, questions, decisions and recommendations:** the current revisions, as in §4.4.1. Findings and conflicts from an earlier snapshot are not current, so a refresh leaves only the new snapshot's (DM §12). A conflict is current only while all its member findings are, so a conflict with a corrected or earlier-snapshot member is neither aliased nor sent; a question is current only while at least one finding, gap or conflict it resolves is current. These follow from the records, and no record is written for them.
-- **Current held-back entries and no-change reason:** those of the latest completed `recommend` call, plus those of every later completed `regenerate_recommendations` call. How regeneration replaces earlier held-back entries is settled in M5 (§4.12).
-- **Current selections:** the latest `selection` per `recommendationId`.
-- **Active artifact revision:** the latest `artifact_revision`, if its `snapshotId` is the active snapshot, its `selectedRevisionIds` equal the current accepted selections, and its `decisionIds` are all current. Otherwise there is none, and the review screen says the proposal is out of date (DM §12).
+- **Current held-back entries:** those of the latest completed `recommend` call and of every later completed `regenerate_recommendations` call, while at least one of the entry's blockers still blocks: a current question still `skipped` or `unreached`, or a current conflict still `unresolved`. Entries with the same topic and the same `blockedBy` set are kept once, the earliest.
+- **Current no-change reason:** that of the latest completed `recommend` call, while no recommendation has a current revision.
+- **Current selections:** the latest `selection` per `recommendationId`. A selection, `accepted` or `rejected`, counts only while the revision it names is the current revision of its recommendation. Otherwise the recommendation is pending, without any selection being written for the developer (DM §9.2). A recommendation with no current revision has no current selection and is not shown for selection.
+- **Target resolution:** in the active snapshot, a recommendation revision's target resolves to the block with the same ID and hash, otherwise to the only block with that hash. This re-anchoring is derived and never written (DM §12). After a refresh, before anything else uses the recommendations, code appends a `target_changed` invalidation for every current revision whose target resolves to no block.
+- **Active artifact revision:** the latest `artifact_revision`, if its `snapshotId` is the active snapshot, its `selectedRevisionIds` equal the revisions of the current accepted selections, and its `decisionIds` are all current. Otherwise there is none, and the review screen says the proposal is out of date (DM §12).
 - **Usable approval:** an `approved` review of the active artifact revision whose `contentHash` equals the revision's `proposedHash` (DM §10). Freshness (DM §11.1) is checked at apply, not here.
 
 Records with status `failed_validation`, and `failed_item` records, are left out of every set above. They are never current, never given an alias, never sent to a later call, never support anything and are never shown as findings (§2.12).
@@ -2114,8 +2178,8 @@ Records with status `failed_validation`, and `failed_item` records, are left out
 
 The Evaluation Requirements ask to "preserve the complete findings and recommendations, including rejected ones". So every item the validation pipeline rejects at the item or cross-item stage (§3.5) becomes a record, as well as the validation events it produced. The status is `failed_validation`, not "rejected", because a selection and a review can also be `rejected` (DM §9.2, §10).
 
-- **Which record.** An item from a collection with a record type of its own is stored as that type: findings, gaps and absence claims as `finding` (with the matching `kind`), conflicts as `conflict`, questions as `question`, and recommendations, additions and regeneration `revise` revisions as `recommendation_revision`. Items from every other collection (`analyse_expansion` revisions, expansion requests, content notices, held-back entries, regeneration `keep` and `drop` actions) are `failed_item` records, with their `collection`.
-- **Shape.** A failed record holds only the envelope, for a recommendation revision its lineage fields (below), and these fields: `status: "failed_validation"`; `producedBy`, the model call or `developer_edit`; `itemKey`, named as the item's validation events name it (§3.5); `rejectedBy`, a list holding the ID of the rule that rejected it, since an item stops at its first rejection (§3.5), whose events also hold its failed sub-items; and `proposed`, the item exactly as written after the schema stage, with its aliases and local keys unresolved. Nothing in it is corrected or rewritten, and none of the type's other fields is filled in: a failed absence claim has no code-written statement, and a failed finding has no evidence or basis.
+- **Which record.** An item from a collection with a record type of its own is stored as that type: findings, gaps and absence claims as `finding` (with the matching `kind`), conflicts as `conflict`, questions as `question`, and recommendations, additions and regeneration `revise` revisions as `recommendation_revision`. Items from every other collection (`analyse_expansion` revisions, expansion requests, content notices, held-back entries, regeneration `keep` and `drop` actions), and a rejected `noChangeReason`, are `failed_item` records, with their `collection`: `revisions`, `expansionRequests`, `contentNotices`, `heldBack`, `actions` or `noChangeReason`.
+- **Shape.** A failed record holds only the envelope, for a recommendation revision its lineage fields (below), and these fields: `status: "failed_validation"`; `producedBy`, the model call or `developer_edit`; `itemKey`, named as the item's validation events name it (§3.5), or `$edit` for a developer edit, which has no response; `rejectedBy`, a list holding the ID of the rule that rejected it, since an item stops at its first rejection (§3.5), whose events also hold its failed sub-items; and `proposed`, the item exactly as written after the schema stage, with its aliases and local keys unresolved. A failed `developer_edit` revision also keeps its `validationEvents`, each with the `itemKey` `$edit`, since no model call holds them. Nothing in it is corrected or rewritten, and none of the type's other fields is filled in: a failed absence claim has no code-written statement, and a failed finding has no evidence or basis.
 - **Lineage.** Only recommendation revisions keep one: a new `recommendationId` for a new recommendation, the existing one for a regeneration `revise` or a developer edit, so the history of one recommendation stays together. Other failed records have no lineage ID or revision.
 - **Evidence** is created only for accepted findings. Evidence code made while checking a finding that is later rejected, at the item or cross-item stage, is discarded; its citations stay in `proposed`.
 - **Failed citations of an accepted finding** are kept on that finding as `failedCitations`, each the citation as proposed with its `rejectedBy`, merged duplicates (`CIT-009`) included. `droppedCitations` stays their count (DM §6.3).
@@ -2275,8 +2339,8 @@ This implements §1.12, which covers responses as well as requests.
 
 1. The file is UTF-8 JSON, and its `format` and `schemaVersion` are this reader's (above). A truncated file fails here.
 2. The Zod schema for the whole file. Unknown fields are rejected, as in §3.3.
-3. Envelope: record IDs unique; lineage IDs never used as record IDs; `seq` is 1, 2, 3… in file order; each lineage's revisions are numbered 1, 2, 3… in `seq` order; each revision after the first supersedes the latest earlier revision of its lineage that isn't `failed_validation`, and a `failed_validation` revision supersedes nothing; a revision changes only the fields its type may change (§4.4.1), compared as canonical JSON, and repeats the rest of the revision it supersedes.
-4. References (§4.4.1): every record ID a record names belongs to a record of the right type with a lower `seq`; every lineage ID it names belongs to a lineage of the right type whose first revision has a lower `seq`. This covers every field in the references table, and a model call's `inputManifest.snapshotId`. A record that isn't `failed_validation` never refers to one that is. A model call's `retryOf` names a call with the same purpose whose `attempt` is one less. Every model call comes after the session's first `generation_config`, so it was sent under recorded settings.
+3. Envelope: record IDs unique; lineage IDs never used as record IDs; `seq` is 1, 2, 3… in file order; each lineage's revisions are numbered 1, 2, 3… in `seq` order; each revision after the first supersedes the latest earlier revision of its lineage that isn't `failed_validation`, and a `failed_validation` revision supersedes nothing; a revision changes only the fields its type may change (§4.4.1), compared as canonical JSON, and repeats the rest of the revision it supersedes; an `invalidated` recommendation revision changes only `status` and `invalidatedReason`.
+4. References (§4.4.1): every record ID a record names belongs to a record of the right type with a lower `seq`; every lineage ID it names belongs to a lineage of the right type whose first revision has a lower `seq`. This covers every field in the references table, and a model call's `inputManifest.snapshotId`. A record that isn't `failed_validation` never refers to one that is. A model call's `retryOf` names a call with the same purpose whose `attempt` is one less. Every model call comes after the session's first `generation_config`, so it was sent under recorded settings. A recommendation revision's target block exists, with its hash, in the snapshot active when the revision that set the target was created: the earliest revision of the lineage from which every later revision that isn't `failed_validation` repeats the same `target`; failed revisions, which have no target, don't break the chain. An invalidation, which repeats the target, is therefore checked against that snapshot, not its own. An apply attempt's `artifactRevisionId` and `reviewId` name an artifact revision and a review of it.
 5. Superseding: a record supersedes only records of its own type, each at most once; failed and immutable records are never superseded, except decisions and effort corrections by their own type; every effort correction after the first supersedes the current one, so at most one is current; a revision whose status isn't current (§4.4.1), such as a withdrawn finding, is never superseded.
 6. Evidence: every accepted finding that isn't a gap has evidence; an `absence` finding's is one `absence_check`, and a `claim`'s are `lines` or `entry`. The schema (check 2) already enforces the count, so a finding without evidence fails there; this check covers the kinds.
 7. Content: every `contentRef` exists and its bytes hash to its name; the destination's `hash` and its Guidance Block hashes match its bytes; each artifact revision's `proposedHash` matches its content. A call's `retainedInputRef` equals its input manifest's; with `retainModelInputs` off both references are `null`, and with it on `retainedInputRef` isn't. Every `retainedInputRef` and `retainedResponseRef` exists and matches, unless an `inputs_purged` record comes after the call: after its first revision for the request, after the revision that added it for the response. A file that is still there is checked either way.
@@ -2353,12 +2417,18 @@ A `failed` session's failure details come from the `error` fields of its failed 
 - The budget check counts an interrupted call's `estimatedCost`, and never reports it as cost.
 - With retention on, request and response files are written and referenced; with it off, both references are `null`. After `purge-inputs`, the session still loads, and the export says the exchanges were purged.
 - Derived state never reads a stored "current" field.
+- Target resolution: a block with the same ID and hash; a unique hash under a different ID (re-anchored, nothing written); two blocks with the same hash, or none, giving a `target_changed` invalidation written before the next regeneration call, not sent, and named in its summary.
+- A new decision with an empty affected set calls the model when it unblocks a held-back entry that was current before it, and makes no call otherwise.
+- Held-back entries: current while a blocker still blocks, deduplicated by topic and `blockedBy`, and no longer current after a refresh makes their blockers not current.
+- Selections: an accepted and a rejected selection each stop counting when a new revision supersedes theirs, and an invalidated recommendation has no current selection.
+- Load check 4 accepts a `target_changed` invalidation and an invalidation of a re-anchored target, and rejects a first revision whose target isn't in its snapshot.
+- Apply recovery: a `started` attempt whose destination holds the original is recorded `failed` with `interrupted_before_write`, and the retry is a new attempt under the same approval, after the freshness checks.
+- A failed regeneration action invalidates its recommendation as `not_reconsidered`, and a failed developer edit keeps its validation events.
 - The export: each section contains its records, alias tables, input manifests and returned models included; `contentState` is right in the proposed, approved, applied and no-change cases; `evaluationStatus` follows every row of the outcome mapping; excerpts, failed items' quotes and exchanges appear only with their options; hashes match the session; unknown totals carry reasons; a seeded secret stops the export; `--out` inside the repository is refused.
 - Nothing in `src/core/session/` or `src/core/export/` reads the clock, randomness or the filesystem directly.
 
 ### 4.12 Open points for this section
 
 - **`cancelled`.** No command produces the outcome `cancelled` yet: "Save and quit" leaves a session in progress, and `delete` removes it. Settle with the commands in M7, probably a `cancel` command.
-- **Held-back entries across regeneration.** Whether a `regenerate_recommendations` call's held-back entries replace earlier ones or add to them. Settle with regeneration in M5.
 - **Performance of whole-file writes.** Every write rewrites `session.json`. Snapshot file lists on the development repositories are under 230 entries, so this is cheap; a large repository may need snapshots in their own content-addressed files. Measure in M6.
 - **Repository identity.** A root path identifies a repository only on one machine, and not after a move. Enough for the first slice.
