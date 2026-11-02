@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { hashOf, newLog } from "../../../test/support/session.js";
-import { currentState } from "./current.js";
+import { callDraft, hashOf, newLog } from "../../../test/support/session.js";
+import { completeness, currentState, sessionProgress } from "./current.js";
 import { recordFailedRecommendationRevision } from "./failed.js";
 import type { SessionLog } from "./log.js";
 import { SESSION_SCHEMA_VERSION, type SessionFile, sessionFile } from "./records.js";
@@ -455,5 +455,210 @@ describe("conflicts and questions follow their members (IMPL §4.4.2)", () => {
   it("a question record needs at least one finding, gap or conflict", () => {
     const log = newLog();
     expect(() => question(log, {})).toThrow(/at least one finding, gap or conflict/);
+  });
+});
+
+function state(log: SessionLog) {
+  return log.start({
+    type: "session_state",
+    productVersion: "0.1.0",
+    stage: "inspect",
+    status: "running",
+  });
+}
+
+describe("stage, status and outcome (IMPL §4.4.2)", () => {
+  it("come from the latest session_state; the outcome is unset while in progress", () => {
+    const log = newLog();
+    expect(sessionProgress(log.records)).toBeUndefined();
+    state(log);
+    expect(sessionProgress(log.records)).toEqual({ stage: "inspect", status: "running" });
+    log.revise("session_state", "session_state", { stage: "clarify", status: "awaiting_user" });
+    expect(sessionProgress(log.records)).toEqual({ stage: "clarify", status: "awaiting_user" });
+    log.revise("session_state", "session_state", {
+      stage: "complete",
+      status: "completed",
+      outcome: "applied",
+    });
+    expect(sessionProgress(log.records)).toEqual({
+      stage: "complete",
+      status: "completed",
+      outcome: "applied",
+    });
+  });
+});
+
+describe("completeness (IMPL §4.4.2)", () => {
+  it("is complete when no reason holds", () => {
+    const log = newLog();
+    state(log);
+    expect(completeness(log.records)).toEqual({ state: "complete" });
+  });
+
+  it("budget_reached holds while the stopped call is unsent, and clears once a call of that purpose starts", () => {
+    const log = newLog();
+    state(log);
+    log.start(callDraft({ purpose: "analyse" }));
+    log.revise("session_state", "session_state", {
+      status: "blocked",
+      reason: "budget_reached",
+      unsentPurpose: "recommend",
+    });
+    expect(completeness(log.records)).toEqual({ state: "incomplete", reasons: ["budget_reached"] });
+    // A call of another purpose doesn't clear it.
+    log.start(
+      callDraft({
+        purpose: "generate_questions",
+        aliases: { call: "generate_questions", entries: [] },
+      }),
+    );
+    expect(completeness(log.records)).toEqual({ state: "incomplete", reasons: ["budget_reached"] });
+    log.start(callDraft({ purpose: "recommend", aliases: { call: "recommend", entries: [] } }));
+    expect(completeness(log.records)).toEqual({ state: "complete" });
+  });
+
+  it("budget_reached isn't cleared by a call of that purpose started before the stop", () => {
+    // A recommend call fails, and the budget then refuses its retry.
+    const log = newLog();
+    state(log);
+    log.start(callDraft({ purpose: "recommend", aliases: { call: "recommend", entries: [] } }));
+    log.revise("session_state", "session_state", {
+      reason: "budget_reached",
+      unsentPurpose: "recommend",
+    });
+    expect(completeness(log.records)).toEqual({ state: "incomplete", reasons: ["budget_reached"] });
+  });
+
+  it("budget_reached follows the last budget_reached state, not an earlier cleared one", () => {
+    const log = newLog();
+    state(log);
+    log.revise("session_state", "session_state", {
+      reason: "budget_reached",
+      unsentPurpose: "analyse",
+    });
+    log.start(callDraft({ purpose: "analyse" }));
+    log.revise("session_state", "session_state", {
+      reason: "budget_reached",
+      unsentPurpose: "recommend",
+    });
+    expect(completeness(log.records)).toEqual({ state: "incomplete", reasons: ["budget_reached"] });
+  });
+
+  it("budget_reached still holds after later states without the reason", () => {
+    const log = newLog();
+    state(log);
+    log.revise("session_state", "session_state", {
+      reason: "budget_reached",
+      unsentPurpose: "recommend",
+    });
+    log.revise("session_state", "session_state", {
+      stage: "complete",
+      status: "completed",
+      outcome: "no_change",
+      reason: undefined,
+      unsentPurpose: undefined,
+    });
+    expect(completeness(log.records)).toEqual({ state: "incomplete", reasons: ["budget_reached"] });
+  });
+
+  it("stage_skipped holds when any session_state has that reason", () => {
+    const log = newLog();
+    state(log);
+    log.revise("session_state", "session_state", { stage: "clarify", reason: "stage_skipped" });
+    log.revise("session_state", "session_state", { stage: "recommend", reason: undefined });
+    expect(completeness(log.records)).toEqual({ state: "incomplete", reasons: ["stage_skipped"] });
+  });
+
+  it("questions_unreached holds for a current unreached question, for either reason", () => {
+    for (const unreachedReason of ["budget", "session_ended"] as const) {
+      const log = newLog();
+      state(log);
+      const snap = snapshot(log);
+      const q = question(log, { findingIds: [claim(log, snap.id).findingId] });
+      log.revise("question", q.questionId, { status: "unreached", unreachedReason });
+      expect(completeness(log.records)).toEqual({
+        state: "incomplete",
+        reasons: ["questions_unreached"],
+      });
+    }
+  });
+
+  it("an unreached question that is no longer current doesn't count", () => {
+    const log = newLog();
+    state(log);
+    const snap = snapshot(log);
+    const q = question(log, { findingIds: [claim(log, snap.id).findingId] });
+    log.revise("question", q.questionId, { status: "unreached", unreachedReason: "budget" });
+    snapshot(log);
+    expect(completeness(log.records)).toEqual({ state: "complete" });
+  });
+
+  it("skipped and answered questions don't count", () => {
+    const log = newLog();
+    state(log);
+    const snap = snapshot(log);
+    const q = question(log, { findingIds: [claim(log, snap.id).findingId] });
+    log.revise("question", q.questionId, { status: "skipped" });
+    expect(completeness(log.records)).toEqual({ state: "complete" });
+  });
+
+  it("gives every reason that holds, in order: budget_reached, stage_skipped, questions_unreached", () => {
+    const log = newLog();
+    state(log);
+    const snap = snapshot(log);
+    const q = question(log, { findingIds: [claim(log, snap.id).findingId] });
+    log.revise("question", q.questionId, { status: "unreached", unreachedReason: "session_ended" });
+    log.revise("session_state", "session_state", { reason: "stage_skipped" });
+    log.revise("session_state", "session_state", {
+      reason: "budget_reached",
+      unsentPurpose: "recommend",
+    });
+    expect(completeness(log.records)).toEqual({
+      state: "incomplete",
+      reasons: ["budget_reached", "stage_skipped", "questions_unreached"],
+    });
+  });
+
+  it("is separate from the outcome: an applied session can be incomplete", () => {
+    const log = newLog();
+    state(log);
+    log.revise("session_state", "session_state", { reason: "stage_skipped" });
+    log.revise("session_state", "session_state", {
+      stage: "complete",
+      status: "completed",
+      outcome: "applied",
+      reason: undefined,
+    });
+    expect(sessionProgress(log.records)?.outcome).toBe("applied");
+    expect(completeness(log.records)).toEqual({ state: "incomplete", reasons: ["stage_skipped"] });
+  });
+});
+
+describe("derived state is never stored (IMPL §4.4.2, §4.11)", () => {
+  it("the file schema rejects a stored current, active or completeness field on a finding or session_state", () => {
+    const log = newLog();
+    const st = state(log);
+    const snap = snapshot(log);
+    const f = claim(log, snap.id);
+    for (const [id, field] of [f.id, st.id].flatMap((id) =>
+      ["current", "active", "completeness"].map((field) => [id, field] as const),
+    )) {
+      const file = {
+        format: "ai-environment-architect/session",
+        schemaVersion: SESSION_SCHEMA_VERSION,
+        writtenBy: "0.1.0",
+        session: {
+          id: "ses_0001",
+          createdAt: "2026-11-01T10:15:00.000Z",
+          productVersion: "0.1.0",
+          adapter: "claude-code",
+          outputScope: ["root CLAUDE.md"],
+          repository: { name: "r", root: "/r" },
+          targetPath: "CLAUDE.md",
+        },
+        records: log.records.map((r) => (r.id === id ? { ...r, [field]: true } : r)),
+      };
+      expect(sessionFile.safeParse(file).success).toBe(false);
+    }
   });
 });

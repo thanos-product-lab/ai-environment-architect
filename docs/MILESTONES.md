@@ -98,7 +98,7 @@ The token check (IMPL §1.10) waits for M6, because it needs the provider's toke
 - [x] Record types, IDs and lineage: the session file, the ID prefixes of every record type, the records of IMPL §4.4–§4.5 with their revisions and references, items that failed validation, and the conflict and finding records of the `analyse_expansion` outcomes, with `absence_check` evidence (IMPL §4.3–§4.5; DM §5, §6, §8). `/implement-spec IMPL 4.4`. The other record types get their fields with their own steps: model calls and effort (IMPL §4.6), purges (§4.8), and recommendations, selections, artifacts, reviews and apply (M5).
 - [x] Load checks and schema versions, with no migrations before v0.1.0. `/implement-spec IMPL 4.9`. The checks cover the record types the file schema accepts; each later step extends them for its own types.
 - [x] Atomic storage and the lock: the storage directory and its refusal inside the target repository, content-addressed files, whole-file atomic writes, the lock and stale locks, and the data-notice state (IMPL §4.2, §4.7). `/implement-spec IMPL 4.7`
-- [ ] Derived current state: current records, corrected findings, the active snapshot and artifact revision, usable approval, and completeness. `/implement-spec IMPL 4.4.2`
+- [x] Derived current state: current records, corrected findings, the active snapshot, stage, status and outcome, and completeness. `/implement-spec IMPL 4.4.2`. The derivations over M5's records move to the M5 steps that add them: held-back entries and the no-change reason, selections, the active artifact revision and the usable approval.
 - [x] Model-call and effort records with interruption: the `started` and ended revisions, retries as separate calls, the budget with unknown costs, and effort as a lower bound. `/implement-spec IMPL 4.6`. Extend load check 4 to model-call references (`producedBy`, `revisedBy`, `modelCallId`, `retryOf`) and the alias tables (IMPL §4.9).
 - [ ] Retained inputs and responses, and `purge-inputs`. `/implement-spec IMPL 4.8`. Extend load check 7 to `retainedInputRef` and `retainedResponseRef`, unless purged (IMPL §4.9).
 
@@ -111,10 +111,10 @@ The export (IMPL §4.10) is specified here and built in M8.
 **Goal:** the whole write path, driven by recorded recommendations instead of a model.
 
 - [ ] Reference detector. `/implement-spec IMPL 3.4`. It matches paths through `normalisePath` (`src/core/paths.ts`), the one path normalisation of IMPL §1.11.
-- [ ] `recommend` item validation: evidence rules, `fact` and `policy`, directive-language guard, references, held back. `/implement-spec IMPL 3.3.5`
-- [ ] Selections and mutual exclusion (DM §9.1–§9.2).
+- [ ] `recommend` item validation: evidence rules, `fact` and `policy`, directive-language guard, references, held back. `/implement-spec IMPL 3.3.5`. Derive the current held-back entries and no-change reason (IMPL §4.4.2).
+- [ ] Selections and mutual exclusion (DM §9.1–§9.2), with the current selections (IMPL §4.4.2).
 - [ ] Deterministic assembly with attribution. `/implement-spec DM 9.3`
-- [ ] Artifact revisions and reviews; approval validity (DM §9.4, §10). Extend the load checks (IMPL §4.9) to recommendation, selection, artifact, review and apply references, artifact content (check 7) and the apply-approval check (check 8), and test the branches of checks 3–5 that these records make reachable, and list the fields a recommendation and apply-attempt revision may change (IMPL §4.4.1, check 3).
+- [ ] Artifact revisions and reviews; approval validity (DM §9.4, §10), with the active artifact revision and the usable approval (IMPL §4.4.2). Extend the load checks (IMPL §4.9) to recommendation, selection, artifact, review and apply references, artifact content (check 7) and the apply-approval check (check 8), and test the branches of checks 3–5 that these records make reachable, and list the fields a recommendation and apply-attempt revision may change (IMPL §4.4.1, check 3).
 - [ ] Tiered freshness. `/implement-spec DM 11.1`
 - [ ] Apply and recovery. `/implement-spec DM 11.2`
 - [ ] Change propagation and `regenerate_recommendations` validation (DM §12, IMPL §3.3.6).

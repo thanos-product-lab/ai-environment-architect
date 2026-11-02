@@ -116,3 +116,61 @@ export function currentState(records: readonly SessionRecord[]): CurrentState {
     contentNotices: ofType("content_notice").filter((n) => n.snapshotId === activeSnapshotId),
   };
 }
+
+// --- Stage, status, outcome and completeness (§4.4.2) ----------------------------------------
+
+type SessionState = RecordOf<"session_state">;
+
+export interface SessionProgress {
+  readonly stage: SessionState["stage"];
+  readonly status: SessionState["status"];
+  /** Unset while the session is in progress (DM §5). */
+  readonly outcome?: NonNullable<SessionState["outcome"]>;
+}
+
+/** The latest `session_state`, or undefined before the first. */
+export function sessionProgress(records: readonly SessionRecord[]): SessionProgress | undefined {
+  const latest = records.filter((r): r is SessionState => r.type === "session_state").at(-1);
+  if (latest === undefined) return undefined;
+  const { stage, status, outcome } = latest;
+  return outcome === undefined ? { stage, status } : { stage, status, outcome };
+}
+
+export type IncompleteReason = "budget_reached" | "stage_skipped" | "questions_unreached";
+
+/** `incomplete` lists every reason that holds, in this order: budget, skipped stage, unreached questions. */
+export type Completeness =
+  | { readonly state: "complete" }
+  | { readonly state: "incomplete"; readonly reasons: readonly IncompleteReason[] };
+
+/**
+ * Separate from the outcome: an `applied` session can be incomplete. Derived, never stored, and
+ * computable at any point.
+ */
+export function completeness(records: readonly SessionRecord[]): Completeness {
+  const states = records.filter((r): r is SessionState => r.type === "session_state");
+  const reasons: IncompleteReason[] = [];
+
+  // The generation budget stopped a call that is still unsent: no call with the purpose it
+  // names started after the last state that says so.
+  const stopped = states.filter((s) => s.reason === "budget_reached").at(-1);
+  if (
+    stopped !== undefined &&
+    !records.some(
+      (r) =>
+        r.type === "model_call" &&
+        r.state === "started" &&
+        r.seq > stopped.seq &&
+        r.purpose === stopped.unsentPurpose,
+    )
+  )
+    reasons.push("budget_reached");
+
+  if (states.some((s) => s.reason === "stage_skipped")) reasons.push("stage_skipped");
+
+  const { questions } = currentState(records);
+  if ([...questions.values()].some((q) => q.status === "unreached"))
+    reasons.push("questions_unreached");
+
+  return reasons.length === 0 ? { state: "complete" } : { state: "incomplete", reasons };
+}
