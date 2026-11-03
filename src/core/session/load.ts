@@ -281,6 +281,8 @@ const REFERENCES: Partial<Record<RecordTypeName, readonly Reference[]>> = {
     producedBy,
   ],
   recommendation_revision: [producedBy],
+  held_back: [lineage("modelCallId", "model_call")],
+  no_change_reason: [lineage("modelCallId", "model_call")],
   failed_item: [producedBy],
   model_call: [lineage("retryOf", "model_call")],
   decision: [

@@ -56,9 +56,16 @@ export type LineageStart<T extends Type> = DeepReadonly<
 >;
 
 /** The only types a model call revises, so the only ones with `revisedBy` (§4.4.1). */
-const REVISED_BY_TYPES: ReadonlySet<string> = new Set(["finding", "conflict"]);
+const REVISED_BY_TYPES: ReadonlySet<string> = new Set([
+  "finding",
+  "conflict",
+  "recommendation_revision",
+]);
 
-/** Fields every revision repeats unchanged: what the lineage is, and what created it. */
+/**
+ * Fields every revision repeats unchanged, what the lineage is and what created it, unless its
+ * type lists them: a recommendation revision with new content names its own `producedBy`.
+ */
 const FIXED_ON_REVISION = ["producedBy", "kind", "snapshotId"] as const;
 
 /** What a revision changes. A field set to `undefined` is removed. */
@@ -210,9 +217,10 @@ export class SessionLog {
     const last = all.at(-1);
     if (base === undefined || last === undefined)
       throw new Error(`no ${type} revision to revise in ${lineage}`);
-    for (const field of [...FIXED_ON_REVISION, ...LINEAGE_FIELDS, "type", "revision", "supersedes"])
-      if (field in changes) throw new Error(`a revision can't change ${field}`);
     const changeable = REVISION_FIELDS[type as RevisableType];
+    const fixed = FIXED_ON_REVISION.filter((field) => !changeable.includes(field));
+    for (const field of [...fixed, ...LINEAGE_FIELDS, "type", "revision", "supersedes"])
+      if (field in changes) throw new Error(`a revision can't change ${field}`);
     for (const field of Object.keys(changes))
       if (!(field === "revisedBy" && REVISED_BY_TYPES.has(type)) && !changeable.includes(field))
         throw new Error(`a ${type} revision can't change ${field}`);

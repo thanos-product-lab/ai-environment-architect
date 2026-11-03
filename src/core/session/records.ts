@@ -6,9 +6,10 @@ import type { Hash } from "../hash.js";
 // list of immutable records. Every record shares an envelope: `type`, `id`, `seq`, `createdAt`.
 // A record that can change has a lineage ID as well, shared by its revisions, and a `revision`.
 //
-// This defines the records §4.4–§4.6 and §4.8 produce. The other types in the §4.4.1 table have
-// their prefixes here, and get their fields with their own steps: recommendations, selections,
-// artifacts, reviews and apply (M5). Until then the file schema doesn't accept them.
+// This defines the records §4.4–§4.6 and §4.8 produce, and those of `recommend` (§3.3.5). The
+// other types in the §4.4.1 table have their prefixes here, and get their fields with their own
+// steps: selections, artifacts, reviews and apply (M5). Until then the file schema doesn't
+// accept them.
 
 export const SESSION_FORMAT = "ai-environment-architect/session";
 export const SESSION_SCHEMA_VERSION = 1;
@@ -89,8 +90,20 @@ export const REVISION_FIELDS: Readonly<Record<RevisableType, readonly string[]>>
   finding: ["status", "withdrawnReason"],
   conflict: ["findingIds", "status", "withdrawnReason", "resolvingDecisionId"],
   question: ["status", "unreachedReason"],
-  // Only the failed form exists until M5, and it supersedes nothing; M5 lists these.
-  recommendation_revision: [],
+  recommendation_revision: [
+    "kind",
+    "operation",
+    "target",
+    "content",
+    "rationale",
+    "support",
+    "references",
+    "scope",
+    "producedBy",
+    "validationEvents",
+    "status",
+    "invalidatedReason",
+  ],
   apply_attempt: [],
   // What the end adds to the `started` revision (§4.6).
   model_call: [
@@ -736,20 +749,128 @@ export const decisionRecord = z
 
 // --- Items that failed validation (§4.4.3) ---------------------------------------------------
 
+// --- Recommendations (DM §9.1, IMPL §4.4.1) --------------------------------------------------
+
+const recommendationId = lineageId(RECORD_KINDS.recommendation_revision.lineage.prefix);
+const recommendationProducedBy = z.union([modelCallId, z.literal("developer_edit")]);
+
+/** A captured block, by ID and hash in the snapshot active when the revision was created. */
+const blockRef = z.strictObject({ blockId: nonEmpty, blockHash: hash });
+
+export const recommendationTarget = z.union([
+  z.strictObject({ kind: z.literal("block"), ...blockRef.shape }),
+  z.strictObject({ kind: z.literal("after"), ...blockRef.shape }),
+  z.strictObject({ kind: z.literal("section"), ...blockRef.shape }),
+  z.strictObject({
+    kind: z.literal("newSection"),
+    heading: z.string(),
+    after: blockRef.optional(),
+  }),
+]);
+
+/** Typed: a finding by lineage ID, so REC-001 sees its current state; a decision by record ID. */
+export const recommendationSupport = z.union([
+  z.strictObject({ kind: z.literal("finding"), findingId }),
+  z.strictObject({ kind: z.literal("decision"), decisionId: recordId("decision") }),
+]);
+
+export const structuredReference = z.union([
+  z.strictObject({
+    kind: z.literal("path"),
+    value: z.string(),
+    supportingFindingId: findingId,
+    evidenceId: recordId("evidence"),
+    verification: z.literal("exists_in_snapshot"),
+  }),
+  z.strictObject({
+    kind: z.literal("command"),
+    value: z.string(),
+    supportingFindingId: findingId,
+    evidenceId: recordId("evidence"),
+    verification: z.literal("found_not_run"),
+  }),
+]);
+
+export const invalidatedReason = z.enum([
+  "revalidation_failed",
+  "not_reconsidered",
+  "dropped_by_model",
+  "target_changed",
+]);
+
+const recommendationRevision = z
+  .strictObject({
+    ...envelope("recommendation_revision"),
+    recommendationId,
+    ...revisioned,
+    kind: z.enum(["fact", "policy"]),
+    operation: z.enum(["add", "revise", "remove"]),
+    target: recommendationTarget,
+    content: z.string().optional(),
+    rationale: z.string(),
+    support: z.array(recommendationSupport).min(1),
+    references: z.array(structuredReference),
+    scope,
+    producedBy: recommendationProducedBy,
+    /** Set only by an invalidation a model call causes (§4.4.1). */
+    revisedBy,
+    /** A `developer_edit` revision's own events; a model's are on its call (DM §9.1). */
+    validationEvents: z.array(z.lazy(() => validationEvent)).optional(),
+    status: z.enum(["valid", "invalidated"]),
+    invalidatedReason: invalidatedReason.optional(),
+  })
+  .refine((r) => (r.status === "invalidated") === (r.invalidatedReason !== undefined), {
+    message: "invalidatedReason is set exactly when invalidated",
+  })
+  .refine((r) => r.revisedBy === undefined || r.status === "invalidated", {
+    message: "only an invalidation sets revisedBy",
+  })
+  .refine((r) => (r.operation === "remove") === (r.content === undefined), {
+    message: "content is set exactly for add and revise",
+  });
+
 /**
- * Only the failed form for now: the valid and invalidated forms come with recommendations (M5).
- * A failed revision keeps its lineage, so one recommendation's history stays together.
+ * A recommendation revision that failed validation keeps its lineage, so one recommendation's
+ * history stays together, and supersedes nothing (§4.4.3).
  */
-export const recommendationRevisionRecord = z.strictObject({
+const failedRecommendationRevision = z.strictObject({
   ...envelope("recommendation_revision"),
-  recommendationId: lineageId(RECORD_KINDS.recommendation_revision.lineage.prefix),
+  recommendationId,
   revision: z.int().min(1),
   ...failedFields,
-  producedBy: z.union([modelCallId, z.literal("developer_edit")]),
+  producedBy: recommendationProducedBy,
+  /** A failed `developer_edit` keeps its events, since no model call holds them. */
+  validationEvents: z.array(z.lazy(() => validationEvent)).optional(),
 });
 
-/** Collections with no record type of their own. M5 adds held-back entries and regeneration. */
-export const failedItemCollection = z.enum(["revisions", "expansionRequests", "contentNotices"]);
+export const recommendationRevisionRecord = z.union([
+  recommendationRevision,
+  failedRecommendationRevision,
+]);
+
+/** One accepted `heldBack` entry (§3.3.5): blocked by questions and conflicts, by lineage ID. */
+export const heldBackRecord = z.strictObject({
+  ...envelope("held_back"),
+  topic: z.string(),
+  blockedBy: z.array(z.union([questionId, conflictId])).min(1),
+  modelCallId,
+});
+
+/** An accepted `noChangeReason` (REC-009). */
+export const noChangeReasonRecord = z.strictObject({
+  ...envelope("no_change_reason"),
+  reason: z.string(),
+  modelCallId,
+});
+
+/** Collections with no record type of their own. Regeneration adds `actions` (M5). */
+export const failedItemCollection = z.enum([
+  "revisions",
+  "expansionRequests",
+  "contentNotices",
+  "heldBack",
+  "noChangeReason",
+]);
 
 export const failedItemRecord = z.strictObject({
   ...envelope("failed_item"),
@@ -1077,6 +1198,8 @@ export const sessionRecord = z.union([
   questionRecord,
   decisionRecord,
   recommendationRevisionRecord,
+  heldBackRecord,
+  noChangeReasonRecord,
   failedItemRecord,
   modelCallRecord,
   effortIntervalRecord,

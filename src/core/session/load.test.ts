@@ -339,6 +339,72 @@ describe("a valid session (IMPL §4.9)", () => {
   });
 });
 
+/** The valid session with a completed `recommend` call and the records it creates (§3.3.5). */
+function recommendLog(): SessionLog {
+  const log = validLog();
+  const finding = log.records.find((r) => r.type === "finding" && r.kind === "claim") as {
+    findingId: string;
+    evidenceIds: string[];
+  };
+  const question = log.records.find((r) => r.type === "question") as { questionId: string };
+  const call = log.start(callDraft({ purpose: "recommend" }));
+  log.revise("model_call", call.modelCallId, completedCall());
+  log.start({
+    type: "recommendation_revision",
+    kind: "fact",
+    operation: "add",
+    target: { kind: "newSection", heading: "Notes" },
+    content: "See `docs/guide.md`.",
+    rationale: "Documented.",
+    support: [{ kind: "finding", findingId: finding.findingId }],
+    references: [
+      {
+        kind: "path",
+        value: "docs/guide.md",
+        supportingFindingId: finding.findingId,
+        evidenceId: finding.evidenceIds[0] as string,
+        verification: "exists_in_snapshot",
+      },
+    ],
+    scope: { kind: "repository" },
+    producedBy: call.modelCallId,
+    status: "valid",
+  });
+  log.append({
+    type: "held_back",
+    topic: "Which client to use",
+    blockedBy: [question.questionId],
+    modelCallId: call.modelCallId,
+  });
+  log.append({
+    type: "failed_item",
+    collection: "noChangeReason",
+    status: "failed_validation",
+    producedBy: call.modelCallId,
+    itemKey: "noChangeReason",
+    rejectedBy: ["REC-009"],
+    proposed: "Nothing to change.",
+  });
+  return log;
+}
+
+describe("recommend records (IMPL §3.3.5, §4.4.1)", () => {
+  it("loads a recommendation revision, a held-back entry and a failed no-change reason", async () => {
+    const result = await loadSession(
+      encode(serialiseSession(fileOf(recommendLog()))),
+      memoryContent(),
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it("check 4 rejects a held-back entry whose model call doesn't exist", async () => {
+    const json = JSON.parse(serialiseSession(fileOf(recommendLog())));
+    const entry = json.records.find((r: Json) => r.type === "held_back");
+    entry.modelCallId = "call_9999";
+    expect(await failure(encode(JSON.stringify(json)))).toMatchObject({ check: 4 });
+  });
+});
+
 describe("check 1: format and schema version (IMPL §4.9)", () => {
   it("rejects truncated JSON", async () => {
     const text = serialiseSession(fileOf(validLog()));

@@ -1,3 +1,4 @@
+import { comparePaths } from "../paths.js";
 import { isFailed, lineageOf, type Revised } from "./log.js";
 import { CURRENT_STATUSES, type RecordOf, type SessionRecord } from "./records.js";
 
@@ -39,6 +40,13 @@ export interface CurrentState {
   readonly recommendations: ReadonlyMap<string, Revised<"recommendation_revision">>;
   /** Those of the active snapshot. */
   readonly contentNotices: readonly RecordOf<"content_notice">[];
+  /**
+   * Held-back entries of the latest completed `recommend` call and every later completed
+   * regeneration, while a blocker still blocks; one per topic and `blockedBy` set, the earliest.
+   */
+  readonly heldBack: readonly RecordOf<"held_back">[];
+  /** The latest completed `recommend` call's, while no recommendation has a current revision. */
+  readonly noChangeReason: RecordOf<"no_change_reason"> | undefined;
 }
 
 /** `records` must be in `seq` order, as `SessionLog.records` and a loaded file give them. */
@@ -98,12 +106,56 @@ export function currentState(records: readonly SessionRecord[]): CurrentState {
   }
 
   const recommendations = new Map<string, Revised<"recommendation_revision">>();
-  // Only the failed form exists until M5, so none is current yet; the rule is already general.
   for (const record of ofType("recommendation_revision").filter(live))
     recommendations.set(
       lineageOf(record) as string,
       record as unknown as Revised<"recommendation_revision">,
     );
+
+  // Completed calls by lineage, in the order they started.
+  const completed = new Map<string, RecordOf<"model_call">["purpose"]>();
+  const ended = new Set(
+    ofType("model_call")
+      .filter((call) => call.state === "completed")
+      .map((call) => call.modelCallId),
+  );
+  for (const call of ofType("model_call"))
+    if (call.revision === 1 && ended.has(call.modelCallId))
+      completed.set(call.modelCallId, call.purpose);
+  const calls = [...completed.entries()];
+  const latestRecommend = calls.findLastIndex(([, purpose]) => purpose === "recommend");
+  const sources = new Set(
+    latestRecommend < 0
+      ? []
+      : calls
+          .slice(latestRecommend)
+          .filter(([, purpose], i) => i === 0 || purpose === "regenerate_recommendations")
+          .map(([id]) => id),
+  );
+
+  const stillBlocks = (id: string): boolean => {
+    const question = questions.get(id);
+    if (question !== undefined)
+      return question.status === "skipped" || question.status === "unreached";
+    return conflicts.get(id)?.status === "unresolved";
+  };
+  const seen = new Set<string>();
+  const heldBack = ofType("held_back").filter((entry) => {
+    if (!sources.has(entry.modelCallId) || !entry.blockedBy.some(stillBlocks)) return false;
+    const identity = JSON.stringify([
+      entry.topic,
+      [...new Set(entry.blockedBy)].sort(comparePaths),
+    ]);
+    if (seen.has(identity)) return false;
+    seen.add(identity);
+    return true;
+  });
+
+  const recommendCall = calls[latestRecommend]?.[0];
+  const noChangeReason =
+    recommendations.size > 0 || recommendCall === undefined
+      ? undefined
+      : ofType("no_change_reason").find((r) => r.modelCallId === recommendCall);
 
   return {
     activeSnapshotId,
@@ -114,6 +166,8 @@ export function currentState(records: readonly SessionRecord[]): CurrentState {
     decisions,
     recommendations,
     contentNotices: ofType("content_notice").filter((n) => n.snapshotId === activeSnapshotId),
+    heldBack,
+    noChangeReason,
   };
 }
 

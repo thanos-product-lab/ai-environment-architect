@@ -80,6 +80,8 @@ export function recordFailedRecommendationRevision(
 /** The item as the response wrote it, after the schema stage. */
 function proposedItem(response: unknown, item: RejectedItem) {
   const collection = (response as Record<string, unknown>)[item.collection];
+  // A top-level field that is no collection, `noChangeReason`, is its only item (§3.5).
+  if (typeof collection === "string" && item.index === 0) return json(collection);
   if (!Array.isArray(collection) || collection[item.index] === undefined)
     throw new Error(`no proposed item ${item.collection}/${item.index}`);
   return json(collection[item.index]);
