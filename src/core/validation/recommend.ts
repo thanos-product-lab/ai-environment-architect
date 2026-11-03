@@ -418,10 +418,9 @@ const evidenceCheck: Check = (value, context) => {
 
 // A letter, digit or underscore next to a match means it is part of a longer word (§3.2.3).
 const WORD = "[\\p{L}\\p{N}_]";
-const IMPERATIVE = new RegExp(
-  `^(?:${IMPERATIVE_VERBS.map((verb) => verb.replace(" ", "[ \\t]+")).join("|")})(?!${WORD})`,
-  "iu",
-);
+const VERBS = IMPERATIVE_VERBS.map((verb) => verb.replace(" ", "[ \\t]+")).join("|");
+// The verb ends the word, or closing `_` emphasis does: `_Use_ pnpm`, but not `use_case`.
+const IMPERATIVE = new RegExp(`^(?:${VERBS})_*(?!${WORD})`, "iu");
 const INLINE_CODE = /`[^`]*`/g;
 const HEADING_MARKS = /^ {0,3}#{1,6}(?:[ \t]+|$)/;
 // The start of the text, or `.`, `!` or `?` and whitespace.

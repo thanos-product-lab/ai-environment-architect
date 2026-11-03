@@ -2,8 +2,15 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 3 November 2026  
-**Version:** 0.46  
+**Version:** 0.47  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.46
+
+- **`REC-007` and underscore emphasis (§3.3.5), `validate/0.15.0`.** A closing run of `_` after a sentence's first word ends it, so `_Use_ pnpm` begins with *Use*, as `**Use** pnpm` already did; `use_case` is still one word.
+- **`recommend` wording (§3.3.5).** Blank lines around content are ignored both by `REC-003` and at assembly, and the content is stored as written. `DUP-004` compares a new section's heading trimmed of spaces and tabs, as it is rendered (DM §9.3).
+- **Open points (§3.9).** `REC-007`'s known misses: left pairing of backticks can hide prose inside a span, and a verb as link text (`[Use](x)`) isn't at a sentence start.
+- **Domain model v0.27.** DM §6.4 states that gaps and, in the first slice, absence claims never support a recommendation.
 
 ### Changes from v0.45
 
@@ -11,7 +18,8 @@
 
 ### Changes from v0.44
 
-- **`recommend` validation (§3.3.5), `validate/0.13.0`.** No recommendation may cite a gap (`REC-006`). New rule `REC-010`: in the first slice an absence claim can't support a recommendation. `REC-004` applies to every operation. `REC-008`'s "only support" is defined. `REC-007` skips leading emphasis and opening punctuation before a sentence's first word, and splits list items and block quotes as the detector does.
+- **`recommend` validation (§3.3.5), `validate/0.13.0`.** No recommendation may cite a gap (`REC-006`), and a `fact` may cite decisions. New rule `REC-010`: in the first slice an absence claim can't support a recommendation; an absence claim has no mode, so it falls to `REC-010`, not `REC-006`. `REC-004` applies to every operation. `REC-005`'s documented finding is one whose basis includes `documentation`, so a mixed basis qualifies. `REC-008`'s "only support" is defined. `REC-007` skips leading emphasis and opening punctuation before a sentence's first word, treats a sentence that begins with an inline code span as beginning with no verb, and splits list items and block quotes as the detector does.
+- **Fixtures (§3.8).** A `block` or `after` target on an absent destination fails `ALIAS-001`, since there are no `B` aliases, not `REC-002`. New bullet: a recommendation citing a gap or an absence claim, with a `fact` citing a decision accepted.
 
 ### Changes from v0.43
 
@@ -1747,7 +1755,7 @@ type RecommendOutput = {
 
 1. Schema and aliases. All support must be current: the record each `F` or `D` alias names is still the current revision of its finding, or a current decision, so not withdrawn, not superseded, not corrected by the developer, and of the active snapshot (`REC-001`, §4.4.2, §4.5). The same holds for each reference's `support`. Support is stored as typed entries, a finding by lineage ID and a decision by record ID (§4.4.1).
 2. **Operation and target** (`REC-002`). `revise` and `remove` need a `block` target; `add` needs `after`, `section` or `newSection`; `remove` has no content, and `add` and `revise` have content. A `section` target and a `newSection`'s `after` name a heading block. When the destination's round trip failed ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §7), or it is absent, only `newSection` without `after` is allowed. Code attaches the block ID and hash of each `B` alias from the alias table (§3.2.1).
-3. **Content shape** (`REC-003`). Content is parsed with the Guidance Block parser ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §7); a failed round trip rejects it. Blank lines before the first block and after the last are ignored.
+3. **Content shape** (`REC-003`). Content is parsed with the Guidance Block parser ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §7); a failed round trip rejects it. Blank lines before the first block and after the last are ignored, here and at assembly (DM §9.3); the content is stored as written.
    - `revise` of a heading: one ATX heading line, of the same level as the target;
    - `revise` of any other block: exactly one block, of the same type as the target block; for a `list_item`, with the same `listMarker`, indentation and marker exactly;
    - `add` with `after` or `section`: one to five blocks, of types paragraph, list item or code block, with no headings. List items placed directly after a list item have its indentation and the same bullet character (`-`, `*`, `+`), or, in a numbered list, the same delimiter (`.` or `)`); numbers aren't checked;
@@ -1762,7 +1770,7 @@ type RecommendOutput = {
    - in the first slice, no recommendation may cite an absence claim (`REC-010`). An accepted absence claim supports only its narrow statement (§1.11), and guidance built on it would state the broader absence that code can't check. A question may still resolve one.
 
    Support from `existing_guidance` alone means: no decision, and every finding a claim whose basis is only `existing_guidance`. `REC-004` applies to every operation, `revise` and `remove` included.
-5. **Directive-language guard** (`REC-007`). A `fact` recommendation whose content contains directive language (§3.2.3 word list), or a sentence beginning with an imperative verb from a versioned list (*Use, Prefer, Avoid, Always, Never, Run, Do not*), is rejected. Words match as in `SUP-004` (§3.2.3), whole and case-insensitively. A sentence begins at the start of a block's text, after its list marker or heading marks, and after `.`, `!` or `?` followed by whitespace; a run of `*`, `_`, `(`, `"` and `'` before its first word is skipped, so `**Use** pnpm` begins with *Use*. Inline code spans and code blocks are not checked, and a sentence that begins with an inline code span begins with no verb. A list item's and a block quote's content is split again, as the detector splits it (§3.4). This is the check against policy presented as fact. It is imperfect, and its misses are measured in evaluation through the invented-policy rate.
+5. **Directive-language guard** (`REC-007`). A `fact` recommendation whose content contains directive language (§3.2.3 word list), or a sentence beginning with an imperative verb from a versioned list (*Use, Prefer, Avoid, Always, Never, Run, Do not*), is rejected. Words match as in `SUP-004` (§3.2.3), whole and case-insensitively. A sentence begins at the start of a block's text, after its list marker or heading marks, and after `.`, `!` or `?` followed by whitespace; a run of `*`, `_`, `(`, `"` and `'` before its first word is skipped, so `**Use** pnpm` begins with *Use*, and a closing run of `_` after the word ends it, so `_Use_ pnpm` does too while `use_case` is one word. Inline code spans and code blocks are not checked, and a sentence that begins with an inline code span begins with no verb. A list item's and a block quote's content is split again, as the detector splits it (§3.4). This is the check against policy presented as fact. It is imperfect, and its misses are measured in evaluation through the invented-policy rate.
 6. **Unresolved dependencies** (`REC-008`). A recommendation is rejected if any supporting finding is part of an unresolved conflict that no decision resolves, or if its only support is resolved by a skipped or unreached question: its support holds no decision, and a current `skipped` or `unreached` question resolves every finding in it. Such recommendations belong in `heldBack`.
 7. **References**, using the detector (§3.4):
    - every path and command the detector finds in the content is declared, and every declared reference appears in the content, comparing the declared value with the detector's matching form (`REF-001`, §3.4);
@@ -1781,7 +1789,7 @@ type RecommendOutput = {
 
    Code sets each command's verification to `found_not_run`, and each path's to `exists_in_snapshot`.
 8. Scope paths are listed (§1.11, `SCOPE-001`).
-9. **Duplicates:** recommendations with the same operation, the same target after alias resolution, and the same content after line-ending conversion keep the first (`DUP-004`).
+9. **Duplicates:** recommendations with the same operation, the same target after alias resolution, and the same content after line-ending conversion keep the first (`DUP-004`). A new section's heading is compared trimmed of spaces and tabs, as it is rendered (DM §9.3).
 10. **Held back:** each `blockedBy` alias must refer to a skipped or unreached question, or an unresolved conflict. Entries that fail are dropped (`HELD-001`).
 11. **No change:** `noChangeReason` is accepted only when the response's `recommendations` is empty, as proposed, before validation (`REC-009`, cross-item, last). A rejected one is kept as a `failed_item` named `noChangeReason` (§4.4.3). If every recommendation fails validation, the session shows that results couldn't be verified (§2.12). This is never presented as a no-change outcome.
 
@@ -1881,7 +1889,7 @@ A schema failure rejects the whole response with one event per issue, in the ord
 
 No event repeats text from the response. An `itemKey` is a local key or alias only when it is well formed (a local key is one or two lowercase letters and a number, an alias as in §3.2.1); otherwise the item is named by its position, `<collection>/<index>`, and a malformed local key defines nothing. An item with no key of its own, such as an expansion request, a content notice or a revision, is always named by its position. The one exception is `noChangeReason`, which is not in a collection and is named `noChangeReason`. A detail names only code-made values, such as an alias from the table, never an unknown value the model wrote. A rejected item keeps the events of its sub-items, such as each failed citation. Events are ordered by stage. In the item stage they follow the response's item order, collections in schema order, and within an item the rule order, except that a sub-item's events are in sub-item order, each sub-item's in rule order; `ALIAS-002` is checked first, for each item in turn. In the cross-item stage they follow the order in which the call's cross-item checks run (§3.3.2–§3.3.6), then item order.
 
-Each call also records counts: proposed, accepted, corrected and relabelled items, and rejections by rule. An item counts as corrected or relabelled if it was accepted with such an event. Rule IDs are stable across versions. The validator has its own version (`validatorVersion`, `validate/0.14.0` since the `REF` rules of v0.46), recorded with every call, because changing a rule changes what is accepted even when the model output is identical. Any change to what is accepted increases it, changed thresholds and word lists included. A test pins the list of rule IDs to the version, together with the runtime's Unicode version (`process.versions.unicode`), because `CIT-007`'s and `SUP-002`'s character classes follow it.
+Each call also records counts: proposed, accepted, corrected and relabelled items, and rejections by rule. An item counts as corrected or relabelled if it was accepted with such an event. Rule IDs are stable across versions. The validator has its own version (`validatorVersion`, `validate/0.15.0` since `REC-007`'s underscore emphasis in v0.47), recorded with every call, because changing a rule changes what is accepted even when the model output is identical. Any change to what is accepted increases it, changed thresholds and word lists included. A test pins the list of rule IDs to the version, together with the runtime's Unicode version (`process.versions.unicode`), because `CIT-007`'s and `SUP-002`'s character classes follow it.
 
 ### 3.6 Retry and failure policy
 
@@ -2017,7 +2025,7 @@ A change to any prompt, schema, validator or detector requires the fixture suite
 
 **Other open points.**
 
-- Calibrating the directive-language and imperative-verb lists on development repositories, and measuring how often `REC-007` misses.
+- Calibrating the directive-language and imperative-verb lists on development repositories, and measuring how often `REC-007` misses. Known misses: it masks inline code by left pairing (§3.2.3), so a stray backtick can pair with a later span and hide the prose between them (`` Note the ` mark. Run it. ``b`` ``), and a verb as link text (`- [Use](x) pnpm`) isn't at a sentence start, since `[` is not skipped.
 - How to detect absence asserted in free text, without an `absenceClaim` (§1.11). No deterministic check is defined yet.
 - How to detect a claim about the omitted parts of an excerpted file when it cites only sent lines (§1.11). The citation rules catch citations of omitted lines, not claims about them.
 - Minimum quote length: 12 characters may allow unhelpfully generic quotes in code.

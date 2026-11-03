@@ -2,7 +2,7 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 3 November 2026  
-**Version:** 0.26 — consolidated specification  
+**Version:** 0.27 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,10 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.26
+
+1. **Evidence rules (§6.4).** In the first slice, an absence claim and a gap never support a recommendation ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.3.5, `REC-006`, `REC-010`).
 
 ### Changes from v0.25
 
@@ -332,6 +336,7 @@ Rules:
 - Existing agent configuration cannot justify itself. If it disagrees with documentation or code, a Conflict is created.
 - Documentation is enough for a recommendation unless a code observation contradicts it.
 - That an agent configuration file exists is a fact about the snapshot; what it says remains existing guidance, and cannot justify new guidance on its own.
+- A gap records what isn't known, so it never supports a recommendation. In the first slice, neither does an absence claim: it supports only its narrow statement, and guidance built on it would state a broader absence that code can't check ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.3.5).
 
 ### 6.5 Conflict
 

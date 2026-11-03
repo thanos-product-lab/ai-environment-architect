@@ -105,6 +105,12 @@ const FINDINGS: Record<string, RecommendFinding> = {
     "Run `cargo fmt --check` before pushing.",
     "CONTRIBUTING.md",
   ),
+  "F-14": claim(
+    "prescriptive",
+    ["documentation", "code_observation"],
+    "You should lint first.",
+    "CONTRIBUTING.md",
+  ),
   "F-13": claim("descriptive", ["code_observation"], "all:\n\tgo build ./...", "Makefile", {
     command: { file: "Makefile", name: "all" },
   }),
@@ -385,6 +391,8 @@ describe("recommend validation (IMPL §3.3.5)", () => {
       expect(one(policy(["F-8"]))).toEqual(["r1:REC-005"]);
       expect(one(policy(["F-2"]))).toEqual([]);
       expect(one(policy(["D-1"]))).toEqual([]);
+      // A basis that includes documentation qualifies.
+      expect(one(policy(["F-14"]))).toEqual([]);
     });
 
     it("lets a fact cite only descriptive findings and decisions, never a gap (REC-006)", () => {
@@ -433,6 +441,9 @@ describe("recommend validation (IMPL §3.3.5)", () => {
       expect(one(fact("Is it fast? Run it."))).toEqual(["r1:REC-007"]);
       expect(one(fact("Done! Use it."))).toEqual(["r1:REC-007"]);
       expect(one(fact("**Use** pnpm."))).toEqual(["r1:REC-007"]);
+      expect(one(fact("_Use_ pnpm here."))).toEqual(["r1:REC-007"]);
+      expect(one(fact("__Run__ the tests."))).toEqual(["r1:REC-007"]);
+      expect(one(fact("Tests live here. _Avoid_ x."))).toEqual(["r1:REC-007"]);
       expect(
         one(
           base({
@@ -450,6 +461,7 @@ describe("recommend validation (IMPL §3.3.5)", () => {
         [],
       );
       expect(one(fact("The build uses esbuild."))).toEqual([]);
+      expect(one(fact("Use_case files hold examples."))).toEqual([]);
       expect(one(fact("```\nUse this\n```"))).toEqual([]);
       expect(one(fact("The runner is fast.Use it"))).toEqual([]);
     });
@@ -490,6 +502,11 @@ describe("recommend validation (IMPL §3.3.5)", () => {
       const a = base({ content: "One.\n\nTwo." });
       const b = base({ key: "r2", content: "One.\r\n\r\nTwo." });
       expect(events(run([a, b]))).toEqual(["r2:DUP-004"]);
+      const heading = (h: string, key: string) =>
+        base({ key, target: { kind: "newSection", heading: h } });
+      expect(events(run([heading("Testing", "r1"), heading(" \tTesting  ", "r2")]))).toEqual([
+        "r2:DUP-004",
+      ]);
       const c = base({ key: "r2", target: { kind: "after", block: "B-7" } });
       expect(events(run([base(), c]))).toEqual([]);
     });
