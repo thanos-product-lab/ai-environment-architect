@@ -2,8 +2,12 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 3 November 2026  
-**Version:** 0.48  
+**Version:** 0.49  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.48
+
+- **`REC-007` and link text (§3.3.5), `validate/0.17.0`.** `[` is skipped before a sentence's first word, so a verb as link text, `[Use](x) pnpm`, begins its sentence. Removes that miss from §3.9.
 
 ### Changes from v0.47
 
@@ -1774,7 +1778,7 @@ type RecommendOutput = {
    - in the first slice, no recommendation may cite an absence claim (`REC-010`). An accepted absence claim supports only its narrow statement (§1.11), and guidance built on it would state the broader absence that code can't check. A question may still resolve one.
 
    Support from `existing_guidance` alone means: no decision, and every finding a claim whose basis is only `existing_guidance`. `REC-004` applies to every operation, `revise` and `remove` included.
-5. **Directive-language guard** (`REC-007`). A `fact` recommendation whose content contains directive language (§3.2.3 word list), or a sentence beginning with an imperative verb from a versioned list (*Use, Prefer, Avoid, Always, Never, Run, Do not*), is rejected. Words match as in `SUP-004` (§3.2.3), whole and case-insensitively. A sentence begins at the start of a block's text, after its list marker or heading marks, and after `.`, `!` or `?` followed by whitespace; a run of `*`, `_`, `(`, `"` and `'` before its first word is skipped, so `**Use** pnpm` begins with *Use*, and a closing run of `_` after the word ends it, so `_Use_ pnpm` does too while `use_case` is one word. Inline code spans and code blocks are not checked, and a sentence that begins with an inline code span begins with no verb. A list item's and a block quote's content is split again, as the detector splits it (§3.4). This is the check against policy presented as fact. It is imperfect, and its misses are measured in evaluation through the invented-policy rate.
+5. **Directive-language guard** (`REC-007`). A `fact` recommendation whose content contains directive language (§3.2.3 word list), or a sentence beginning with an imperative verb from a versioned list (*Use, Prefer, Avoid, Always, Never, Run, Do not*), is rejected. Words match as in `SUP-004` (§3.2.3), whole and case-insensitively. A sentence begins at the start of a block's text, after its list marker or heading marks, and after `.`, `!` or `?` followed by whitespace; a run of `*`, `_`, `(`, `[`, `"` and `'` before its first word is skipped, so a verb as link text, `[Use](x) pnpm`, begins its sentence, so `**Use** pnpm` begins with *Use*, and a closing run of `_` after the word ends it, so `_Use_ pnpm` does too while `use_case` is one word. Inline code spans and code blocks are not checked, and a sentence that begins with an inline code span begins with no verb. A list item's and a block quote's content is split again, as the detector splits it (§3.4). This is the check against policy presented as fact. It is imperfect, and its misses are measured in evaluation through the invented-policy rate.
 6. **Unresolved dependencies** (`REC-008`). A recommendation is rejected if any supporting finding is part of an unresolved conflict that no decision resolves, or if its only support is resolved by a skipped or unreached question: its support holds no decision, and a current `skipped` or `unreached` question resolves every finding in it. Such recommendations belong in `heldBack`.
 7. **References**, using the detector (§3.4):
    - every path and command the detector finds in the content is declared, and every declared reference appears in the content, comparing the declared value with the detector's matching form (`REF-001`, §3.4);
@@ -1893,7 +1897,7 @@ A schema failure rejects the whole response with one event per issue, in the ord
 
 No event repeats text from the response. An `itemKey` is a local key or alias only when it is well formed (a local key is one or two lowercase letters and a number, an alias as in §3.2.1); otherwise the item is named by its position, `<collection>/<index>`, and a malformed local key defines nothing. An item with no key of its own, such as an expansion request, a content notice or a revision, is always named by its position. The one exception is `noChangeReason`, which is not in a collection and is named `noChangeReason`. A detail names only code-made values, such as an alias from the table, never an unknown value the model wrote. A rejected item keeps the events of its sub-items, such as each failed citation. Events are ordered by stage. In the item stage they follow the response's item order, collections in schema order, and within an item the rule order, except that a sub-item's events are in sub-item order, each sub-item's in rule order; `ALIAS-002` is checked first, for each item in turn. In the cross-item stage they follow the order in which the call's cross-item checks run (§3.3.2–§3.3.6), then item order.
 
-Each call also records counts: proposed, accepted, corrected and relabelled items, and rejections by rule. An item counts as corrected or relabelled if it was accepted with such an event. Rule IDs are stable across versions. The validator has its own version (`validatorVersion`, `validate/0.16.0` since the command excerpts of v0.48), recorded with every call, because changing a rule changes what is accepted even when the model output is identical. Any change to what is accepted increases it, changed thresholds and word lists included. A test pins the list of rule IDs to the version, together with the runtime's Unicode version (`process.versions.unicode`), because `CIT-007`'s and `SUP-002`'s character classes follow it.
+Each call also records counts: proposed, accepted, corrected and relabelled items, and rejections by rule. An item counts as corrected or relabelled if it was accepted with such an event. Rule IDs are stable across versions. The validator has its own version (`validatorVersion`, `validate/0.17.0` since `REC-007`'s link text in v0.49), recorded with every call, because changing a rule changes what is accepted even when the model output is identical. Any change to what is accepted increases it, changed thresholds and word lists included. A test pins the list of rule IDs to the version, together with the runtime's Unicode version (`process.versions.unicode`), because `CIT-007`'s and `SUP-002`'s character classes follow it.
 
 ### 3.6 Retry and failure policy
 
@@ -2029,7 +2033,7 @@ A change to any prompt, schema, validator or detector requires the fixture suite
 
 **Other open points.**
 
-- Calibrating the directive-language and imperative-verb lists on development repositories, and measuring how often `REC-007` misses. Known misses: it masks inline code by left pairing (§3.2.3), so a stray backtick can pair with a later span and hide the prose between them (`` Note the ` mark. Run it. ``b`` ``), and a verb as link text (`- [Use](x) pnpm`) isn't at a sentence start, since `[` is not skipped.
+- Calibrating the directive-language and imperative-verb lists on development repositories, and measuring how often `REC-007` misses. Known misses: it masks inline code by left pairing (§3.2.3), so a stray backtick can pair with a later span and hide the prose between them (`` Note the ` mark. Run it. ``b`` ``). This follows the shared left-pairing rule, so it is settled with the detector's open point above, for `SUP-001`, the detector and `REC-007` together.
 - How to detect absence asserted in free text, without an `absenceClaim` (§1.11). No deterministic check is defined yet.
 - How to detect a claim about the omitted parts of an excerpted file when it cites only sent lines (§1.11). The citation rules catch citations of omitted lines, not claims about them.
 - Minimum quote length: 12 characters may allow unhelpfully generic quotes in code.

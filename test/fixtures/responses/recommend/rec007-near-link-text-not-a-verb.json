@@ -1,0 +1,26 @@
+{
+  "description": "Accepted: link text that begins with a word holding a verb, but isn't one.",
+  "section": "IMPL §3.3.5 step 5 (REC-007: words match whole)",
+  "nearMissOf": "rec007-verb-as-link-text.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-5" },
+        "content": "- [Runners](#commands) are listed in the testing guide.",
+        "rationale": "The testing guide covers it.",
+        "support": ["F-23"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1"], "heldBack": [], "noChangeReason": [] }
+  }
+}

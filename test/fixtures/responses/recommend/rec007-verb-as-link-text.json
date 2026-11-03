@@ -1,0 +1,25 @@
+{
+  "description": "Rejected: a fact whose list item begins with an imperative verb as link text.",
+  "section": "IMPL §3.3.5 step 5 (REC-007: `[` is skipped before a sentence's first word)",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-5" },
+        "content": "- [Run](#commands) the suite before pushing.",
+        "rationale": "The testing guide covers it.",
+        "support": ["F-23"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [{ "itemKey": "r1", "stage": "item", "rule": "REC-007", "outcome": "rejected" }],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

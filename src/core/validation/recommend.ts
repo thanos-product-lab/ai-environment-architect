@@ -431,7 +431,8 @@ const IMPERATIVE = new RegExp(`^(?:${VERBS})_*(?!${WORD})`, "iu");
 const INLINE_CODE = /`[^`]*`/g;
 const HEADING_MARKS = /^ {0,3}#{1,6}(?:[ \t]+|$)/;
 // The start of the text, or `.`, `!` or `?` and whitespace.
-const SENTENCE_START = /(?:^|[.!?]\p{White_Space}+)\p{White_Space}*[*_("']*/gu;
+// Then a run of emphasis, opening brackets and quotes, so `**Use**`, `_Use_` and `[Use](x)`.
+const SENTENCE_START = /(?:^|[.!?]\p{White_Space}+)\p{White_Space}*[*_("'[]*/gu;
 
 /** The first rule a fact's prose breaks, if any. Code spans are masked, so never checked. */
 export function directiveFailure(content: string): string | undefined {

@@ -473,6 +473,8 @@ describe("recommend validation (IMPL §3.3.5)", () => {
       expect(one(fact("Done! Use it."))).toEqual(["r1:REC-007"]);
       expect(one(fact("**Use** pnpm."))).toEqual(["r1:REC-007"]);
       expect(one(fact("_Use_ pnpm here."))).toEqual(["r1:REC-007"]);
+      expect(one(fact("- [Use](https://example.com) the wrapper."))).toEqual(["r1:REC-007"]);
+      expect(one(fact("Done. [Run](#build) it."))).toEqual(["r1:REC-007"]);
       expect(one(fact("__Run__ the tests."))).toEqual(["r1:REC-007"]);
       expect(one(fact("Tests live here. _Avoid_ x."))).toEqual(["r1:REC-007"]);
       expect(
@@ -493,6 +495,7 @@ describe("recommend validation (IMPL §3.3.5)", () => {
       );
       expect(one(fact("The build uses esbuild."))).toEqual([]);
       expect(one(fact("Use_case files hold examples."))).toEqual([]);
+      expect(one(fact("[Usage](#usage) is documented."))).toEqual([]);
       expect(one(fact("```\nUse this\n```"))).toEqual([]);
       expect(one(fact("The runner is fast.Use it"))).toEqual([]);
     });
