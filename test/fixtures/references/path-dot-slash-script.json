@@ -1,0 +1,11 @@
+{
+  "content": "The release script is `./scripts/build.sh`.\n",
+  "expect": {
+    "references": [{ "kind": "path", "value": "./scripts/build.sh" }],
+    "identifiers": []
+  },
+  "listed": { "./scripts/build.sh": true },
+  "nearMissOf": "command",
+  "section": "IMPL §3.4",
+  "note": "A span that starts with the `./` runner prefix but holds no whitespace is a path because it is path-like, so declaring it as a command fails REF-001."
+}

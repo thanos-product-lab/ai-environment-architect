@@ -1,0 +1,13 @@
+{
+  "content": "Start at `src/a.ts#L10`; tests match `src/**/*.ts`.\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "src/a.ts#L10" },
+      { "kind": "path", "value": "src/**/*.ts" }
+    ],
+    "identifiers": []
+  },
+  "listed": { "src/a.ts#L10": false, "src/**/*.ts": false },
+  "section": "IMPL §3.4",
+  "note": "Both spans hold `/` and no whitespace, so they are paths; REF-002 compares them as normalised literals, with no fragment stripping and no glob matching, so neither is listed."
+}

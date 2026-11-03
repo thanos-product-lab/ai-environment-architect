@@ -1,0 +1,11 @@
+{
+  "content": "Local settings live under `config/`.\n",
+  "expect": {
+    "references": [{ "kind": "path", "value": "config/" }],
+    "identifiers": []
+  },
+  "listed": { "config/": true },
+  "nearMissOf": "REF-002",
+  "section": "IMPL §3.4",
+  "note": "A directory whose only entries are withheld is listed, because its own name is not withheld (IMPL §3.2.3)."
+}

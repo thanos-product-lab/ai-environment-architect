@@ -1,0 +1,13 @@
+{
+  "content": "Notes go in notes/a.abcdefghij, not notes/b.abcdefghijk, and the source is src/a.TS.\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "notes/a.abcdefghij" },
+      { "kind": "path", "value": "src/a.TS" }
+    ],
+    "identifiers": []
+  },
+  "listed": { "notes/a.abcdefghij": false, "src/a.TS": false },
+  "section": "IMPL §3.4",
+  "note": "Bare text uses the generic extension of IMPL §3.2.3 (1–10 ASCII letters or digits, any case), not the known-extension list, so ten letters and `TS` qualify and eleven letters don't."
+}

@@ -1,0 +1,14 @@
+{
+  "content": "Edit `/src/a.ts`, `Src/a.ts` or `makefile`.\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "/src/a.ts" },
+      { "kind": "path", "value": "Src/a.ts" },
+      { "kind": "path", "value": "makefile" }
+    ],
+    "identifiers": []
+  },
+  "listed": { "/src/a.ts": false, "Src/a.ts": false, "makefile": false },
+  "section": "IMPL §3.4",
+  "note": "Normalisation removes only `./` and one trailing `/`, never a leading `/`, and matching is case-sensitive, so none names an entry."
+}

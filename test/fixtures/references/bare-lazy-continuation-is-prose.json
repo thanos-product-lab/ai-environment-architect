@@ -1,0 +1,10 @@
+{
+  "content": "See the helper file\n    src/a.ts for details.\n",
+  "expect": {
+    "references": [{ "kind": "path", "value": "src/a.ts" }],
+    "identifiers": []
+  },
+  "nearMissOf": "bare",
+  "section": "IMPL §3.4",
+  "note": "A four-space line directly after a paragraph line continues the paragraph, since an indented code block can't interrupt one, so its path is bare text and is detected."
+}

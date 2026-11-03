@@ -1,0 +1,9 @@
+{
+  "content": "From a package, run `../scripts/build.sh --fast` and `.venv/bin/python -m app`.\n",
+  "expect": {
+    "references": [],
+    "identifiers": ["../scripts/build.sh --fast", ".venv/bin/python -m app"]
+  },
+  "section": "IMPL §3.4",
+  "note": "`../` is not the `./` runner prefix and `.venv/bin/python` is not the runner `python`, and both spans hold whitespace, so neither is a command or a path."
+}

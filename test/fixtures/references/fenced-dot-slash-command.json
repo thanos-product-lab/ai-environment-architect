@@ -1,0 +1,13 @@
+{
+  "content": "~~~\n./scripts/build.sh --fast\nmake\n~~~\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "./scripts/build.sh --fast" },
+      { "kind": "command", "value": "make" }
+    ],
+    "identifiers": []
+  },
+  "nearMissOf": "fenced",
+  "section": "IMPL §3.4",
+  "note": "A tilde fence works like a backtick fence, and a fenced line is classified as an inline span is, so the `./` form with arguments and a lone runner are commands."
+}

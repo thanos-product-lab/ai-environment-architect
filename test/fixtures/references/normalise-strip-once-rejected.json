@@ -1,0 +1,13 @@
+{
+  "content": "See `././src/a.ts` and `src//`.\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "././src/a.ts" },
+      { "kind": "path", "value": "src//" }
+    ],
+    "identifiers": []
+  },
+  "listed": { "././src/a.ts": false, "src//": false },
+  "section": "IMPL §3.4",
+  "note": "Only one leading `./` and one trailing `/` are removed, so these become `./src/a.ts` and `src/`, which name nothing (IMPL §1.11)."
+}

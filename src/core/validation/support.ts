@@ -140,10 +140,19 @@ function containsWord(text: string, word: string): boolean {
   return pattern.test(text);
 }
 
-/** Bare path-like tokens (§3.4): segments joined by `/`, the last ending in a file extension. */
+/** Bare path-like tokens (§3.2.3): segments joined by `/`, the last ending in a file extension. */
 function isPathLike(token: string): boolean {
   const last = token.slice(token.lastIndexOf("/") + 1);
   return token.includes("/") && EXTENSION.test(last);
+}
+
+/**
+ * A whitespace-separated word of bare text as a path-like token (§3.2.3): leading `("'` and
+ * trailing `.,;:!?)"'` removed. Undefined if the word isn't path-like.
+ */
+export function barePathToken(word: string): string | undefined {
+  const bare = word.replace(LEADING, "").replace(TRAILING, "");
+  return isPathLike(bare) ? bare : undefined;
 }
 
 interface Tokens {
@@ -158,8 +167,8 @@ function tokenize(statement: string): Tokens {
   const paths: string[] = [];
   const rest: string[] = [];
   for (const token of statement.replace(INLINE_CODE, " ").split(/\s+/)) {
-    const bare = token.replace(LEADING, "").replace(TRAILING, "");
-    if (isPathLike(bare)) paths.push(bare);
+    const bare = barePathToken(token);
+    if (bare !== undefined) paths.push(bare);
     else rest.push(token);
   }
   return { code, paths, rest: rest.join(" ") };

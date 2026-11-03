@@ -1,0 +1,16 @@
+{
+  "content": "## Entry point src/index.ts\n\nRun `npm test`, edit src/a.ts, then `npm test` again.\n\n```sh\nmake build\n```\n\n- See `docs/guide.md`, `useSession` and `useSession`.\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "src/index.ts" },
+      { "kind": "command", "value": "npm test" },
+      { "kind": "path", "value": "src/a.ts" },
+      { "kind": "command", "value": "npm test" },
+      { "kind": "command", "value": "make build" },
+      { "kind": "path", "value": "docs/guide.md" }
+    ],
+    "identifiers": ["useSession", "useSession"]
+  },
+  "section": "IMPL §3.4",
+  "note": "References from headings, inline spans, bare text and fences come out in one document order with duplicates kept, not grouped by source or deduplicated."
+}

@@ -1,0 +1,14 @@
+{
+  "content": "Run `npm\ttest` or `npm\ntest` or `npm  test` before pushing.\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "npm\ttest" },
+      { "kind": "command", "value": "npm\ntest" },
+      { "kind": "command", "value": "npm  test" }
+    ],
+    "identifiers": []
+  },
+  "nearMissOf": "command",
+  "section": "IMPL §3.4",
+  "note": "A tab, a line break inside one paragraph, or two spaces all count as whitespace after the runner, and the value keeps them as written."
+}

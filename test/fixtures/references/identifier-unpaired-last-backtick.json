@@ -1,0 +1,9 @@
+{
+  "content": "Run `npm test` and then `make clean\n",
+  "expect": {
+    "references": [{ "kind": "command", "value": "npm test" }],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "The last backtick has no partner, so it is plain text and `make clean` after it is bare text, not a command."
+}

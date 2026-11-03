@@ -1,0 +1,11 @@
+{
+  "content": "Keep helpers in `src/a.ts`.\n",
+  "expect": {
+    "references": [{ "kind": "path", "value": "src/a.ts" }],
+    "identifiers": []
+  },
+  "listed": { "src/a.ts": true },
+  "nearMissOf": "bare",
+  "section": "IMPL §3.4",
+  "note": "A path in an inline span is one reference; bare text excludes the span, so it is not found a second time."
+}

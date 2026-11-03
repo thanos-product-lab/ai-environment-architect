@@ -1,0 +1,9 @@
+{
+  "content": "Example:\n\n    cat src/a.ts\n    npm test\n    `src/index.ts`\n\nThen see docs/guide.md.\n",
+  "expect": {
+    "references": [{ "kind": "path", "value": "docs/guide.md" }],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "An indented code block is neither fenced nor bare text, so its command line, its bare path and its backticks give nothing."
+}

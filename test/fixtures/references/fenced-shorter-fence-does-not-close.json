@@ -1,0 +1,12 @@
+{
+  "content": "````\n```\npnpm build\n````\n\nThen `npm test`.\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "pnpm build" },
+      { "kind": "command", "value": "npm test" }
+    ],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "A three-backtick line inside a four-backtick fence is content (giving nothing), not a close; a parser that closed there would treat the later fence lines as prose and pair the wrong backticks."
+}

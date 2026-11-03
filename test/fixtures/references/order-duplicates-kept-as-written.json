@@ -1,0 +1,14 @@
+{
+  "content": "`src/a.ts` is src/a.ts, also written `./src/a.ts`.\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "src/a.ts" },
+      { "kind": "path", "value": "src/a.ts" },
+      { "kind": "path", "value": "./src/a.ts" }
+    ],
+    "identifiers": []
+  },
+  "listed": { "src/a.ts": true, "./src/a.ts": true },
+  "section": "IMPL §3.4",
+  "note": "Values are as written: the detector neither merges repeats nor normalises `./src/a.ts`, which happens only for REF-002 matching."
+}

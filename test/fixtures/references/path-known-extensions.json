@@ -1,0 +1,25 @@
+{
+  "content": "See `package.json`, `a.ts`, `tsconfig.json`, `pytest.ini`, `notes/plan.xyz` and `src/index.ts`.\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "package.json" },
+      { "kind": "path", "value": "a.ts" },
+      { "kind": "path", "value": "tsconfig.json" },
+      { "kind": "path", "value": "pytest.ini" },
+      { "kind": "path", "value": "notes/plan.xyz" },
+      { "kind": "path", "value": "src/index.ts" }
+    ],
+    "identifiers": []
+  },
+  "listed": {
+    "package.json": true,
+    "a.ts": false,
+    "tsconfig.json": false,
+    "pytest.ini": false,
+    "notes/plan.xyz": false,
+    "src/index.ts": true
+  },
+  "nearMissOf": "identifier",
+  "section": "IMPL §3.4",
+  "note": "A known extension makes a span a path without any `/`, `pytest.ini` is a path although it starts with a runner's name, and an unknown extension still gives a path when the span holds `/`; only listed values pass REF-002."
+}

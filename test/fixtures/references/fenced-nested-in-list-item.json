@@ -1,0 +1,13 @@
+{
+  "content": "- Install:\n\n    ```sh\n    npm ci\n    ```\n- Then check `src/index.ts`.\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "npm ci" },
+      { "kind": "path", "value": "src/index.ts" }
+    ],
+    "identifiers": []
+  },
+  "nearMissOf": "bare",
+  "section": "IMPL §3.4",
+  "note": "A list item's content is split again after its marker and indentation, so a fence nested in the item opens a fenced block, not an indented code block, and its line gives a command."
+}

@@ -1,0 +1,9 @@
+{
+  "content": "Format before committing:\n\n```sh\ngofmt -w .\n```\n",
+  "expect": {
+    "references": [],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "A fenced line that isn't a command gives nothing, not even an identifier, and `gofmt` is not the runner `go`."
+}

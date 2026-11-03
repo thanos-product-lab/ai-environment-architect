@@ -1,0 +1,10 @@
+{
+  "content": "Run `./scripts/build.sh --fast` before release.\n",
+  "expect": {
+    "references": [{ "kind": "command", "value": "./scripts/build.sh --fast" }],
+    "identifiers": []
+  },
+  "nearMissOf": "path",
+  "section": "IMPL §3.4",
+  "note": "The `./` prefix followed by a path and then whitespace is a command, not a path."
+}

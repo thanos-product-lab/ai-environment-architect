@@ -1,0 +1,9 @@
+{
+  "content": "Leave the value empty, as in ``, and edit `src/a.ts`.\n",
+  "expect": {
+    "references": [{ "kind": "path", "value": "src/a.ts" }],
+    "identifiers": [""]
+  },
+  "section": "IMPL §3.4",
+  "note": "Two adjacent backticks pair as an empty span, an identifier with the empty value, and do not shift the pairing of the later span (IMPL §3.2.3)."
+}

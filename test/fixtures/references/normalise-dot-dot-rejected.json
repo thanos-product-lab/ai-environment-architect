@@ -1,0 +1,13 @@
+{
+  "content": "Shared code is `../src/a.ts`, reached as `src/../src/a.ts`.\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "../src/a.ts" },
+      { "kind": "path", "value": "src/../src/a.ts" }
+    ],
+    "identifiers": []
+  },
+  "listed": { "../src/a.ts": false, "src/../src/a.ts": false },
+  "section": "IMPL §3.4",
+  "note": "A path with a `..` segment names nothing and is never resolved, even when resolving it would give the listed `src/a.ts`."
+}

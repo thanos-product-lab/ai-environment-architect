@@ -1,0 +1,26 @@
+{
+  "content": "Checks: `npm test`, `pnpm build`, `yarn lint`, `npx tsc`, `bun run dev`, `make build`, `just check`, `task deploy`, `python -m app`, `pytest -q`, `uv sync`, `poetry install`, `cargo test`, `go test ./...` and `docker compose up`.\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "npm test" },
+      { "kind": "command", "value": "pnpm build" },
+      { "kind": "command", "value": "yarn lint" },
+      { "kind": "command", "value": "npx tsc" },
+      { "kind": "command", "value": "bun run dev" },
+      { "kind": "command", "value": "make build" },
+      { "kind": "command", "value": "just check" },
+      { "kind": "command", "value": "task deploy" },
+      { "kind": "command", "value": "python -m app" },
+      { "kind": "command", "value": "pytest -q" },
+      { "kind": "command", "value": "uv sync" },
+      { "kind": "command", "value": "poetry install" },
+      { "kind": "command", "value": "cargo test" },
+      { "kind": "command", "value": "go test ./..." },
+      { "kind": "command", "value": "docker compose up" }
+    ],
+    "identifiers": []
+  },
+  "nearMissOf": "command",
+  "section": "IMPL §3.4",
+  "note": "Every one of the fifteen runners, each followed by whitespace, is a command; `go test ./...` holds a `/` but has whitespace, so it is not a path."
+}

@@ -1,0 +1,9 @@
+{
+  "content": "Read `README.MD`, `dockerfile`, `license`, `Makefile.am` and `main.TS`.\n",
+  "expect": {
+    "references": [],
+    "identifiers": ["README.MD", "dockerfile", "license", "Makefile.am", "main.TS"]
+  },
+  "section": "IMPL §3.4",
+  "note": "Extensions and file names match case-sensitively, and `Makefile.am` is neither a known name nor a known extension, so with no `/` these are identifiers, not paths."
+}

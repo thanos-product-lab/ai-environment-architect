@@ -1,0 +1,21 @@
+{
+  "content": "Edit (src/a.ts), then \"docs/guide.md\"; see './scripts/build.sh'. Done: src/index.ts...\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "src/a.ts" },
+      { "kind": "path", "value": "docs/guide.md" },
+      { "kind": "path", "value": "./scripts/build.sh" },
+      { "kind": "path", "value": "src/index.ts" }
+    ],
+    "identifiers": []
+  },
+  "listed": {
+    "src/a.ts": true,
+    "docs/guide.md": true,
+    "./scripts/build.sh": true,
+    "src/index.ts": true
+  },
+  "nearMissOf": "bare",
+  "section": "IMPL §3.4",
+  "note": "Every leading `(`, `\"`, `'` and every trailing `.,;:!?)\"'` is removed before a bare word is tested, so a validator stripping only one character would detect wrong values."
+}

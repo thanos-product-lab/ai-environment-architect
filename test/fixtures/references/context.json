@@ -1,0 +1,15 @@
+{
+  "entries": [
+    "Makefile",
+    "config/{{aws-access-key-id}}.json",
+    "docs/guide.md",
+    "package.json",
+    "scripts/build.sh",
+    "src/a.ts",
+    "src/index.ts"
+  ],
+  "placeholders": {
+    "{{aws-access-key-id}}": "Replaced at test time with AWS's documented example key ID, so no committed fixture matches a secret-scan rule. The resulting path is withheld (IMPL §1.7, §1.11). Substitute it in context.json, in each case's content, in expected values and in listed keys."
+  },
+  "note": "Shared snapshot for REF-002 (IMPL §3.4, §1.11). Listed directories derived from entries: config/, docs/, scripts/, src/. config/ is listed although its only entry is withheld, because its own name is not (IMPL §3.2.3)."
+}

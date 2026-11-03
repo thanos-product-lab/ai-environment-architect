@@ -2,8 +2,12 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 2 November 2026  
-**Version:** 0.41  
+**Version:** 0.42  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.41
+
+- **Reference detector (§3.4).** Content is split into Guidance Blocks, and a list item's or block quote's content is split again, so a fence nested in a list item is a fenced code block. Inline code spans pair within one block. Fences are found as the Guidance Block parser finds them, fence lines are not content, and an indented code block gives nothing. Clarifications of `references/1.0.0`, which had no implementation before.
 
 ### Changes from v0.40
 
@@ -1806,14 +1810,17 @@ Any change creates a new artifact revision and requires fresh review ([`DOMAIN_M
 
 ### 3.4 Reference detector
 
-A small deterministic component, versioned (`detectorVersion`, `references/1.0.0`), with its own fixtures. It finds references in recommendation content, and each reference's `value` is the span or line as written:
+A small deterministic component, versioned (`detectorVersion`, `references/1.0.0`), with its own fixtures. It finds references in recommendation content, and each reference's `value` is the span or line as written.
 
-- **Inline code spans**, paired as in §3.2.3:
+Content is split into Guidance Blocks ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §7). The content of a list item, after its marker and indentation (CommonMark's content column), and of a block quote, after its `>` markers, is split again the same way, so a fence or indented code block nested in them counts as it would at the top level.
+
+- **Inline code spans**, paired as in §3.2.3 within one block, never across blocks:
   - **command-like:** starts with a known runner and holds whitespace after it → `command`. The runners are the words `npm`, `pnpm`, `yarn`, `npx`, `bun`, `make`, `just`, `task`, `python`, `pytest`, `uv`, `poetry`, `cargo`, `go` and `docker`, each matched as a whole word, so followed by whitespace or the end of the text (`gofmt` is not `go`), and the prefix `./` followed by a path, as in `./scripts/build.sh --fast`;
   - **path-like:** holds no whitespace, isn't a URL (holding `://`), and either contains `/` or ends in a known file extension or is a known file name → `path`;
   - a span that starts with a runner and holds no whitespace is a path if it is path-like, as `./scripts/build.sh` is, and a command otherwise, as `make` is;
   - anything else is an identifier, URLs included. Identifiers are not declared as references, but must appear in at least one excerpt of the recommendation's supporting findings, or in the statement or exceptions of a supporting decision (`REF-005`).
-- **Fenced code blocks:** each non-empty line, without leading and trailing whitespace, is classified as an inline span is; a line that is a command gives a `command` with that value, and other lines give nothing.
+- **Fenced code blocks**, as the Guidance Block parser finds them: each non-empty line between the fences, without leading and trailing whitespace, is classified as an inline span is; a line that is a command gives a `command` with that value, and other lines give nothing. The fence lines are not content.
+- **Indented code blocks** give nothing, including a fence-like line indented four or more spaces.
 - **Bare text:** path-like tokens as §3.2.3 defines them, except URLs → `path`. Bare text is the content outside inline code spans and code blocks, so nothing is detected twice.
 
 **Known file extensions**, after a final `.`: `md`, `mdx`, `txt`, `json`, `jsonc`, `yaml`, `yml`, `toml`, `ini`, `cfg`, `lock`, `js`, `mjs`, `cjs`, `jsx`, `ts`, `mts`, `cts`, `tsx`, `py`, `go`, `rs`, `rb`, `java`, `kt`, `swift`, `c`, `h`, `cpp`, `hpp`, `cs`, `php`, `sh`, `bash`, `zsh`, `sql`, `html`, `css`, `scss`, `vue`, `svelte`. **Known file names:** `Makefile`, `makefile`, `GNUmakefile`, `Dockerfile`, `justfile`, `Justfile`, `Procfile`, `Gemfile`, `LICENSE`. Both lists are versioned with the detector: a change increases `detectorVersion`.
@@ -1988,6 +1995,7 @@ A change to any prompt, schema, validator or detector requires the fixture suite
 - How to detect a claim about the omitted parts of an excerpted file when it cites only sent lines (§1.11). The citation rules catch citations of omitted lines, not claims about them.
 - Minimum quote length: 12 characters may allow unhelpfully generic quotes in code.
 - Output limits per call (finding, question and recommendation counts).
+- The reference detector's bare-text tokens keep Markdown syntax: `[guide](docs/guide.md)` gives the path `[guide](docs/guide.md`, and `**src/index.ts**` gives nothing (§3.4). Left pairing (§3.2.3) differs from CommonMark for spans delimited by two or more backticks. Calibrate on development repositories.
 - `SUP-002` misses counts outside its lists, such as *once*, *twice*, *a couple* and ordinals.
 - `SUP-001` matches a token in an excerpt as a substring, so `./format.ts` is anchored by an excerpt holding `../format.ts`, which names another file. A path-aware excerpt match would be stricter.
 - Which known facts calls 2–5 number first: those sent in call 1, or every known fact, including those left out (§3.2.1). Settle when the alias tables are built.

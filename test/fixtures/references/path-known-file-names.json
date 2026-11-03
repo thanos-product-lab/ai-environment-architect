@@ -1,0 +1,23 @@
+{
+  "content": "Targets live in `Makefile` (also spelled `makefile` or `GNUmakefile`), images in `Dockerfile`, terms in `LICENSE`.\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "Makefile" },
+      { "kind": "path", "value": "makefile" },
+      { "kind": "path", "value": "GNUmakefile" },
+      { "kind": "path", "value": "Dockerfile" },
+      { "kind": "path", "value": "LICENSE" }
+    ],
+    "identifiers": []
+  },
+  "listed": {
+    "Makefile": true,
+    "makefile": false,
+    "GNUmakefile": false,
+    "Dockerfile": false,
+    "LICENSE": false
+  },
+  "nearMissOf": "identifier",
+  "section": "IMPL §3.4",
+  "note": "Both `Makefile` and `makefile` are known file names, so both are paths, but listing is case-sensitive and only `Makefile` is in the snapshot."
+}

@@ -1,0 +1,16 @@
+{
+  "content": "Lockfiles: `pnpm-lock.yaml`, `uv.lock`, `yarn.lock`; compose file `docker/compose.yml`; module dir `go/`.\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "pnpm-lock.yaml" },
+      { "kind": "path", "value": "uv.lock" },
+      { "kind": "path", "value": "yarn.lock" },
+      { "kind": "path", "value": "docker/compose.yml" },
+      { "kind": "path", "value": "go/" }
+    ],
+    "identifiers": []
+  },
+  "nearMissOf": "command",
+  "section": "IMPL §3.4",
+  "note": "A runner's letters followed by `-`, `.` or `/` are not the runner as a whole word, so a prefix match would wrongly call these commands; each is path-like."
+}

@@ -1,0 +1,10 @@
+{
+  "content": "Keys are read from `config/{{aws-access-key-id}}.json`.\n",
+  "expect": {
+    "references": [{ "kind": "path", "value": "config/{{aws-access-key-id}}.json" }],
+    "identifiers": []
+  },
+  "listed": { "config/{{aws-access-key-id}}.json": false },
+  "section": "IMPL §3.4",
+  "note": "The path is a snapshot entry, but withheld, so it fails REF-002 as for SUP-001; substitute the placeholder from context.json first."
+}

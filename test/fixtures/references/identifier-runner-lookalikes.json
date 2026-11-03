@@ -1,0 +1,9 @@
+{
+  "content": "Tools: `gofmt`, `gopls`, `npmx`, `python3`, and the module file `go.mod`.\n",
+  "expect": {
+    "references": [],
+    "identifiers": ["gofmt", "gopls", "npmx", "python3", "go.mod"]
+  },
+  "section": "IMPL §3.4",
+  "note": "None starts with a runner as a whole word, and `.mod` is not a known extension, so each is an identifier rather than a command or a path."
+}

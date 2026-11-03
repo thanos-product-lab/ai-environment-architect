@@ -1,0 +1,9 @@
+{
+  "content": "```\n./scripts/build.sh\nsrc/a.ts\n$ npm test\necho `src/index.ts`\nnpm run build\n```\n",
+  "expect": {
+    "references": [{ "kind": "command", "value": "npm run build" }],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "In a fence, a path line gives nothing, a shell prompt `$ ` stops a line being a command, and backticks don't pair; only `npm run build` is a command."
+}

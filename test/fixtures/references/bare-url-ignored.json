@@ -1,0 +1,9 @@
+{
+  "content": "See https://example.com/docs/guide.md and file:///src/a.ts for details.\n",
+  "expect": {
+    "references": [],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "Bare URLs are path-like under IMPL §3.2.3 but excluded from detection here, and bare text never gives identifiers."
+}

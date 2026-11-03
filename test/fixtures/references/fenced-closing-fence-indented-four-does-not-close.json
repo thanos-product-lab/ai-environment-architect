@@ -1,0 +1,13 @@
+{
+  "content": "```\nnpm test\n      ```\nmake build touches src/a.ts\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "npm test" },
+      { "kind": "command", "value": "make build touches src/a.ts" }
+    ],
+    "identifiers": []
+  },
+  "nearMissOf": "fenced",
+  "section": "IMPL §3.4, DM §7",
+  "note": "Fences follow the Guidance Block parser: a fence indented four or more spaces doesn't close the block, so the fenced lines run to the end and the last line is a command, not bare text."
+}

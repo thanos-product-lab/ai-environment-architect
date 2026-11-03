@@ -1,0 +1,13 @@
+{
+  "content": "~~~\nnpm test\n```\nmake build\n~~~\n\nSee `src/a.ts`.\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "npm test" },
+      { "kind": "command", "value": "make build" },
+      { "kind": "path", "value": "src/a.ts" }
+    ],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "A backtick fence line doesn't close a tilde fence, so `make build` is still fenced and gives a command, and the paragraph after the real close is prose."
+}

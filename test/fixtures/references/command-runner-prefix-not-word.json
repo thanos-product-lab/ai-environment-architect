@@ -1,0 +1,9 @@
+{
+  "content": "Format with `gofmt -w .`, check with `gopls check`, then `npmx run`, `python3 -m pytest` and `uvx ruff`.\n",
+  "expect": {
+    "references": [],
+    "identifiers": ["gofmt -w .", "gopls check", "npmx run", "python3 -m pytest", "uvx ruff"]
+  },
+  "section": "IMPL §3.4",
+  "note": "Each span starts with a runner's letters but not the runner as a whole word, so a prefix match would wrongly make these commands; they hold whitespace, so they are identifiers."
+}

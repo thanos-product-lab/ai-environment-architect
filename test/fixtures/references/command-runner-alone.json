@@ -1,0 +1,16 @@
+{
+  "content": "Use `make`, or `npm`, `go`, `just` and `task` directly.\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "make" },
+      { "kind": "command", "value": "npm" },
+      { "kind": "command", "value": "go" },
+      { "kind": "command", "value": "just" },
+      { "kind": "command", "value": "task" }
+    ],
+    "identifiers": []
+  },
+  "nearMissOf": "identifier",
+  "section": "IMPL §3.4",
+  "note": "A runner at the end of the span is a whole word, and a runner span with no whitespace that isn't path-like is a command, as `make` is."
+}

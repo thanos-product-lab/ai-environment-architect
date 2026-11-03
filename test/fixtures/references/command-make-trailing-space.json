@@ -1,0 +1,9 @@
+{
+  "content": "Then run `make ` to build everything.\n",
+  "expect": {
+    "references": [{ "kind": "command", "value": "make " }],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "Inline spans are not trimmed: `make` followed by a space is a command whose value keeps the trailing space, so a declared `make` would not match it as written (REF-001)."
+}

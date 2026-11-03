@@ -1,0 +1,15 @@
+{
+  "content": "Code lives in `src/` (also `./src/`), scripts in `scripts/`, docs in `docs`.\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "src/" },
+      { "kind": "path", "value": "./src/" },
+      { "kind": "path", "value": "scripts/" }
+    ],
+    "identifiers": ["docs"]
+  },
+  "listed": { "src/": true, "./src/": true, "scripts/": true },
+  "nearMissOf": "REF-002",
+  "section": "IMPL §3.4",
+  "note": "One leading `./` and one trailing `/` are removed, leaving directories that contain entries; `docs` without a slash or extension is an identifier, not a path."
+}

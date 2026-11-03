@@ -1,0 +1,9 @@
+{
+  "content": "Build it:\n\n```sh\npnpm build\n\nThen edit `src/a.ts` and docs/guide.md.\n",
+  "expect": {
+    "references": [{ "kind": "command", "value": "pnpm build" }],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "An unclosed fence runs to the end of the content, so the last line is a fenced line that isn't a command, giving neither the inline path nor the bare path."
+}

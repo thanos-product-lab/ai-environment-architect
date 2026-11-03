@@ -1,0 +1,9 @@
+{
+  "content": "Use ```npm test``` here.\n",
+  "expect": {
+    "references": [{ "kind": "command", "value": "npm test" }],
+    "identifiers": ["", ""]
+  },
+  "section": "IMPL §3.4",
+  "note": "Mid-line triple backticks are not a fence; pairing from the left gives an empty span, the span `npm test`, and another empty span."
+}

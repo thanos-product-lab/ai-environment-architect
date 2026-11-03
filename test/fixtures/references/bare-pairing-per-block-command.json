@@ -1,0 +1,9 @@
+{
+  "content": "Run `npm\n\ntest` now.\n",
+  "expect": {
+    "references": [],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "Each paragraph holds one unpaired backtick, so there is no span; pairing across the blank line would invent the command `npm\\n\\ntest`."
+}

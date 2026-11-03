@@ -1,0 +1,9 @@
+{
+  "content": "Run ` npm test` first.\n",
+  "expect": {
+    "references": [],
+    "identifiers": [" npm test"]
+  },
+  "section": "IMPL §3.4",
+  "note": "Inline spans are not trimmed, so a span starting with a space doesn't start with a runner; it holds whitespace, so it is an identifier, not a command."
+}

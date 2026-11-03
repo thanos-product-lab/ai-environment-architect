@@ -1,0 +1,9 @@
+{
+  "content": "```make\n# build everything\n```\n\n~~~npm test\nsrc/a.ts\n~~~\n",
+  "expect": {
+    "references": [],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "Fence lines are not content, so the info strings `make` and `npm test` give no command, and the fenced comment and path lines give nothing."
+}

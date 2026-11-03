@@ -1,0 +1,10 @@
+{
+  "content": "Call `fetchUser()` from `useSession`, and keep secrets in `.env`.\n",
+  "expect": {
+    "references": [],
+    "identifiers": ["fetchUser()", "useSession", ".env"]
+  },
+  "nearMissOf": "path",
+  "section": "IMPL §3.4",
+  "note": "`.env` ends after a final `.` in `env`, which is not a known extension, so it is an identifier like the code names."
+}

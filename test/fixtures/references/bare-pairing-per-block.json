@@ -1,0 +1,9 @@
+{
+  "content": "Wrap names in ` marks.\n\nThen edit `src/a.ts` too.\n",
+  "expect": {
+    "references": [{ "kind": "path", "value": "src/a.ts" }],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "The first paragraph's lone backtick is unpaired within its block; pairing across blocks would turn ` marks.\\n\\nThen edit ` into an identifier and leave `src/a.ts`` as bare text."
+}

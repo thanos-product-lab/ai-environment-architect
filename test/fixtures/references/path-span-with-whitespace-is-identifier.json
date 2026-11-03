@@ -1,0 +1,9 @@
+{
+  "content": "Inspect it with `cat src/a.ts` and `less docs/guide.md`.\n",
+  "expect": {
+    "references": [],
+    "identifiers": ["cat src/a.ts", "less docs/guide.md"]
+  },
+  "section": "IMPL §3.4",
+  "note": "A span with whitespace is never a path, and the paths inside it are not detected again as bare text, because bare text excludes inline code spans."
+}

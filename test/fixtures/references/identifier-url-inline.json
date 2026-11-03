@@ -1,0 +1,9 @@
+{
+  "content": "Docs are at `https://example.com/docs/guide.md`; the dev server is `http://localhost:3000/`.\n",
+  "expect": {
+    "references": [],
+    "identifiers": ["https://example.com/docs/guide.md", "http://localhost:3000/"]
+  },
+  "section": "IMPL §3.4",
+  "note": "A span holding `://` is a URL, which is an identifier even when it contains `/` and ends in a known extension."
+}

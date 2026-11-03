@@ -1,0 +1,13 @@
+{
+  "content": "```bash\n  npm test  \n\n\tmake build\t\n```\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "npm test" },
+      { "kind": "command", "value": "make build" }
+    ],
+    "identifiers": []
+  },
+  "nearMissOf": "fenced",
+  "section": "IMPL §3.4",
+  "note": "Each non-empty fenced line is trimmed of leading and trailing spaces and tabs before it is classified, so the values hold no surrounding whitespace, and the blank line gives nothing."
+}

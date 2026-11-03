@@ -1,0 +1,9 @@
+{
+  "content": "Read [docs/guide.md] and **src/index.ts** first.\n",
+  "expect": {
+    "references": [],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "Only `(`, `\"` and `'` are stripped at the start and `.,;:!?)\"'` at the end, so a word ending in `]` or `*` doesn't end in an extension and gives nothing (as written; open point in IMPL §3.9)."
+}

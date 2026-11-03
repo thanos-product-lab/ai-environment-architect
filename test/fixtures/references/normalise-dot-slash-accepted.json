@@ -1,0 +1,11 @@
+{
+  "content": "The module is `./src/a.ts`.\n",
+  "expect": {
+    "references": [{ "kind": "path", "value": "./src/a.ts" }],
+    "identifiers": []
+  },
+  "listed": { "./src/a.ts": true },
+  "nearMissOf": "REF-002",
+  "section": "IMPL §3.4",
+  "note": "One leading `./` is removed before matching, so it names the entry `src/a.ts`."
+}
