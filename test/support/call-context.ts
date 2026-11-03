@@ -83,7 +83,11 @@ export interface FixtureRecommendContext {
   readonly findings?: readonly (Omit<RecommendFinding, "current" | "evidence"> & {
     readonly alias: string;
     readonly current?: boolean;
-    readonly evidence?: readonly DistributiveOmit<RecommendEvidence, "id">[];
+    /** A `lines` excerpt's `basis` defaults to the finding's, when it has only one. */
+    readonly evidence?: readonly (
+      | DistributiveOmit<RecommendEvidence, "id">
+      | { readonly kind: "lines"; readonly path: string; readonly excerpt: string }
+    )[];
   })[];
   readonly decisions?: readonly {
     readonly alias: string;
@@ -369,9 +373,15 @@ export function recommendContext(
           {
             ...rest,
             current: current ?? true,
-            evidence: (evidence ?? []).map(
-              (e, i) => ({ ...e, id: `ev-${alias}-${i + 1}` }) as RecommendEvidence,
-            ),
+            evidence: (evidence ?? []).map((e, i) => {
+              const id = `ev-${alias}-${i + 1}`;
+              if (e.kind !== "lines" || "basis" in e) return { ...e, id } as RecommendEvidence;
+              // A finding of one basis gives it to each excerpt; a mixed one names it per excerpt.
+              const [only, ...more] = rest.basis;
+              if (only === undefined || more.length > 0)
+                throw new Error(`${alias}: name each excerpt's basis for a mixed basis`);
+              return { ...e, id, basis: only } as RecommendEvidence;
+            }),
           },
         ]),
       ),

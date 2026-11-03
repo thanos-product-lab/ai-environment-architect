@@ -1,0 +1,26 @@
+{
+  "description": "Accepted: a command found only in an existing-guidance excerpt, with documented support beside it for REC-004.",
+  "section": "IMPL §3.3.5 step 7 (REF-003, REF-004), step 4 (REC-004)",
+  "nearMissOf": "ref003-command-only-in-code-excerpt.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-5" },
+        "content": "- Dependencies install with `pnpm install`.",
+        "rationale": "The existing guide gives the command.",
+        "support": ["F-14", "F-23"],
+        "references": [{ "kind": "command", "value": "pnpm install", "support": "F-14" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1"], "heldBack": [], "noChangeReason": [] }
+  }
+}

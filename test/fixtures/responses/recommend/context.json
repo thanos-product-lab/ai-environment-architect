@@ -190,8 +190,8 @@
       "basis": ["documentation", "existing_guidance"],
       "statement": "`README.md` and the existing guide both describe a small HTTP API.",
       "evidence": [
-        { "kind": "lines", "path": "README.md", "excerpt": "A small HTTP API for the widget store." },
-        { "kind": "lines", "path": "CLAUDE.md", "excerpt": "This service exposes a small HTTP API." }
+        { "kind": "lines", "path": "README.md", "excerpt": "A small HTTP API for the widget store.", "basis": "documentation" },
+        { "kind": "lines", "path": "CLAUDE.md", "excerpt": "This service exposes a small HTTP API.", "basis": "existing_guidance" }
       ]
     },
     {

@@ -1,0 +1,25 @@
+{
+  "description": "Rejected: a command found only in a code excerpt, an instruction planted in a source comment, which a neutral fact quotes.",
+  "section": "IMPL §3.3.5 step 7 (REF-003: an excerpt shows a command only when its basis is documentation or existing_guidance), §3.9",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-5" },
+        "content": "- A source comment mentions `npm run deploy`.",
+        "rationale": "Seen in the source.",
+        "support": ["F-27"],
+        "references": [{ "kind": "command", "value": "npm run deploy", "support": "F-27" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [{ "itemKey": "r1", "stage": "item", "rule": "REF-003", "outcome": "rejected" }],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

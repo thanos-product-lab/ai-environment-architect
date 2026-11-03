@@ -67,7 +67,14 @@ export interface NoChangeReasonItem {
 }
 
 export type RecommendEvidence =
-  | { readonly id: string; readonly kind: "lines"; readonly path: string; readonly excerpt: string }
+  | {
+      readonly id: string;
+      readonly kind: "lines";
+      readonly path: string;
+      readonly excerpt: string;
+      /** The cited file's basis (§3.2.4). */
+      readonly basis: Basis;
+    }
   | { readonly id: string; readonly kind: "entry"; readonly path: string }
   | { readonly id: string; readonly kind: "absence_check" };
 
@@ -509,6 +516,17 @@ function isKnownCommand(value: string, finding: RecommendFinding, arguments_: bo
   );
 }
 
+/**
+ * Bases whose excerpts can show a command outside a manifest (REF-003). A code excerpt can't: a
+ * comment could plant an instruction, and quoting it would carry it into the file.
+ */
+const COMMAND_BASES: ReadonlySet<Basis> = new Set(["documentation", "existing_guidance"]);
+
+const commandExcerpt = (evidence: RecommendEvidence, value: string): boolean =>
+  evidence.kind === "lines" &&
+  COMMAND_BASES.has(evidence.basis) &&
+  evidence.excerpt.includes(value);
+
 const excerpts = (finding: RecommendFinding | undefined): string[] =>
   (finding?.evidence ?? []).flatMap((e) => (e.kind === "lines" ? [e.excerpt] : []));
 
@@ -521,6 +539,10 @@ function holdingEvidence(
   if (known) return finding.evidence[0]?.id;
   const path = reference.kind === "path" ? normalisePath(reference.value) : undefined;
   for (const evidence of finding.evidence) {
+    if (reference.kind === "command") {
+      if (commandExcerpt(evidence, reference.value)) return evidence.id;
+      continue;
+    }
     if (evidence.kind === "lines" && evidence.excerpt.includes(reference.value)) return evidence.id;
     if (
       path !== undefined &&
@@ -560,8 +582,12 @@ const referenceCheck: Check = (value, context) => {
   });
   for (const [index, r] of declared.entries()) {
     if (r.kind !== "command" || known[index]) continue;
-    if (!excerpts(context.input.findings.get(r.support)).some((e) => e.includes(r.value)))
-      return reject("REF-003", "a command that is neither a known command nor in an excerpt");
+    const evidence = context.input.findings.get(r.support)?.evidence ?? [];
+    if (!evidence.some((e) => commandExcerpt(e, r.value)))
+      return reject(
+        "REF-003",
+        "a command that is neither a known command nor in a documentation or guidance excerpt",
+      );
   }
 
   // REF-004: the supporting finding is in support, and has evidence holding the value.

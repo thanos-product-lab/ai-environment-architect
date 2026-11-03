@@ -509,7 +509,7 @@ describe("word lists (IMPL §3.2.3)", () => {
       numbers: NUMBER_WORDS,
       quantities: QUANTITY_WORDS,
     }).toEqual({
-      version: "validate/0.15.0",
+      version: "validate/0.16.0",
       directive: ["must", "should", "always", "never", "do not", "don't", "required", "prefer"],
       universal: ["all", "every", "always", "never", "none", "only"],
       numbers: [
