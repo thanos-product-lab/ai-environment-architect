@@ -6,7 +6,7 @@ import { barePathToken, stripTokenPunctuation } from "./support.js";
 // rejected recommendation, under-detection lets an unchecked reference into the developer's file.
 
 /** Changes whenever what the detector finds changes, including any of the lists below. */
-export const DETECTOR_VERSION = "references/1.1.0";
+export const DETECTOR_VERSION = "references/1.2.0";
 
 /** Words that start a command in code, each matched as a whole word, case-insensitively. */
 export const RUNNERS = [
@@ -162,7 +162,10 @@ function isPathLike(span: string): boolean {
   return dot >= 0 && EXTENSIONS.has(span.slice(dot + 1));
 }
 
-/** A bare word as a path token: punctuation, then emphasis around it, removed (§3.4). */
+/**
+ * A bare word as a path token: punctuation, then emphasis around it, removed (§3.4). Path-like as
+ * §3.2.3 defines it, or naming a known file without a `/`, as `package.json` and `Makefile` do.
+ */
 function barePath(word: string): string | undefined {
   let token = stripTokenPunctuation(word);
   for (;;) {
@@ -170,8 +173,20 @@ function barePath(word: string): string | undefined {
     if (token.length < 2 || (first !== "*" && first !== "_") || !token.endsWith(first)) break;
     token = stripTokenPunctuation(token.slice(1, -1));
   }
-  const path = barePathToken(token);
-  return path === undefined || path.includes("://") ? undefined : path;
+  if (token.includes("://") || WHITESPACE.test(token)) return undefined;
+  if (barePathToken(token) !== undefined || isKnownFile(token)) return token;
+  return undefined;
+}
+
+/**
+ * The last segment is a known file name, or a name ending in a known extension with something
+ * before the dot and no `*`, as at the root (1.2.0). So `.js` and `*.test.ts` are not files.
+ */
+function isKnownFile(token: string): boolean {
+  const last = token.slice(token.lastIndexOf("/") + 1);
+  if (FILE_NAMES.has(last)) return true;
+  const dot = last.lastIndexOf(".");
+  return dot > 0 && !last.includes("*") && EXTENSIONS.has(last.slice(dot + 1));
 }
 
 /** Classifies an inline code span, or a fenced line, after trimming it (§3.4). */
@@ -235,7 +250,7 @@ interface Event {
  * Blocks (DM §7), and the content of a list item or block quote is split again, so nested
  * blocks count as they would at the top level. Inline code spans pair within one block. Fenced
  * lines give commands only, indented code blocks give nothing, and bare text gives link targets,
- * plain-text commands and path-like tokens that aren't URLs.
+ * plain-text commands, and path-like tokens and known file names that aren't URLs.
  */
 export function detectReferences(content: string): Detection {
   const references: DetectedReference[] = [];

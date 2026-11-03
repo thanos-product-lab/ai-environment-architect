@@ -1,0 +1,21 @@
+{
+  "content": "Built on Node.js and Vue.js.\n",
+  "expect": {
+    "references": [
+      {
+        "kind": "path",
+        "value": "Node.js"
+      },
+      {
+        "kind": "path",
+        "value": "Vue.js"
+      }
+    ],
+    "identifiers": []
+  },
+  "listed": {
+    "Node.js": false
+  },
+  "section": "IMPL \u00a73.4",
+  "note": "Fails closed: a product name ending in a known extension is a path in plain text (1.2.0), so REF-002 rejects it, and in inline code it is path-like too; a known over-detection (\u00a73.9)."
+}

@@ -1,9 +1,22 @@
 {
   "content": "Edit package.json, the Makefile, src/ and src/a.ts:12 as needed.\n",
   "expect": {
-    "references": [],
+    "references": [
+      {
+        "kind": "path",
+        "value": "package.json"
+      },
+      {
+        "kind": "path",
+        "value": "Makefile"
+      }
+    ],
     "identifiers": []
   },
   "section": "IMPL §3.4",
-  "note": "A bare word is a path only if it contains `/` and its last segment ends in a dot and 1–10 ASCII letters or digits, so known file names without `/`, a directory and a `:12` suffix give nothing."
+  "note": "A bare word without `/` is a path when it ends in a known extension or is a known file name (1.2.0), so `package.json` and `Makefile` are found; a directory and a `:12` suffix still give nothing.",
+  "listed": {
+    "package.json": true,
+    "Makefile": true
+  }
 }

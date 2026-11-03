@@ -1,0 +1,23 @@
+{
+  "content": "Convert .js files to .ts, name tests *.test.ts, write a makefile, and keep .eslintrc.json.\n",
+  "expect": {
+    "references": [
+      {
+        "kind": "path",
+        "value": "makefile"
+      },
+      {
+        "kind": "path",
+        "value": ".eslintrc.json"
+      }
+    ],
+    "identifiers": []
+  },
+  "listed": {
+    "makefile": false,
+    ".eslintrc.json": false
+  },
+  "nearMissOf": "root files (1.2.0)",
+  "section": "IMPL §3.4",
+  "note": "A bare extension and a glob without `/` are not files, while a dotfile with a known extension is; a lowercase known file name used as a word is a path, a known over-detection (§3.9)."
+}

@@ -1,0 +1,23 @@
+{
+  "content": "Targets live in ./Makefile, scripts in package.json.\n",
+  "expect": {
+    "references": [
+      {
+        "kind": "path",
+        "value": "./Makefile"
+      },
+      {
+        "kind": "path",
+        "value": "package.json"
+      }
+    ],
+    "identifiers": []
+  },
+  "listed": {
+    "./Makefile": true,
+    "package.json": true
+  },
+  "nearMissOf": "REF-002",
+  "section": "IMPL \u00a73.4, \u00a71.11",
+  "note": "A known file name after `./` is a path, and normalisation removes the `./` before matching the snapshot."
+}

@@ -14,8 +14,8 @@ const ref = (kind: "path" | "command", value: string, match = value) => ({ kind,
 const id = (value: string, match = value) => ({ value, match });
 
 describe("detector version and lists", () => {
-  it("is references/1.1.0", () => {
-    expect(DETECTOR_VERSION).toBe("references/1.1.0");
+  it("is references/1.2.0", () => {
+    expect(DETECTOR_VERSION).toBe("references/1.2.0");
   });
 
   it("has the runners, extensions and file names of §3.4", () => {
@@ -151,7 +151,7 @@ describe("detectReferences", () => {
       detectReferences(
         'See ("docs/guide.md"), src/a.ts. https://example.com/x.md and docs/notes and a.md',
       ).references,
-    ).toEqual([ref("path", "docs/guide.md"), ref("path", "src/a.ts")]);
+    ).toEqual([ref("path", "docs/guide.md"), ref("path", "src/a.ts"), ref("path", "a.md")]);
   });
 
   it("doesn't detect a path in inline code again as bare text", () => {
@@ -334,6 +334,36 @@ describe("detectReferences", () => {
       ref("path", "docs/guide.md"),
       ref("path", "_x/__init__.py"),
     ]);
+  });
+
+  it("finds root files in plain text by known extension or file name (1.2.0)", () => {
+    expect(
+      detectReferences(
+        "Edit package.json, README.md and **tsconfig.json**; see Makefile and ./Makefile (or CONTRIBUTING.md).",
+      ).references,
+    ).toEqual([
+      ref("path", "package.json"),
+      ref("path", "README.md"),
+      ref("path", "tsconfig.json"),
+      ref("path", "Makefile"),
+      ref("path", "./Makefile"),
+      ref("path", "CONTRIBUTING.md"),
+    ]);
+  });
+
+  it("gives no root-file path for a bare extension or a glob, but does for a dotfile (1.2.0)", () => {
+    expect(
+      detectReferences("Convert .js files to .ts, name tests *.test.ts, and keep .eslintrc.json.")
+        .references,
+    ).toEqual([ref("path", ".eslintrc.json")]);
+  });
+
+  it("gives no root-file path for other extensions, abbreviations or case variants (1.2.0)", () => {
+    expect(
+      detectReferences(
+        "See e.g. notes.xyz, README.MD, MAKEFILE, and/or docs/notes, at https://x.dev/a.md.",
+      ).references,
+    ).toEqual([]);
   });
 
   it("finds nothing in empty content", () => {

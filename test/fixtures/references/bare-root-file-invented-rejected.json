@@ -1,0 +1,27 @@
+{
+  "content": "Follow CONTRIBUTING.md and the Dockerfile before editing package.json.\n",
+  "expect": {
+    "references": [
+      {
+        "kind": "path",
+        "value": "CONTRIBUTING.md"
+      },
+      {
+        "kind": "path",
+        "value": "Dockerfile"
+      },
+      {
+        "kind": "path",
+        "value": "package.json"
+      }
+    ],
+    "identifiers": []
+  },
+  "listed": {
+    "CONTRIBUTING.md": false,
+    "Dockerfile": false,
+    "package.json": true
+  },
+  "section": "IMPL \u00a73.4",
+  "note": "Root files in plain text are paths (1.2.0), so an invented CONTRIBUTING.md or Dockerfile reaches REF-002 and is rejected instead of slipping past."
+}
