@@ -1,8 +1,8 @@
 # Domain Model
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 2 November 2026  
-**Version:** 0.25 — consolidated specification  
+**Date:** 3 November 2026  
+**Version:** 0.26 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,13 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.25
+
+1. **Assembly (§9.3).** Content placed in a removed run is followed by the separator after the whole run, not the anchor's own, so it takes the run's place. A rendered `newSection` heading is followed by one blank line. In a present file with no blocks, new content follows the byte order mark and precedes the file's other bytes, with one line ending between them unless those bytes start with one. When the round trip failed, new sections are appended after one blank line and the file ends with one line ending.
+2. **Order at one position (§9.3).** Other additions come before `newSection` additions, so an addition to a section never lands under a new section's heading.
+3. **Attribution (§9.4).** The entries of a run of removed blocks stay together, followed by the additions placed where the run was.
+4. **Unassemblable combinations (§9.4).** The revision named with the first failing one is the first earlier revision whose removal lets the rest pass.
 
 ### Changes from v0.24
 
@@ -496,18 +503,18 @@ Assembly is application code, not a model call.
    - `add` with `newSection` and `after`: after the named heading's whole section, subsections included, at the heading's level. The anchor is the section's last block.
    - `add` with `newSection` and no `after`: at the end of the file, at level 2. The anchor is the file's last block, if any.
    An anchor that an accepted `remove` deletes keeps its position: the addition goes where the block was, or, for an anchor inside a removed section, where the section was.
-3. Apply accepted revisions in a deterministic order: by position in the original file; at one position, a `revise` or `remove` of the block before any addition after it; then by the `seq` of each recommendation's first revision. IDs carry no order ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.4.1).
+3. Apply accepted revisions in a deterministic order: by position in the original file; at one position, a `revise` or `remove` of the block before any addition after it, and other additions before `newSection` additions, so an addition never lands under a new section's heading; then by the `seq` of each recommendation's first revision. IDs carry no order ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.4.1).
    - `revise` replaces the target block's bytes with the new content.
    - `remove` deletes the target block, or the whole section. Consecutive removed blocks, from one revision or several, are deleted as one run: from the start of the run's first block to the start of the next remaining block. When no block remains after the run, the deletion runs from the end of the last remaining block before it to the end of the run's last block, so the bytes after the last block are kept. When no block remains at all, only the byte order mark, if any, and those trailing bytes are kept.
-   - `add` inserts content at its position. A `newSection` addition creates its heading: `#` repeated for its level, a space and the heading text.
-4. **Separators and line endings.** Untouched blocks keep their original bytes, including the separators around them. Inserted content is separated from its neighbours by a copy of the separator between its anchor and the block after the anchor in the original file, so a loose list stays loose. A removed anchor keeps its place in the separators: the separator before it stays with the untouched block before it, and the inserted content is followed by the anchor's original separator after it. So removing `B` from `A s1 B s2 C` and adding `X` after `B` gives `A s1 X s2 C`. When there is no such block, as at the end of the file, or no anchor, as in an empty or absent file, the separator is one blank line, or one line ending between a list item and the list item it follows. Content keeps its own separators between its blocks. Every line ending in new content, including a rendered heading, is converted to the file's style (§7). A new file ends with one line ending.
+   - `add` inserts content at its position. A `newSection` addition creates its heading: `#` repeated for its level, a space and the heading text, trimmed of spaces and tabs, followed by one blank line and the content.
+4. **Separators and line endings.** Untouched blocks keep their original bytes, including the separators around them. Inserted content is separated from its neighbours by a copy of the separator between its anchor and the block after the anchor in the original file, so a loose list stays loose. A removed anchor keeps its place in the separators: the separator before it stays with the untouched block before it, and the inserted content is followed by the separator after the removed run that contains the anchor, before the next remaining block. So removing `B` from `A s1 B s2 C` and adding `X` after `B` gives `A s1 X s2 C`, and an addition anchored inside a removed section is followed by the separator that followed the section. When there is no such block, as at the end of the file, or no anchor, as in an empty or absent file, the separator is one blank line, or one line ending between a list item and the list item it follows. Content keeps its own separators between its blocks. Every line ending in new content, including a rendered heading, is converted to the file's style (§7). A new file ends with one line ending. In a present file with no blocks, new content goes after the byte order mark, if any, and before the file's other bytes, with one line ending between them unless those bytes start with one; an empty file ends with one line ending.
 5. Serialise.
 6. Verify:
    - every changed, inserted or removed block maps to exactly one accepted revision;
    - every accepted revision produced exactly one change; removing a section is one change spanning its blocks;
    - untouched blocks are byte-identical to the original, and in their original order;
    - unless the destination's round trip failed (below), the assembled file parses, with a verified round trip (§7), into the untouched blocks and the new blocks, with the types validated for each revision. Block IDs are not compared, because an insertion shifts the ordinals after it.
-   - when the destination's round trip failed (§7), this check replaces the reparse above. Only a new section at the end is possible: the original bytes must be an unchanged prefix of the result, and the appended bytes, parsed alone, must give the new section's blocks.
+   - when the destination's round trip failed (§7), this check replaces the reparse above. Only a new section at the end is possible. It is appended after one blank line, with a line ending first if the file doesn't end with one, and the file ends with one line ending. The original bytes must be an unchanged prefix of the result, and the appended bytes, parsed alone, must give the new section's blocks.
 
 If any check fails, assembly fails and no artifact revision is created. The resulting file may read as slightly stitched together. That is the intended trade: every line of change is attributable.
 
@@ -522,9 +529,9 @@ If any check fails, assembly fails and no artifact revision is created. The resu
 | `proposedContent`, `proposedHash` | The content is in a content-addressed file (§15) |
 | `selectedRevisionIds` | Accepted recommendation revisions used |
 | `decisionIds` | Current decision versions those revisions depend on |
-| `attribution` | One entry per change, in file order: the recommendation revision; the operation; for a `revise` or `remove`, the original block, with one entry per removed block of a section; and for new content, its byte span in the proposed content (§9.3) |
+| `attribution` | One entry per change, in file order: the recommendation revision; the operation; for a `revise` or `remove`, the original block, with one entry per removed block of a section; and for new content, its byte span in the proposed content (§9.3). The entries of a run of removed blocks stay together, followed by the additions placed where the run was |
 
-If assembly fails, no artifact revision is created. When every accepted revision passes assembly alone but some cannot be combined, such as an indented code block that would merge into a list item added before it, the failure is a conflict between the revisions involved: the developer is asked to reject one ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §2.7). Code finds them deterministically: it adds the accepted revisions one at a time in the order of §9.3, and names the first whose addition makes the checks fail, together with the revision whose block it merges into or breaks. After a refresh, every current revision whose target was re-anchored is checked alone again and, if it fails, invalidated as `target_changed` (§12), so failing alone is never a conflict. Any other failure is reported as an internal error. If no revision is accepted, no artifact revision is created, and the session can complete as `no_change`. The diff shown at review is computed from the original and proposed content; it is not stored as a separate record.
+If assembly fails, no artifact revision is created. When every accepted revision passes assembly alone but some cannot be combined, such as an indented code block that would merge into a list item added before it, the failure is a conflict between the revisions involved: the developer is asked to reject one ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §2.7). Code finds them deterministically: it adds the accepted revisions one at a time in the order of §9.3, and names the first whose addition makes the checks fail, together with the revision whose block it merges into or breaks: the first earlier revision whose removal lets the rest pass. After a refresh, every current revision whose target was re-anchored is checked alone again and, if it fails, invalidated as `target_changed` (§12), so failing alone is never a conflict. Any other failure is reported as an internal error. If no revision is accepted, no artifact revision is created, and the session can complete as `no_change`. The diff shown at review is computed from the original and proposed content; it is not stored as a separate record.
 
 ## 10. Review
 

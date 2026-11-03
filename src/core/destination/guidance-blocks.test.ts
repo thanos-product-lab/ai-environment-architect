@@ -57,8 +57,8 @@ describe("lossless round trip on every destination fixture (DM §17)", () => {
     "repos/unusual-markdown/CLAUDE.md",
   ];
 
-  it("covers all thirteen fixture files", () => {
-    expect(all).toHaveLength(13);
+  it("covers all fifteen fixture files", () => {
+    expect(all).toHaveLength(15);
   });
 
   it.each(all)("%s rebuilds byte for byte from its blocks and separators", (path) => {
