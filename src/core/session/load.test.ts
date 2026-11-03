@@ -397,6 +397,78 @@ describe("recommend records (IMPL §3.3.5, §4.4.1)", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("check 4 rejects a held-back blocker that names no question or conflict", async () => {
+    const edit = (blocker: (json: Json) => string) => {
+      const json = JSON.parse(serialiseSession(fileOf(recommendLog())));
+      json.records.find((r: Json) => r.type === "held_back").blockedBy = [blocker(json)];
+      return encode(JSON.stringify(json));
+    };
+    for (const missing of ["q_9999", "conf_9999"])
+      expect(await failure(edit(() => missing)), missing).toMatchObject({ check: 4 });
+    // A finding's lineage ID isn't a question's or a conflict's, so the schema refuses it.
+    const finding = (json: Json) =>
+      json.records.find((r: Json) => r.type === "finding" && r.findingId).findingId;
+    expect(await failure(edit(finding))).toMatchObject({ check: 2 });
+  });
+
+  it("accepts a held-back entry blocked by a conflict", async () => {
+    const log = recommendLog();
+    const conflict = log.records.find((r) => r.type === "conflict") as
+      | { conflictId: string }
+      | undefined;
+    if (conflict === undefined) throw new Error("the valid session has a conflict");
+    const call = log.records.find((r) => r.type === "model_call" && r.purpose === "recommend") as {
+      modelCallId: string;
+    };
+    log.append({
+      type: "held_back",
+      topic: "Contested",
+      blockedBy: [conflict.conflictId],
+      modelCallId: call.modelCallId,
+    });
+    const result = await loadSession(encode(serialiseSession(fileOf(log))), memoryContent());
+    expect(result.ok).toBe(true);
+  });
+
+  it("check 4 rejects an invalidation whose revisedBy names no model call", async () => {
+    const log = recommendLog();
+    const revision = log.records.find((r) => r.type === "recommendation_revision") as {
+      recommendationId: string;
+    };
+    const call = log.records.find((r) => r.type === "model_call" && r.purpose === "recommend") as {
+      modelCallId: string;
+    };
+    log.revise("recommendation_revision", revision.recommendationId, {
+      status: "invalidated",
+      invalidatedReason: "dropped_by_model",
+      revisedBy: call.modelCallId,
+    });
+    expect((await loadSession(encode(serialiseSession(fileOf(log))), memoryContent())).ok).toBe(
+      true,
+    );
+    const json = JSON.parse(serialiseSession(fileOf(log)));
+    json.records.find((r: Json) => r.type === "recommendation_revision" && r.revisedBy).revisedBy =
+      "call_9999";
+    expect(await failure(encode(JSON.stringify(json)))).toMatchObject({ check: 4 });
+  });
+
+  it("check 3 rejects an invalidation that changes more than its status and reason", async () => {
+    const log = recommendLog();
+    const revision = log.records.find((r) => r.type === "recommendation_revision") as {
+      recommendationId: string;
+    };
+    log.revise("recommendation_revision", revision.recommendationId, {
+      status: "invalidated",
+      invalidatedReason: "target_changed",
+    });
+    const json = JSON.parse(serialiseSession(fileOf(log)));
+    const invalidated = json.records.find(
+      (r: Json) => r.type === "recommendation_revision" && r.status === "invalidated",
+    );
+    invalidated.rationale = "Changed on invalidation.";
+    expect(await failure(encode(JSON.stringify(json)))).toMatchObject({ check: 3 });
+  });
+
   it("check 4 rejects a held-back entry whose model call doesn't exist", async () => {
     const json = JSON.parse(serialiseSession(fileOf(recommendLog())));
     const entry = json.records.find((r: Json) => r.type === "held_back");

@@ -124,6 +124,9 @@ export const REVISION_FIELDS: Readonly<Record<RevisableType, readonly string[]>>
   effort_interval: ["state", "leftAt"],
 };
 
+/** What an invalidation of a recommendation revision changes (§4.4.1, §4.9 check 3). */
+export const INVALIDATION_FIELDS: readonly string[] = ["status", "invalidatedReason"];
+
 /** Never compared between revisions: the envelope, and what says how one follows another. */
 export const REVISION_BOOKKEEPING: ReadonlySet<string> = new Set([
   "type",
@@ -798,6 +801,12 @@ export const invalidatedReason = z.enum([
   "target_changed",
 ]);
 
+/** A model-produced revision's events are on its model call (DM §9.1). */
+function onlyEditsHoldEvents(r: { validationEvents?: unknown; producedBy: string }): boolean {
+  return r.validationEvents === undefined || r.producedBy === "developer_edit";
+}
+const eventsMessage = { message: "only a developer_edit revision holds its own validationEvents" };
+
 const recommendationRevision = z
   .strictObject({
     ...envelope("recommendation_revision"),
@@ -827,7 +836,8 @@ const recommendationRevision = z
   })
   .refine((r) => (r.operation === "remove") === (r.content === undefined), {
     message: "content is set exactly for add and revise",
-  });
+  })
+  .refine(onlyEditsHoldEvents, eventsMessage);
 
 /**
  * A recommendation revision that failed validation keeps its lineage, so one recommendation's
@@ -845,7 +855,7 @@ const failedRecommendationRevision = z.strictObject({
 
 export const recommendationRevisionRecord = z.union([
   recommendationRevision,
-  failedRecommendationRevision,
+  failedRecommendationRevision.refine(onlyEditsHoldEvents, eventsMessage),
 ]);
 
 /** One accepted `heldBack` entry (§3.3.5): blocked by questions and conflicts, by lineage ID. */

@@ -616,6 +616,16 @@ describe("recommend validation (IMPL §3.3.5)", () => {
       ]);
     });
 
+    it("REF-003 checks a value found both in code and in plain text as plain text", () => {
+      expect(
+        one(
+          withRefs("The suite is `pnpm test --watch`, or pnpm test --watch.", [
+            command("pnpm test --watch"),
+          ]),
+        ),
+      ).toEqual(["r1:REF-003"]);
+    });
+
     it("REF-003 accepts a command found as written in an excerpt of its finding", () => {
       expect(
         one(

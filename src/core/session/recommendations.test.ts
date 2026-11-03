@@ -322,6 +322,41 @@ describe("recording recommend output (IMPL §3.3.5, §4.4.1, §4.4.3)", () => {
   });
 });
 
+describe("recommendation revision records (IMPL §4.4.1, DM §9.1)", () => {
+  it("lets an invalidation change only its status and reason, and revisedBy", () => {
+    const s = scenario();
+    const { recorded } = record(s, { recommendations: [recommendation()], heldBack: [] });
+    const id = recorded.recommendations.get("r1") as string;
+    expect(() =>
+      s.log.revise("recommendation_revision", id, {
+        status: "invalidated",
+        invalidatedReason: "target_changed",
+        rationale: "Changed on invalidation.",
+      }),
+    ).toThrow(/invalidation/);
+  });
+
+  it("keeps validationEvents to developer_edit revisions", () => {
+    const s = scenario();
+    const modelCallId = completedRecommendCall(s.log);
+    const draft = {
+      type: "recommendation_revision" as const,
+      kind: "fact" as const,
+      operation: "add" as const,
+      target: { kind: "newSection" as const, heading: "Notes" },
+      content: "Notes.",
+      rationale: "Why.",
+      support: [{ kind: "finding" as const, findingId: s.code.finding.findingId }],
+      references: [],
+      scope: { kind: "repository" as const },
+      status: "valid" as const,
+      validationEvents: [],
+    };
+    expect(() => s.log.start({ ...draft, producedBy: modelCallId })).toThrow(/validationEvents/);
+    expect(() => s.log.start({ ...draft, producedBy: "developer_edit" })).not.toThrow();
+  });
+});
+
 describe("current held-back entries and no-change reason (IMPL §4.4.2)", () => {
   const entry = (log: SessionLog, modelCallId: string, topic: string, blockedBy: string[]) =>
     log.append({ type: "held_back", topic, blockedBy, modelCallId });
@@ -352,6 +387,46 @@ describe("current held-back entries and no-change reason (IMPL §4.4.2)", () => 
     expect(currentState(s.log.records).heldBack).toEqual([]);
   });
 
+  it("keeps an entry blocked by a conflict while it is unresolved", () => {
+    const s = scenario();
+    const conflict = s.log.start({
+      type: "conflict",
+      snapshotId: s.log.records.find((r) => r.type === "snapshot")?.id as string,
+      producedBy: "call_0001",
+      findingIds: [s.code.finding.findingId, s.script.finding.findingId],
+      description: "They disagree.",
+      status: "unresolved",
+    });
+    const call = completedRecommendCall(s.log);
+    const blocked = entry(s.log, call, "contested", [conflict.conflictId]);
+    expect(currentState(s.log.records).heldBack.map((h) => h.id)).toEqual([blocked.id]);
+    const decision = s.log.append({
+      type: "decision",
+      statement: "Use the client.",
+      scope: { kind: "repository" },
+      exceptions: [],
+      conflictId: conflict.conflictId,
+      origin: "answered_question",
+      actor: "developer",
+      decidedAt: "2026-11-01T10:30:00.000Z",
+    });
+    s.log.revise("conflict", conflict.conflictId, {
+      status: "resolved",
+      resolvingDecisionId: decision.id,
+    });
+    expect(currentState(s.log.records).heldBack).toEqual([]);
+  });
+
+  it("drops an entry whose blockers are no longer current after a refresh", () => {
+    const s = scenario();
+    const call = completedRecommendCall(s.log);
+    entry(s.log, call, "blocked", [s.skipped.questionId]);
+    expect(currentState(s.log.records).heldBack).toHaveLength(1);
+    // A new snapshot leaves the question's finding, and so the question, not current.
+    snapshot(s.log);
+    expect(currentState(s.log.records).heldBack).toEqual([]);
+  });
+
   it("keeps one entry per topic and blockedBy set, the earliest", () => {
     const s = scenario();
     const q = s.skipped.questionId;
@@ -377,6 +452,28 @@ describe("current held-back entries and no-change reason (IMPL §4.4.2)", () => 
     });
     expect(currentState(s.log.records).noChangeReason?.id).toBe(recorded.noChangeReason?.id);
     record(s, { recommendations: [recommendation()], heldBack: [] });
+    expect(currentState(s.log.records).noChangeReason).toBeUndefined();
+  });
+
+  it("hides the no-change reason while a recommendation of a later call is current", () => {
+    const s = scenario();
+    const { recorded } = record(s, { recommendations: [], heldBack: [], noChangeReason: "No." });
+    expect(currentState(s.log.records).noChangeReason?.id).toBe(recorded.noChangeReason?.id);
+    // A regeneration addition makes a recommendation current; the recommend call stays latest.
+    const regeneration = completedRecommendCall(s.log, "regenerate_recommendations");
+    s.log.start({
+      type: "recommendation_revision",
+      kind: "fact",
+      operation: "add",
+      target: { kind: "newSection", heading: "Notes" },
+      content: "Notes.",
+      rationale: "Why.",
+      support: [{ kind: "finding", findingId: s.code.finding.findingId }],
+      references: [],
+      scope: { kind: "repository" },
+      producedBy: regeneration,
+      status: "valid",
+    });
     expect(currentState(s.log.records).noChangeReason).toBeUndefined();
   });
 });

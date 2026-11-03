@@ -3,6 +3,7 @@ import { comparePaths } from "../paths.js";
 import { isFailed, LINEAGE_FIELDS, lineageOf, SELF_SUPERSEDING } from "./log.js";
 import {
   CURRENT_STATUSES,
+  INVALIDATION_FIELDS,
   RECORD_KINDS,
   REVISION_BOOKKEEPING,
   REVISION_FIELDS,
@@ -219,9 +220,16 @@ function checkEnvelope(records: readonly SessionRecord[]): void {
   }
 }
 
-/** A revision repeats every field of `base` that its type doesn't change (§4.4.1). */
+/**
+ * A revision repeats every field of `base` that its type doesn't change (§4.4.1); an invalidated
+ * recommendation revision changes only its status and reason.
+ */
 function checkRepeats(base: SessionRecord, revision: SessionRecord): void {
-  const changeable = new Set(REVISION_FIELDS[revision.type as RevisableType]);
+  const changeable = new Set(
+    revision.type === "recommendation_revision" && revision.status === "invalidated"
+      ? INVALIDATION_FIELDS
+      : REVISION_FIELDS[revision.type as RevisableType],
+  );
   const before = base as Record<string, unknown>;
   const after = revision as Record<string, unknown>;
   const fields = [...new Set([...Object.keys(before), ...Object.keys(after)])].sort(comparePaths);
@@ -238,17 +246,24 @@ function checkRepeats(base: SessionRecord, revision: SessionRecord): void {
 
 type Reference =
   | { readonly field: string; readonly names: "record"; readonly type: RecordTypeName }
-  | { readonly field: string; readonly names: "lineage"; readonly type: RecordTypeName };
+  | {
+      readonly field: string;
+      readonly names: "lineage";
+      readonly type: RecordTypeName;
+      /** Other types the lineage may be of, as `blockedBy` names questions or conflicts. */
+      readonly or?: readonly RecordTypeName[];
+    };
 
 const record = (field: string, type: RecordTypeName): Reference => ({
   field,
   names: "record",
   type,
 });
-const lineage = (field: string, type: RecordTypeName): Reference => ({
+const lineage = (field: string, type: RecordTypeName, ...or: RecordTypeName[]): Reference => ({
   field,
   names: "lineage",
   type,
+  ...(or.length === 0 ? {} : { or }),
 });
 
 /**
@@ -280,8 +295,8 @@ const REFERENCES: Partial<Record<RecordTypeName, readonly Reference[]>> = {
     lineage("conflictIds", "conflict"),
     producedBy,
   ],
-  recommendation_revision: [producedBy],
-  held_back: [lineage("modelCallId", "model_call")],
+  recommendation_revision: [producedBy, revisedBy],
+  held_back: [lineage("blockedBy", "question", "conflict"), lineage("modelCallId", "model_call")],
   no_change_reason: [lineage("modelCallId", "model_call")],
   failed_item: [producedBy],
   model_call: [lineage("retryOf", "model_call")],
@@ -369,9 +384,12 @@ function checkReferences(records: readonly SessionRecord[]): void {
         if (!isFailed(r) && isFailed(target))
           reject(4, `${reference.field} names ${id}, which failed validation`, r);
       } else {
-        const revisions = lineages.get(`${reference.type}\u0000${id}`);
+        const types = [reference.type, ...(reference.or ?? [])];
+        const revisions = types
+          .map((type) => lineages.get(`${type}\u0000${id}`))
+          .find((found) => found !== undefined);
         if (revisions === undefined)
-          reject(4, `${reference.field} names ${id}, which isn't a ${reference.type}`, r);
+          reject(4, `${reference.field} names ${id}, which isn't a ${types.join(" or ")}`, r);
         const first = revisions[0] as SessionRecord;
         if (first.seq >= r.seq) reject(4, `${reference.field} names ${id}, which starts later`, r);
         if (!isFailed(r) && revisions.every((rev) => rev.seq >= r.seq || isFailed(rev)))

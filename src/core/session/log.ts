@@ -1,6 +1,7 @@
 import type { Clock, IdSource } from "../ports.js";
 import {
   CURRENT_STATUSES,
+  INVALIDATION_FIELDS,
   RECORD_KINDS,
   REVISION_FIELDS,
   type RecordKind,
@@ -218,6 +219,13 @@ export class SessionLog {
     if (base === undefined || last === undefined)
       throw new Error(`no ${type} revision to revise in ${lineage}`);
     const changeable = REVISION_FIELDS[type as RevisableType];
+    if (
+      type === "recommendation_revision" &&
+      (changes as { status?: string }).status === "invalidated"
+    )
+      for (const field of Object.keys(changes))
+        if (field !== "revisedBy" && !INVALIDATION_FIELDS.includes(field))
+          throw new Error(`an invalidation can't change ${field}`);
     const fixed = FIXED_ON_REVISION.filter((field) => !changeable.includes(field));
     for (const field of [...fixed, ...LINEAGE_FIELDS, "type", "revision", "supersedes"])
       if (field in changes) throw new Error(`a revision can't change ${field}`);
