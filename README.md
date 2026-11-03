@@ -1,61 +1,87 @@
 # AI Environment Architect
 
-Inspect your repository and create evidence-backed AI coding guidance, with developer review before changes are applied.
+A command-line tool that reads your repository and helps you write a better `CLAUDE.md` for it. It shows you where every suggestion comes from, and it doesn't write anything until you've approved the exact file.
 
-> **Status: design stage.** The domain model and most of the implementation specification are written. There is no working code yet. No improvement in coding-agent performance is claimed until the evaluation is complete.
+## Why I'm building this
 
-## What it does
+I use coding agents every day, and I kept explaining the same things to them: which command runs the tests, where new code should go, which of the three patterns in the codebase is the one we actually want. Most of that knowledge already exists somewhere in the repository. The rest is in my head.
 
-Coding agents work better when they know how a project actually works: which commands to run, where things belong, and which conventions the team really follows. That knowledge is spread across code, documentation, existing agent instructions and developers' heads.
+Writing it down in a `CLAUDE.md` helps, but it's surprisingly hard to do well. You have to decide what's worth saying, what the agent can figure out on its own, and which "conventions" are really just old code nobody has cleaned up. And once the file exists, it slowly drifts away from the code.
 
-AI Environment Architect reads a repository, shows what it found and where it found it, asks about the things code can't tell it, and proposes changes to the project's `CLAUDE.md`. Nothing is written until you have reviewed and approved the exact result.
+So I wanted a tool that does the reading for me, tells me what it found and where, asks me about the things it can't know, and then proposes changes I can check line by line.
 
-A session can end with no changes. If the existing guidance is accurate, saying so is a good outcome.
+## How a session works
 
-## Workflow
+1. **Inspect.** The tool picks a limited set of files from the repository and shows you exactly what it's about to send before anything leaves your machine. The model then reports what it found, and every finding points to the lines it came from.
+2. **Clarify.** Where the evidence is mixed or missing, it asks you a few questions. If you skip one, it stays open. The tool never answers for you.
+3. **Recommend.** It proposes specific additions, edits and removals to your `CLAUDE.md`, each with the reason and the evidence behind it.
+4. **Review.** You accept or reject each one, then look at the final file and its diff.
+5. **Apply.** It checks that nothing relevant changed since it looked, and writes exactly what you approved. It never commits.
 
-| Stage | What happens |
-|---|---|
-| **Inspect** | Selects a bounded, reproducible set of files and shows you exactly what will be sent before anything leaves your machine. Produces findings, each tied to the lines it came from. |
-| **Clarify** | Asks a small number of questions where the evidence is mixed or missing. Skipped questions stay unresolved; the tool never picks an answer for you. |
-| **Recommend** | Proposes individual additions, revisions and removals, each with its rationale and support. |
-| **Review** | You accept or reject each recommendation, then approve the exact assembled file and its diff. |
-| **Apply** | Checks that nothing relevant changed since inspection, then writes the approved bytes. It never commits. |
+A session can also end with no changes. If your current `CLAUDE.md` is already accurate, hearing that is a good result.
 
-## Principles
+## The rules I hold it to
 
-- **Evidence before recommendations.** Every finding cites specific lines. Code, not the model, checks that the cited text exists in what was actually read.
-- **The model proposes; the developer decides.** An observed pattern never becomes project policy on its own. Policy comes from documentation or from your explicit decision.
-- **Unknowns stay visible.** Gaps and unanswered questions are recorded, not filled in by assumption.
-- **Nothing is written without exact approval.** Accepting recommendations doesn't write anything. Approval applies to one specific file content and expires if anything it depends on changes.
-- **Every change is attributable.** The final file is assembled by code from accepted recommendations, so each changed line traces to one recommendation and its evidence.
-- **Honest about limits.** Commands are reported as found, not run. Secret scanning blocks known patterns and can't catch everything. Selected content is sent to the model provider, so this is not fully local processing.
+- Code, not the model, checks that every quoted line really exists in the files that were read.
+- Something the model notices in the code never becomes a project rule on its own. A rule needs documentation behind it, or your explicit decision.
+- Unknowns stay unknown. Gaps and unanswered questions are recorded, not filled in with a guess.
+- Accepting a recommendation doesn't write anything. Your approval covers one exact version of the file, and it expires if anything it depends on changes.
+- The final file is put together by code from the recommendations you accepted, so every changed line can be traced back to its reason.
+- It's honest about its limits. Commands are reported as found, never run. The secret scan blocks known patterns but can't catch everything. And the selected files are sent to the model provider, so this isn't fully local.
 
-## First version scope
+## Where things stand
+
+I'm building the first version, and it isn't usable end to end yet. Right now I'm on **milestone 5 of 8**.
+
+Done so far:
+
+- Taking a reproducible snapshot of a repository, and parsing `CLAUDE.md` without losing a single byte.
+- Choosing which files the model sees, with a secret scan. You can already try this part: `inspect` prints the "What we read" summary for a repository and sends nothing.
+- Validating model output: checking citations, evidence and gaps against what was actually read, tested with recorded responses.
+- Sessions that survive interruption and are checked when they're loaded again.
+
+In progress (M5): the write path. That means detecting references to files, putting the new `CLAUDE.md` together from accepted recommendations, review and approval, and applying the result safely. All of it is driven by recorded model responses for now.
+
+Still to come: real Claude API calls (M6), the interactive CLI (M7), and the session export and first release (M8). The full plan is in [Milestones](docs/MILESTONES.md).
+
+I'm not claiming it makes coding agents better yet. That gets measured once there's something to measure.
+
+## What the first version covers
 
 - One local repository at a time.
-- One output: the repository's root `CLAUDE.md`, for Claude Code.
-- A standalone TypeScript CLI using the Claude API.
-- Read-only inspection: no repository scripts are executed.
-- A structured session export for review and evaluation.
+- One output: the root `CLAUDE.md`, for Claude Code.
+- A standalone TypeScript CLI that uses the Claude API.
+- Read-only inspection. It never runs the repository's scripts.
+- A structured export of each session, for review and evaluation.
 
-Not yet: multiple repositories, scoped rule files, skills, commands, other coding agents, maintenance checks for stale guidance, and a local review UI.
+Not yet: multiple repositories, scoped rule files, skills and commands, other coding agents, checks for guidance that has gone stale, and a review UI.
 
-## Evaluation
+## How it will be evaluated
 
-The product's central claim, that this setup reduces the corrections developers make to coding agents, is tested by a separate, pre-registered evaluation. Its materials were frozen before product development began and are kept outside this repository. The product-facing requirements are in [Evaluation Requirements](docs/product/EVALUATION_REQUIREMENTS.md).
+The real question is whether this setup means fewer corrections when you work with a coding agent. That will be tested in a separate evaluation, planned in advance. Its materials were frozen before I started building and live outside this repository, so I can't tune the tool to pass it. What the product has to record for it is in [Evaluation Requirements](docs/product/EVALUATION_REQUIREMENTS.md).
 
-## Documentation
+## Trying it
 
-| Document | What it covers |
-|---|---|
-| [Product Thesis](docs/product/PRODUCT_THESIS.md) | The problem, the first user, product principles and assumptions to validate |
-| [Evaluation Requirements](docs/product/EVALUATION_REQUIREMENTS.md) | What the product must record and support for evaluation, and the isolation rules |
-| [ADR 0001: Standalone TypeScript CLI](docs/decisions/0001-standalone-typescript-cli.md) | Why a CLI with a reusable core rather than a Claude Code plugin |
-| [Domain Model](docs/architecture/DOMAIN_MODEL.md) | Records, evidence rules, review and approval, application and recovery, export |
-| [Implementation Specification](docs/architecture/IMPLEMENTATION_SPEC.md) | Context selection, CLI interaction, model calls and validation, persistence and export. |
-| [Milestones](docs/MILESTONES.md) | Build order for the first slice, and current progress |
+You'll need the Node version in `.node-version` and pnpm through Corepack:
+
+```sh
+corepack pnpm install --frozen-lockfile
+corepack pnpm build
+node dist/cli/main.js inspect path/to/repo
+```
+
+`corepack pnpm check` runs the typecheck, lint, tests and build.
+
+## Further reading
+
+- [Product Thesis](docs/product/PRODUCT_THESIS.md): the problem, who it's for, and what still needs validating
+- [Domain Model](docs/architecture/DOMAIN_MODEL.md): records, evidence rules, review, approval and apply
+- [Implementation Specification](docs/architecture/IMPLEMENTATION_SPEC.md): context selection, the CLI, model calls and validation, persistence
+- [Evaluation Requirements](docs/product/EVALUATION_REQUIREMENTS.md): what each session must record
+- [ADR 0001](docs/decisions/0001-standalone-typescript-cli.md): why a standalone CLI and not a Claude Code plugin
+- [ADR 0002](docs/decisions/0002-toolchain.md): the toolchain
+- [Milestones](docs/MILESTONES.md): the build order and current progress
 
 ## Part of Thanos Product Lab
 
-This is the second project in [Thanos Product Lab](https://github.com/thanos-product-lab), after [Citizenship Workspace](https://github.com/thanos-product-lab/citizenship-workspace). Both explore the same question: how to use AI in software where being wrong matters, without letting its output quietly become the truth.
+This is the second project in [Thanos Product Lab](https://github.com/thanos-product-lab), after [Citizenship Workspace](https://github.com/thanos-product-lab/citizenship-workspace). Both are about the same question: how to use AI in software where being wrong matters, without letting its output quietly become the truth.
