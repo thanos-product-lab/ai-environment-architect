@@ -1,0 +1,14 @@
+{
+  "content": "Read [docs/guide.md] and **src/index.ts** first.\n",
+  "expect": {
+    "references": [
+      {
+        "kind": "path",
+        "value": "src/index.ts"
+      }
+    ],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "Emphasis around a bare token is removed, so `**src/index.ts**` gives its path (1.1.0); `[docs/guide.md]` is not a link and ends in `]`, so it gives nothing."
+}

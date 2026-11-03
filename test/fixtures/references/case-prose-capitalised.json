@@ -1,0 +1,9 @@
+{
+  "content": "Npm test is slow.\nPython 3.12 is required.\nDocker images are cached.\nNPM ci fails here.\n",
+  "expect": {
+    "references": [],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "Prose runners match in lowercase exactly, so a capitalised or upper-case runner at the start of a sentence is an ordinary word and gives nothing."
+}

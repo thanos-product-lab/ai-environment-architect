@@ -151,8 +151,13 @@ function isPathLike(token: string): boolean {
  * trailing `.,;:!?)"'` removed. Undefined if the word isn't path-like.
  */
 export function barePathToken(word: string): string | undefined {
-  const bare = word.replace(LEADING, "").replace(TRAILING, "");
+  const bare = stripTokenPunctuation(word);
   return isPathLike(bare) ? bare : undefined;
+}
+
+/** A word without the leading `("'` and trailing `.,;:!?)"'` of §3.2.3. */
+export function stripTokenPunctuation(word: string): string {
+  return word.replace(LEADING, "").replace(TRAILING, "");
 }
 
 interface Tokens {

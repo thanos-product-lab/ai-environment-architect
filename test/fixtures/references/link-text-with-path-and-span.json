@@ -1,0 +1,14 @@
+{
+  "content": "Read [the notes in src/a.ts and `src/index.ts`](docs/guide.md) now.\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "src/a.ts" },
+      { "kind": "path", "value": "src/index.ts" },
+      { "kind": "path", "value": "docs/guide.md" }
+    ],
+    "identifiers": []
+  },
+  "listed": { "src/a.ts": true, "src/index.ts": true, "docs/guide.md": true },
+  "section": "IMPL §3.4",
+  "note": "Link text is bare text, so a bare path in it is found, an inline span in it is classified as a span, and the target follows them in document order."
+}

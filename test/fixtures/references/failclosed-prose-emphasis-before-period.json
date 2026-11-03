@@ -1,0 +1,14 @@
+{
+  "content": "Run *npm test*.\n",
+  "expect": {
+    "references": [
+      {
+        "kind": "command",
+        "value": "npm test"
+      }
+    ],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "A plain-text command's last word loses its whole trailing run of clause punctuation, quotes and emphasis, so `*npm test*.` gives `npm test`."
+}

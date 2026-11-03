@@ -1,0 +1,12 @@
+{
+  "content": "Run npm\u00A0test now.\nThen pnpm\u3000build.\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "npm\u00A0test now" },
+      { "kind": "command", "value": "pnpm\u3000build" }
+    ],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "Prose is split into words at any Unicode White_Space, so a runner joined to its argument by a non-breaking or ideographic space is still a whole word followed by another word."
+}

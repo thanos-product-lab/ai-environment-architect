@@ -1,0 +1,14 @@
+{
+  "content": "Leave the value empty, as in ``, and edit `src/a.ts`.\n",
+  "expect": {
+    "references": [
+      {
+        "kind": "path",
+        "value": "src/a.ts"
+      }
+    ],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "An empty span is dropped (1.1.0), so it can't pass REF-005 trivially."
+}

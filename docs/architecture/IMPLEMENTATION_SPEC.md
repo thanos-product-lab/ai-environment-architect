@@ -2,8 +2,12 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 2 November 2026  
-**Version:** 0.42  
+**Version:** 0.43  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.42
+
+- **Reference detector `references/1.1.0` (§3.4).** The detector fails closed. Plain text gives commands for the runners that are rarely ordinary words, from the runner to the end of the clause; `make`, `just`, `task` and `go` count only in code. Spans are trimmed, and empty ones dropped. Runners match case-insensitively in code, and whitespace means Unicode `White_Space`. Fenced lines lose a leading `$ ` prompt. Markdown link targets are path tokens, with URLs as identifiers and fragments removed, and emphasis around a bare token is removed. Each reference keeps its value as written and a matching form, which `REF-001` compares. Removes the §3.9 open point on Markdown syntax in bare text.
 
 ### Changes from v0.41
 
@@ -1746,7 +1750,7 @@ type RecommendOutput = {
 5. **Directive-language guard** (`REC-007`). A `fact` recommendation whose content contains directive language (§3.2.3 word list), or a sentence beginning with an imperative verb from a versioned list (*Use, Prefer, Avoid, Always, Never, Run, Do not*), is rejected. Words match as in `SUP-004` (§3.2.3), whole and case-insensitively. A sentence begins at the start of a block's text, after its list marker or heading marks, and after `.`, `!` or `?` followed by whitespace. Inline code spans and code blocks are not checked. This is the check against policy presented as fact. It is imperfect, and its misses are measured in evaluation through the invented-policy rate.
 6. **Unresolved dependencies** (`REC-008`). A recommendation is rejected if any supporting finding is part of an unresolved conflict that no decision resolves, or if its only support is resolved by a skipped or unreached question. Such recommendations belong in `heldBack`.
 7. **References**, using the detector (§3.4):
-   - every path and command the detector finds in the content is declared, and every declared reference appears in the content, compared as written (`REF-001`);
+   - every path and command the detector finds in the content is declared, and every declared reference appears in the content, comparing the declared value with the detector's matching form (`REF-001`, §3.4);
    - paths are listed and not withheld, as for `SUP-001` (§3.2.3), after the path normalisation of §1.11 (`REF-002`);
    - commands match a **known command** whose fact is the reference's supporting finding, or appear, as written, in an excerpt of that finding (`REF-003`). A known command is a runner form followed by the name of a command known fact (§3.2.5), with any arguments after it:
 
@@ -1810,22 +1814,27 @@ Any change creates a new artifact revision and requires fresh review ([`DOMAIN_M
 
 ### 3.4 Reference detector
 
-A small deterministic component, versioned (`detectorVersion`, `references/1.0.0`), with its own fixtures. It finds references in recommendation content, and each reference's `value` is the span or line as written.
+A small deterministic component, versioned (`detectorVersion`, `references/1.1.0`), with its own fixtures. It finds references in recommendation content. Each reference has a `value`, the span, line or link target as written (a fenced line after any list item's or block quote's marker and indentation are removed, below), or for other bare text the token or words after the punctuation and emphasis below are removed, and a **matching form**, which classification and the `REF` rules use: the value trimmed, and for fenced lines and link targets as described below.
+
+**The detector fails closed.** Over-detection costs a rejected recommendation; under-detection lets an unchecked reference into the developer's file. When in doubt, detect.
+
+**Whitespace** is any Unicode `White_Space` character, for every rule in this section, including trimming. A **runner** is one of the words `npm`, `pnpm`, `yarn`, `npx`, `bun`, `make`, `just`, `task`, `python`, `pytest`, `uv`, `poetry`, `cargo`, `go` and `docker`, matched case-insensitively and as a whole word, so followed by whitespace or the end of the text (`gofmt` is not `go`, `NPM` is `npm`), or the prefix `./` followed by a path, as in `./scripts/build.sh --fast`. The known-command check of `REF-003` stays exact.
 
 Content is split into Guidance Blocks ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §7). The content of a list item, after its marker and indentation (CommonMark's content column), and of a block quote, after its `>` markers, is split again the same way, so a fence or indented code block nested in them counts as it would at the top level.
 
-- **Inline code spans**, paired as in §3.2.3 within one block, never across blocks:
-  - **command-like:** starts with a known runner and holds whitespace after it → `command`. The runners are the words `npm`, `pnpm`, `yarn`, `npx`, `bun`, `make`, `just`, `task`, `python`, `pytest`, `uv`, `poetry`, `cargo`, `go` and `docker`, each matched as a whole word, so followed by whitespace or the end of the text (`gofmt` is not `go`), and the prefix `./` followed by a path, as in `./scripts/build.sh --fast`;
+- **Inline code spans**, paired as in §3.2.3 within one block, never across blocks. A span is trimmed, and a span that is empty after trimming is dropped. The trimmed span is:
+  - **command-like:** starts with a runner and holds whitespace after it → `command`;
   - **path-like:** holds no whitespace, isn't a URL (holding `://`), and either contains `/` or ends in a known file extension or is a known file name → `path`;
   - a span that starts with a runner and holds no whitespace is a path if it is path-like, as `./scripts/build.sh` is, and a command otherwise, as `make` is;
   - anything else is an identifier, URLs included. Identifiers are not declared as references, but must appear in at least one excerpt of the recommendation's supporting findings, or in the statement or exceptions of a supporting decision (`REF-005`).
-- **Fenced code blocks**, as the Guidance Block parser finds them: each non-empty line between the fences, without leading and trailing whitespace, is classified as an inline span is; a line that is a command gives a `command` with that value, and other lines give nothing. The fence lines are not content.
+- **Fenced code blocks**, as the Guidance Block parser finds them: each non-empty line between the fences is trimmed, and a leading `$` followed by whitespace, a shell prompt, is removed with all that whitespace. The result is classified as a trimmed inline span is; a line that is a command gives a `command` with that matching form, and other lines give nothing. The fence lines are not content.
 - **Indented code blocks** give nothing, including a fence-like line indented four or more spaces.
-- **Bare text:** path-like tokens as §3.2.3 defines them, except URLs → `path`. Bare text is the content outside inline code spans and code blocks, so nothing is detected twice.
+- **Bare text** is the content outside inline code spans and code blocks, so nothing is detected twice. Inline links are cut out first and their text read on its own, so link syntax never joins a word. What is left is read one line at a time, lines ending at a line ending (`\n`, `\r\n` or `\r`), as whitespace-separated words, and gives:
+  - **link targets:** the target of an inline link or image, `[text](target)` or `[text](target "title")`, is a path token, whether or not it is path-like. A target with a URI scheme, two or more letters, digits, `+` or `-` before a `:` and no `.` (`https:`, `mailto:`, but not `README.md:10`), is an identifier. Otherwise the matching form is the target without any `#` fragment, and a target that is only a fragment, a link to a heading, gives nothing. The link text is bare text;
+  - **commands:** the words `npm`, `pnpm`, `yarn`, `npx`, `bun`, `pytest`, `uv`, `poetry`, `cargo`, `docker` and `python`, in lowercase exactly, followed by at least one more word on the same line. The command runs from the runner to the end of the clause: it stops after a word ending in `.`, `,`, `;`, `:`, `!`, `?` or `)`, optionally followed by `"`, `'`, `*` or `_`, before an inline code span or a link, or at the end of the line. Its last word loses its whole trailing run of `.`, `,`, `;`, `:`, `!`, `?`, `)`, `"`, `'`, `*` and `_`, so `**cargo test**.` gives `cargo test`. A leading run of `(`, `"`, `'`, `*` and `_` before the runner is ignored. A runner that ends its own clause, as in "uses npm.", gives nothing, and the command's words are not read again as path tokens. `make`, `just`, `task` and `go` give commands only in code, being ordinary words in prose;
+  - **path tokens:** path-like tokens as §3.2.3 defines them, except URLs → `path`. Emphasis around a token is removed first: the punctuation of §3.2.3, then a `*` or `_` that both starts and ends the token, and the punctuation again, repeatedly, so `**src/index.ts**` and `**docs/guide.md.**` give their paths.
 
 **Known file extensions**, after a final `.`: `md`, `mdx`, `txt`, `json`, `jsonc`, `yaml`, `yml`, `toml`, `ini`, `cfg`, `lock`, `js`, `mjs`, `cjs`, `jsx`, `ts`, `mts`, `cts`, `tsx`, `py`, `go`, `rs`, `rb`, `java`, `kt`, `swift`, `c`, `h`, `cpp`, `hpp`, `cs`, `php`, `sh`, `bash`, `zsh`, `sql`, `html`, `css`, `scss`, `vue`, `svelte`. **Known file names:** `Makefile`, `makefile`, `GNUmakefile`, `Dockerfile`, `justfile`, `Justfile`, `Procfile`, `Gemfile`, `LICENSE`. Both lists are versioned with the detector: a change increases `detectorVersion`.
-
-The detector is deliberately conservative. Content it can't classify is left alone, not guessed at.
 
 Paths it finds are matched against the snapshot (`REF-002`) after the path normalisation of §1.11: one leading `./` and one trailing `/` removed, and a path with a `..` segment naming nothing.
 
@@ -1927,6 +1936,7 @@ A change to any prompt, schema, validator or detector requires the fixture suite
   - a `remove` of a heading, accepted as one recommendation for its whole section;
   - a command in each known-command form, a command found only in an excerpt (accepted), a reference whose supporting finding's evidence doesn't contain it (`REF-004`), and an identifier found only in a supporting decision (accepted, `REF-005`);
   - `./scripts/build.sh` declared as a path (accepted) and as a command (`REF-001`), `./scripts/build.sh --fast` as a command, `gofmt -w .` in a fenced block detecting nothing, a path in inline code not detected again as bare text, and a URL in inline code treated as an identifier;
+  - detector `references/1.1.0`: a plain-text command for each prose runner ending at each clause boundary, `make` and `go` in prose giving nothing, a capitalised runner in prose giving nothing and in code a command, a span with surrounding whitespace classified trimmed and stored as written, empty spans dropped, a non-breaking space as whitespace, a `$ ` prompt in a fence, link targets as paths with fragments removed, URL and heading-only targets, and emphasis around a bare path;
   - `REC-007` sentence boundaries: an imperative verb after a list marker, after heading marks and after `.`, `!` or `?`, and one inside an inline code span or code block (accepted);
   - `REF-002` near misses: `./src/a.ts` and `src/` accepted after normalisation, a `..` path and a withheld path rejected;
   - a reference whose `support` names a withdrawn or corrected finding (`REC-001`);
@@ -1995,7 +2005,7 @@ A change to any prompt, schema, validator or detector requires the fixture suite
 - How to detect a claim about the omitted parts of an excerpted file when it cites only sent lines (§1.11). The citation rules catch citations of omitted lines, not claims about them.
 - Minimum quote length: 12 characters may allow unhelpfully generic quotes in code.
 - Output limits per call (finding, question and recommendation counts).
-- The reference detector's bare-text tokens keep Markdown syntax: `[guide](docs/guide.md)` gives the path `[guide](docs/guide.md`, and `**src/index.ts**` gives nothing (§3.4). Left pairing (§3.2.3) differs from CommonMark for spans delimited by two or more backticks. Calibrate on development repositories.
+- The reference detector (§3.4), to calibrate on development repositories: left pairing (§3.2.3) differs from CommonMark for spans delimited by two or more backticks; autolinks (`<docs/guide.md>`) and nested brackets in link text are not read as links; a prose runner followed directly by an inline code span gives nothing; a plain-text command's matching form keeps its inner whitespace as written, so `npm test` with a non-breaking space doesn't match a declared `npm test`; and case-insensitive runners in code make a lone `Task`, `Go` or `Docker` a command. Known misses, each failing open, for a decision: plain-text files at the root (`package.json`, `Makefile`), since a bare path token needs a `/`; fenced lines that don't start with a runner (`$ ./scripts/build.sh`, `cd src && npm test`, `sudo npm i`, `NPM_TOKEN=x npm publish`); a plain-text command across a soft line break; a runner with emphasis or brackets of its own (`**npm** test`, `[npm test]`, `|npm test|`); paths in curly quotes, `~~` strikethrough, `[]` or `{}`, with a possessive `'s` or a bare `#` fragment; `./scripts/build.sh --fast` in plain text, which gives only the path; and parentheses in a link destination. Known over-detection: closing emphasis, a quote, `|` or a hard-break `\` that doesn't end a clause stays in a plain-text command (`npm test** before pushing`). Before `REF-003` is built, decide whether its "any arguments after it" should accept a plain-text command that runs to the end of a clause.
 - `SUP-002` misses counts outside its lists, such as *once*, *twice*, *a couple* and ordinals.
 - `SUP-001` matches a token in an excerpt as a substring, so `./format.ts` is anchored by an excerpt holding `../format.ts`, which names another file. A path-aware excerpt match would be stricter.
 - Which known facts calls 2–5 number first: those sent in call 1, or every known fact, including those left out (§3.2.1). Settle when the alias tables are built.

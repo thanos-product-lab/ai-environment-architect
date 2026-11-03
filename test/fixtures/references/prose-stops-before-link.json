@@ -1,0 +1,13 @@
+{
+  "content": "Run npm run docs [the guide](docs/guide.md) shows how.\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "npm run docs" },
+      { "kind": "path", "value": "docs/guide.md" }
+    ],
+    "identifiers": []
+  },
+  "listed": { "docs/guide.md": true },
+  "section": "IMPL §3.4",
+  "note": "The plain-text command stops before a link, so the link and the words after it are not part of the command, and the link target is still a path."
+}

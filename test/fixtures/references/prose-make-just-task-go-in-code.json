@@ -1,0 +1,17 @@
+{
+  "content": "Run `make`, `just check`, `task lint` and `go vet ./...`.\n\n```\ngo test ./...\nmake build\n```\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "make" },
+      { "kind": "command", "value": "just check" },
+      { "kind": "command", "value": "task lint" },
+      { "kind": "command", "value": "go vet ./..." },
+      { "kind": "command", "value": "go test ./..." },
+      { "kind": "command", "value": "make build" }
+    ],
+    "identifiers": []
+  },
+  "nearMissOf": "prose-make-just-task-go-give-nothing",
+  "section": "IMPL §3.4",
+  "note": "In inline code and fenced lines the four code-only runners still give commands, so excluding them from prose must not exclude them from code."
+}

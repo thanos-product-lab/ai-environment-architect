@@ -1,0 +1,10 @@
+{
+  "content": "Leave it as `` or `   ` and edit `src/a.ts`.\n",
+  "expect": {
+    "references": [{ "kind": "path", "value": "src/a.ts" }],
+    "identifiers": []
+  },
+  "listed": { "src/a.ts": true },
+  "section": "IMPL §3.4",
+  "note": "An empty span and a span of only spaces are empty after trimming and dropped, not identifiers, and they still pair, so the later span is unchanged."
+}

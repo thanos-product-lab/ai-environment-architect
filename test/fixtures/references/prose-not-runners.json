@@ -1,0 +1,9 @@
+{
+  "content": "Check npm's cache, the npmrc file, npm-run-all and .npmrc settings.\nThe pythonic way avoids dockerized builds.\n",
+  "expect": {
+    "references": [],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "A prose runner must be the whole word, so `npm's`, `npmrc`, `npm-run-all`, `.npmrc`, `pythonic` and `dockerized` are not runners and give nothing."
+}

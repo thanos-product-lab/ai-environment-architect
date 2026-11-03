@@ -1,9 +1,19 @@
 {
   "content": "```\n./scripts/build.sh\nsrc/a.ts\n$ npm test\necho `src/index.ts`\nnpm run build\n```\n",
   "expect": {
-    "references": [{ "kind": "command", "value": "npm run build" }],
+    "references": [
+      {
+        "kind": "command",
+        "value": "$ npm test",
+        "match": "npm test"
+      },
+      {
+        "kind": "command",
+        "value": "npm run build"
+      }
+    ],
     "identifiers": []
   },
   "section": "IMPL §3.4",
-  "note": "In a fence, a path line gives nothing, a shell prompt `$ ` stops a line being a command, and backticks don't pair; only `npm run build` is a command."
+  "note": "Fenced lines give commands only; a leading `$ ` prompt is removed from the matching form (1.1.0), so `$ npm test` is a command, while path lines and backticks give nothing."
 }

@@ -1,0 +1,14 @@
+{
+  "content": "Edit **docs/guide.md.** now.\n",
+  "expect": {
+    "references": [
+      {
+        "kind": "path",
+        "value": "docs/guide.md"
+      }
+    ],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "Punctuation is removed again after emphasis, so `**docs/guide.md.**` gives its path: the detector fails closed."
+}

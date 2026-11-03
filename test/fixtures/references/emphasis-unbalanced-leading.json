@@ -1,0 +1,10 @@
+{
+  "content": "Edit **src/a.ts and docs/guide.md** now.\n",
+  "expect": {
+    "references": [{ "kind": "path", "value": "**src/a.ts" }],
+    "identifiers": []
+  },
+  "listed": { "**src/a.ts": false },
+  "section": "IMPL §3.4",
+  "note": "Emphasis is removed only when it both starts and ends a token, so `**src/a.ts` keeps its stars, is still path-like and names nothing (REF-002), while `docs/guide.md**` doesn't end in an extension and gives nothing; spec-exact, see the gap report."
+}

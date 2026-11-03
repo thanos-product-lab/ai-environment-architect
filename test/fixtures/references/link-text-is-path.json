@@ -1,0 +1,13 @@
+{
+  "content": "Open [src/a.ts](src/a.ts) now.\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "src/a.ts" },
+      { "kind": "path", "value": "src/a.ts" }
+    ],
+    "identifiers": []
+  },
+  "listed": { "src/a.ts": true },
+  "section": "IMPL §3.4",
+  "note": "Assumes the link text is read as bare text on its own, not as part of the line word `[src/a.ts](src/a.ts)`, so the text and the target each give `src/a.ts` (spec gap: how link syntax is removed before words are read)."
+}

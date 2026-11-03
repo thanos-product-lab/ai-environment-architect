@@ -1,0 +1,13 @@
+{
+  "content": "Run ` npm test ` and open ` src/a.ts `.\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": " npm test ", "match": "npm test" },
+      { "kind": "path", "value": " src/a.ts ", "match": "src/a.ts" }
+    ],
+    "identifiers": []
+  },
+  "listed": { "src/a.ts": true },
+  "section": "IMPL §3.4",
+  "note": "A span is classified after trimming, so leading and trailing spaces neither make it an identifier nor stop it being a path, and the value keeps the spaces as written while REF-001 compares the trimmed matching form."
+}

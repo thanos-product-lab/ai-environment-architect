@@ -1,0 +1,12 @@
+{
+  "content": "```sh\n$ npm test\n$ make build\n```\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "$ npm test", "match": "npm test" },
+      { "kind": "command", "value": "$ make build", "match": "make build" }
+    ],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "A leading `$` and whitespace in a fenced line is a shell prompt, removed before classifying, so the matching form is the command while the value keeps the line as written."
+}

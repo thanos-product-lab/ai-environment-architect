@@ -1,0 +1,19 @@
+{
+  "content": "See [the readme](README.md:10) and [x](C:/x.md).\n",
+  "expect": {
+    "references": [
+      {
+        "kind": "path",
+        "value": "README.md:10"
+      },
+      {
+        "kind": "path",
+        "value": "C:/x.md"
+      }
+    ],
+    "identifiers": []
+  },
+  "nearMissOf": "link URI scheme",
+  "section": "IMPL \u00a73.4",
+  "note": "A scheme has two or more characters and no `.` before its `:`, so a line suffix or a drive letter keeps the target a path."
+}

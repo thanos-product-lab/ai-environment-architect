@@ -1,0 +1,10 @@
+{
+  "content": "Read [plain](docs/guide.md?plain=1).\n",
+  "expect": {
+    "references": [{ "kind": "path", "value": "docs/guide.md?plain=1" }],
+    "identifiers": []
+  },
+  "listed": { "docs/guide.md?plain=1": false },
+  "section": "IMPL §3.4",
+  "note": "Only a `#` fragment is removed from a link target, so a query string stays in the matching form and REF-002 finds no such entry."
+}

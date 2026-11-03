@@ -1,0 +1,11 @@
+{
+  "content": "```\n$\u00A0pnpm build\n```\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "$\u00A0pnpm build", "match": "pnpm build" }
+    ],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "The prompt is `$` followed by any White_Space, so a non-breaking space after it still marks a prompt."
+}

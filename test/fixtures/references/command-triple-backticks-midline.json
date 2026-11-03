@@ -1,9 +1,14 @@
 {
   "content": "Use ```npm test``` here.\n",
   "expect": {
-    "references": [{ "kind": "command", "value": "npm test" }],
-    "identifiers": ["", ""]
+    "references": [
+      {
+        "kind": "command",
+        "value": "npm test"
+      }
+    ],
+    "identifiers": []
   },
   "section": "IMPL §3.4",
-  "note": "Mid-line triple backticks are not a fence; pairing from the left gives an empty span, the span `npm test`, and another empty span."
+  "note": "Triple backticks mid-line are not a fence: they pair as empty spans, which are dropped (1.1.0), around the span `npm test`."
 }

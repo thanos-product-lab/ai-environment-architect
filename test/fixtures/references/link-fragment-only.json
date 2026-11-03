@@ -1,0 +1,9 @@
+{
+  "content": "Jump to [setup](#setup) or [deep](#src/a.ts).\n",
+  "expect": {
+    "references": [],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "A target that is only a fragment links to a heading and gives nothing, even when the fragment looks like a path."
+}

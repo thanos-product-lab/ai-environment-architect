@@ -1,9 +1,14 @@
 {
   "content": "``\nnpm test\n``\n",
   "expect": {
-    "references": [],
-    "identifiers": ["", ""]
+    "references": [
+      {
+        "kind": "command",
+        "value": "npm test"
+      }
+    ],
+    "identifiers": []
   },
   "section": "IMPL §3.4",
-  "note": "Two backticks are not a fence, so this is one paragraph: the backticks pair as two empty spans and `npm test` is bare text, which gives no command."
+  "note": "Two backticks don't open a fence; they pair as empty spans, which are dropped, and `npm test` between them is a plain-text command (1.1.0)."
 }

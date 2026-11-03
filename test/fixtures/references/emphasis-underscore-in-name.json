@@ -1,0 +1,15 @@
+{
+  "content": "Edit __init__/x.py, src/__init__.py and _pkg/__init__.py_.\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "__init__/x.py" },
+      { "kind": "path", "value": "src/__init__.py" },
+      { "kind": "path", "value": "pkg/__init__.py" }
+    ],
+    "identifiers": []
+  },
+  "listed": { "__init__/x.py": false, "src/__init__.py": false, "pkg/__init__.py": false },
+  "nearMissOf": "emphasis-underscore",
+  "section": "IMPL §3.4",
+  "note": "Underscores that don't both start and end the token are part of the name and stay, and only the outer pair is removed from `_pkg/__init__.py_`, so a detector stripping every leading or inner `_` gives wrong values."
+}

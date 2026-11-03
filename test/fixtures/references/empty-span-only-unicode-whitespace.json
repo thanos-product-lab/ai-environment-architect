@@ -1,0 +1,9 @@
+{
+  "content": "Use `\u00A0` or `\u3000\u2003` here.\n",
+  "expect": {
+    "references": [],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "Trimming removes every Unicode White_Space character, so spans holding only a non-breaking space, an ideographic space or an em space are empty and dropped."
+}

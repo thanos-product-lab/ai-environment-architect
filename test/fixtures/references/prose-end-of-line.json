@@ -1,0 +1,9 @@
+{
+  "content": "Run npm\ntest now.\nRun yarn lint\nnext line.\n",
+  "expect": {
+    "references": [{ "kind": "command", "value": "yarn lint" }],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "Bare text is read one line at a time: `npm` at the end of a line has no further word on its line and gives nothing, and `yarn lint` ends at the line break instead of running into the next line."
+}

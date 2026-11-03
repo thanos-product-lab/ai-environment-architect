@@ -1,0 +1,9 @@
+{
+  "content": "Make sure to go through the task list, and just make it pass.\nWe make builds; go test them.\n",
+  "expect": {
+    "references": [],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "`make`, `just`, `task` and `go` are ordinary words in prose and give commands only in code, even when followed by a word that looks like a target, as in `go test them`."
+}

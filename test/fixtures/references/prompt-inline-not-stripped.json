@@ -1,0 +1,9 @@
+{
+  "content": "Run `$ npm test` first.\n",
+  "expect": {
+    "references": [],
+    "identifiers": ["$ npm test"]
+  },
+  "section": "IMPL §3.4",
+  "note": "Prompt removal applies only to fenced lines, so an inline span starting with `$ ` doesn't start with a runner and is an identifier, which REF-005 must find in the evidence."
+}

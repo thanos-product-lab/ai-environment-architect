@@ -1,0 +1,15 @@
+{
+  "content": "Run `NPM test`, `Make build`, `PNPM install` and `MAKE`.\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "NPM test" },
+      { "kind": "command", "value": "Make build" },
+      { "kind": "command", "value": "PNPM install" },
+      { "kind": "command", "value": "MAKE" }
+    ],
+    "identifiers": []
+  },
+  "nearMissOf": "case-prose-capitalised",
+  "section": "IMPL §3.4",
+  "note": "In code, runners match case-insensitively, so these are commands with their values as written; a lone `MAKE` is a command like `make`, and REF-003's known-command check stays exact."
+}

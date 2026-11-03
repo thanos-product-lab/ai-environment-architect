@@ -1,0 +1,14 @@
+{
+  "content": "Targets live in `Makefile`, not `makefile`; a Makefile in prose is no path, but `Make file` is a command.\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "Makefile" },
+      { "kind": "path", "value": "makefile" },
+      { "kind": "command", "value": "Make file" }
+    ],
+    "identifiers": []
+  },
+  "listed": { "Makefile": true, "makefile": false },
+  "section": "IMPL §3.4",
+  "note": "Case-insensitive runner matching is whole-word, so `Makefile` does not start with the runner `make` and stays a known file name; the bare word Makefile has no `/` and gives nothing; `Make file` starts with a runner followed by whitespace."
+}

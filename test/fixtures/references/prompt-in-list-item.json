@@ -1,0 +1,11 @@
+{
+  "content": "- Build it:\n\n  ```sh\n  $ npm run build\n  ```\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "$ npm run build", "match": "npm run build" }
+    ],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "A fence in a list item is found after the content column is removed, so the value is the line without the list item's indentation, and its prompt is removed in the matching form."
+}

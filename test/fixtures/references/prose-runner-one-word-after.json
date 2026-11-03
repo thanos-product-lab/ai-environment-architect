@@ -1,0 +1,10 @@
+{
+  "content": "Install with npm i.\n",
+  "expect": {
+    "references": [{ "kind": "command", "value": "npm i" }],
+    "identifiers": []
+  },
+  "nearMissOf": "prose-runner-ends-own-clause",
+  "section": "IMPL §3.4",
+  "note": "One word after the runner, even a single letter, is enough for a command, and the clause boundary is on that word, not on the runner."
+}

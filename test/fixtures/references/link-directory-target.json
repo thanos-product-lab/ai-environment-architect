@@ -1,0 +1,11 @@
+{
+  "content": "Browse [the docs](docs/) first.\n",
+  "expect": {
+    "references": [{ "kind": "path", "value": "docs/" }],
+    "identifiers": []
+  },
+  "listed": { "docs/": true },
+  "nearMissOf": "link-not-path-like-target",
+  "section": "IMPL §3.4",
+  "note": "A directory target is a path without an extension, listed after one trailing `/` is removed."
+}

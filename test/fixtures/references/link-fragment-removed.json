@@ -1,0 +1,12 @@
+{
+  "content": "Read [setup](docs/guide.md#setup).\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "docs/guide.md#setup", "match": "docs/guide.md" }
+    ],
+    "identifiers": []
+  },
+  "listed": { "docs/guide.md": true },
+  "section": "IMPL §3.4",
+  "note": "A link target's matching form drops the `#` fragment, so it names the listed file; unlike an inline span `src/a.ts#L10`, whose fragment is kept."
+}

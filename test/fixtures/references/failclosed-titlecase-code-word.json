@@ -1,0 +1,13 @@
+{
+  "content": "The `Task` type wraps a `Go` value; see `Docker`.\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "Task" },
+      { "kind": "command", "value": "Go" },
+      { "kind": "command", "value": "Docker" }
+    ],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "In code, runners match case-insensitively and a lone runner that isn't path-like is a command, so type-like names equal to a runner are commands that must be declared; the detector fails closed."
+}

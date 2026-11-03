@@ -1,0 +1,12 @@
+{
+  "content": "Run `npm\u00A0test` and `pnpm\u3000build`.\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "npm\u00A0test" },
+      { "kind": "command", "value": "pnpm\u3000build" }
+    ],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "A non-breaking or ideographic space after the runner is whitespace, so each span is a command, not an identifier; trimming leaves the inner space, so the matching form equals the value."
+}

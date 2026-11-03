@@ -1,0 +1,10 @@
+{
+  "content": "Run `npm\u200Btest` and see\u200Bsrc/a.ts now.\n",
+  "expect": {
+    "references": [{ "kind": "path", "value": "see\u200Bsrc/a.ts" }],
+    "identifiers": ["npm\u200Btest"]
+  },
+  "listed": { "see\u200Bsrc/a.ts": false },
+  "section": "IMPL §3.4",
+  "note": "A zero-width space (U+200B) is not White_Space, so `npm` is not a whole word in the span, which is an identifier, and the bare word joined by it is one path-like word that names nothing (REF-002); a detector using a wider class than White_Space would see a command and a listed path."
+}

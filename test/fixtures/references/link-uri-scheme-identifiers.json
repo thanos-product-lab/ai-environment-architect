@@ -1,0 +1,9 @@
+{
+  "content": "See [docs](https://example.com/a.md) or [mail](mailto:a@b.c).\n",
+  "expect": {
+    "references": [],
+    "identifiers": ["https://example.com/a.md", "mailto:a@b.c"]
+  },
+  "section": "IMPL §3.4",
+  "note": "A target with a URI scheme is an identifier, not a path, even when it ends in a known extension, so REF-005 must find it in the evidence."
+}

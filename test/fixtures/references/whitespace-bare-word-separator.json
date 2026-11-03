@@ -1,0 +1,13 @@
+{
+  "content": "See\u00A0src/a.ts\u3000and\u2003docs/guide.md.\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "src/a.ts" },
+      { "kind": "path", "value": "docs/guide.md" }
+    ],
+    "identifiers": []
+  },
+  "listed": { "src/a.ts": true, "docs/guide.md": true },
+  "section": "IMPL §3.4",
+  "note": "Unicode spaces separate bare words, so the paths are found alone; splitting only on ASCII whitespace would see one word whose last segment doesn't end in an extension."
+}

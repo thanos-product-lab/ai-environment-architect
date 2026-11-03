@@ -1,0 +1,11 @@
+{
+  "content": "![diagram](docs/guide.md)\n",
+  "expect": {
+    "references": [{ "kind": "path", "value": "docs/guide.md" }],
+    "identifiers": []
+  },
+  "listed": { "docs/guide.md": true },
+  "nearMissOf": "link",
+  "section": "IMPL §3.4",
+  "note": "An image target is a path token like a link target."
+}

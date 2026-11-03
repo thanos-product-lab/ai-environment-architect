@@ -1,0 +1,21 @@
+{
+  "content": "Install with npm ci.\nBuild with pnpm build, then stop.\nLint with yarn lint; then stop.\nType-check with npx tsc: done.\nStart with bun run dev! Then stop.\nDid you run pytest -q? Then stop.\nSync (uv sync) first.\nInstall with poetry install\nTest with cargo test.\nCompose with docker compose up, then stop.\nRun python -m app; then stop.\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "npm ci" },
+      { "kind": "command", "value": "pnpm build" },
+      { "kind": "command", "value": "yarn lint" },
+      { "kind": "command", "value": "npx tsc" },
+      { "kind": "command", "value": "bun run dev" },
+      { "kind": "command", "value": "pytest -q" },
+      { "kind": "command", "value": "uv sync" },
+      { "kind": "command", "value": "poetry install" },
+      { "kind": "command", "value": "cargo test" },
+      { "kind": "command", "value": "docker compose up" },
+      { "kind": "command", "value": "python -m app" }
+    ],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "Each of the eleven prose runners gives a plain-text command ending at one of the boundaries `.`, `,`, `;`, `:`, `!`, `?`, `)` or the end of the line, with the boundary removed and the leading `(` before `uv` ignored."
+}

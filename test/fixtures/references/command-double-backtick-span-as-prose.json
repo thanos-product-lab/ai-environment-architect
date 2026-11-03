@@ -1,0 +1,14 @@
+{
+  "content": "Run ``npm test`` first.\n",
+  "expect": {
+    "references": [
+      {
+        "kind": "command",
+        "value": "npm test"
+      }
+    ],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "Left pairing makes ``npm test`` two empty spans around plain text; the empty spans are dropped and `npm test` is a plain-text command (1.1.0), so it can't hide from REF-001."
+}

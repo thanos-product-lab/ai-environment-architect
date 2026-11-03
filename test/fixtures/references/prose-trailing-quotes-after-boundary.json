@@ -1,0 +1,16 @@
+{
+  "content": "Run \"npm test.\" first.\nRun 'pnpm lint,' then stop.\nRun *yarn build;* now.\nRun _npx tsc:_ now.\nRun \"cargo check?\" now.\nRun 'docker ps!' now.\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "npm test" },
+      { "kind": "command", "value": "pnpm lint" },
+      { "kind": "command", "value": "yarn build" },
+      { "kind": "command", "value": "npx tsc" },
+      { "kind": "command", "value": "cargo check" },
+      { "kind": "command", "value": "docker ps" }
+    ],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "A word ending in clause punctuation followed by `\"`, `'`, `*` or `_` still ends the clause, and the punctuation goes with those trailing characters, while one leading quote or emphasis character before the runner is ignored; a detector that only accepts the punctuation as the very last character would run on to the end of the line."
+}

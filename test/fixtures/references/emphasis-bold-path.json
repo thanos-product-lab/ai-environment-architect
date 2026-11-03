@@ -1,0 +1,10 @@
+{
+  "content": "Edit **src/index.ts** first.\n",
+  "expect": {
+    "references": [{ "kind": "path", "value": "src/index.ts" }],
+    "identifiers": []
+  },
+  "listed": { "src/index.ts": true },
+  "section": "IMPL §3.4",
+  "note": "A `*` that both starts and ends the token is removed repeatedly, so bold emphasis gives the path without its markers."
+}

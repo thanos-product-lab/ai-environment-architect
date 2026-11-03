@@ -1,0 +1,10 @@
+{
+  "content": "```sh\n$npm test\n$\n$ gofmt -w .\n```\n",
+  "expect": {
+    "references": [],
+    "identifiers": []
+  },
+  "nearMissOf": "prompt-fenced-dollar",
+  "section": "IMPL §3.4",
+  "note": "Only `$` followed by whitespace is a prompt: `$npm test` keeps its `$` and doesn't start with a runner, a lone `$` is no command, and `$ gofmt -w .` loses its prompt but `gofmt` is not `go`."
+}

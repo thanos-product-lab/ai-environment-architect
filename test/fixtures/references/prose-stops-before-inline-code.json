@@ -1,0 +1,9 @@
+{
+  "content": "Run npm test `--watch` for dev.\n",
+  "expect": {
+    "references": [{ "kind": "command", "value": "npm test" }],
+    "identifiers": ["--watch"]
+  },
+  "section": "IMPL §3.4",
+  "note": "The plain-text command stops before an inline code span, so neither the span nor the words after it belong to it; the span is classified on its own, as an identifier."
+}

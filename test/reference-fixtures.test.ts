@@ -15,8 +15,10 @@ const DIR = join(import.meta.dirname, "fixtures", "references");
 interface Case {
   readonly content: string;
   readonly expect: {
-    readonly references: readonly { kind: "path" | "command"; value: string }[];
-    readonly identifiers: readonly string[];
+    /** `match` defaults to `value`. */
+    readonly references: readonly { kind: "path" | "command"; value: string; match?: string }[];
+    /** A string is an identifier whose value and matching form are equal. */
+    readonly identifiers: readonly (string | { value: string; match: string })[];
   };
   readonly listed?: Readonly<Record<string, boolean>>;
 }
@@ -48,11 +50,15 @@ describe("reference detector fixtures (IMPL §3.4)", () => {
 
   it.each(cases)("%s", (_name, testCase) => {
     const detection = detectReferences(testCase.content);
-    expect(detection.references).toEqual(testCase.expect.references);
-    expect(detection.identifiers).toEqual(testCase.expect.identifiers);
-    for (const [value, listed] of Object.entries(testCase.listed ?? {})) {
-      expect(detection.references).toContainEqual({ kind: "path", value });
-      expect(isListed(value, context), `REF-002 for ${value}`).toBe(listed);
+    expect(detection.references).toEqual(
+      testCase.expect.references.map((r) => ({ ...r, match: r.match ?? r.value })),
+    );
+    expect(detection.identifiers).toEqual(
+      testCase.expect.identifiers.map((i) => (typeof i === "string" ? { value: i, match: i } : i)),
+    );
+    for (const [match, listed] of Object.entries(testCase.listed ?? {})) {
+      expect(detection.references.some((r) => r.kind === "path" && r.match === match)).toBe(true);
+      expect(isListed(match, context), `REF-002 for ${match}`).toBe(listed);
     }
   });
 });

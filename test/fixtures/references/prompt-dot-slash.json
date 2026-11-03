@@ -1,0 +1,11 @@
+{
+  "content": "```\n$ ./scripts/build.sh --fast\n$ ./scripts/build.sh\n```\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "$ ./scripts/build.sh --fast", "match": "./scripts/build.sh --fast" }
+    ],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "Without its prompt, the first line is a `./` runner with arguments, a command; the second is a path, and fenced lines that aren't commands give nothing."
+}

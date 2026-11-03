@@ -1,0 +1,15 @@
+{
+  "content": "Run ` npm test` first.\n",
+  "expect": {
+    "references": [
+      {
+        "kind": "command",
+        "value": " npm test",
+        "match": "npm test"
+      }
+    ],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "Spans are trimmed for classification and stored as written (1.1.0), so a leading space no longer hides a command."
+}

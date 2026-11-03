@@ -1,0 +1,13 @@
+{
+  "content": "Run pytest src/a.ts docs/guide.md.\nThen read src/index.ts.\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "pytest src/a.ts docs/guide.md" },
+      { "kind": "path", "value": "src/index.ts" }
+    ],
+    "identifiers": []
+  },
+  "listed": { "src/index.ts": true },
+  "section": "IMPL §3.4",
+  "note": "A command's words are not read again as path tokens, so the two paths inside it give no separate references, while a path on the next line is still found."
+}

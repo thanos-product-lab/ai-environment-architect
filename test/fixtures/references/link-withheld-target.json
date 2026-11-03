@@ -1,0 +1,13 @@
+{
+  "content": "Keys are in [the config](config/{{aws-access-key-id}}.json) and [its folder](config/).\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "config/{{aws-access-key-id}}.json" },
+      { "kind": "path", "value": "config/" }
+    ],
+    "identifiers": []
+  },
+  "listed": { "config/{{aws-access-key-id}}.json": false, "config/": true },
+  "section": "IMPL §3.4",
+  "note": "A link to a withheld file is a path REF-002 rejects, while its directory, whose own name is not withheld, is listed."
+}

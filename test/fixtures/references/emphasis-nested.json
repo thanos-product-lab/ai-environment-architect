@@ -1,0 +1,13 @@
+{
+  "content": "Edit *_src/a.ts_* and ***src/index.ts***.\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "src/a.ts" },
+      { "kind": "path", "value": "src/index.ts" }
+    ],
+    "identifiers": []
+  },
+  "listed": { "src/a.ts": true, "src/index.ts": true },
+  "section": "IMPL §3.4",
+  "note": "Removal repeats, so nested `*` and `_` pairs and triple stars are all removed, not just one layer."
+}

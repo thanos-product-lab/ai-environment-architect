@@ -1,0 +1,12 @@
+{
+  "content": "Then **bun test!** passes.\nTry __pytest -x.__ now.\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "bun test" },
+      { "kind": "command", "value": "pytest -x" }
+    ],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "Strong emphasis puts two characters before the runner; this case assumes the whole leading run is ignored, as §3.2.3 strips every leading punctuation character, because the detector fails closed (spec gap: the text says \"a leading\" character)."
+}

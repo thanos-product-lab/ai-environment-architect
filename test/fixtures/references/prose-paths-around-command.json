@@ -1,0 +1,15 @@
+{
+  "content": "Edit src/a.ts, run npm test; then read docs/guide.md.\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "src/a.ts" },
+      { "kind": "command", "value": "npm test" },
+      { "kind": "path", "value": "docs/guide.md" }
+    ],
+    "identifiers": []
+  },
+  "listed": { "src/a.ts": true, "docs/guide.md": true },
+  "nearMissOf": "prose-command-words-not-paths",
+  "section": "IMPL §3.4",
+  "note": "Paths before the command and after its clause boundary are outside the command and are still path tokens, in document order."
+}

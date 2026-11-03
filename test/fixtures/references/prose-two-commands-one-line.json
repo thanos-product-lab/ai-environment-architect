@@ -1,0 +1,13 @@
+{
+  "content": "Run npm ci, then yarn lint.\nRun npm test then pnpm build.\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "npm ci" },
+      { "kind": "command", "value": "yarn lint" },
+      { "kind": "command", "value": "npm test then pnpm build" }
+    ],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "After a clause boundary a later runner starts a new command, but a runner inside an unfinished clause is one of the command's words and starts nothing."
+}

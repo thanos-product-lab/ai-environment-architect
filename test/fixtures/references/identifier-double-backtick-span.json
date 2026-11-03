@@ -1,9 +1,0 @@
-{
-  "content": "Run ``npm test`` first.\n",
-  "expect": {
-    "references": [],
-    "identifiers": ["", ""]
-  },
-  "section": "IMPL §3.4",
-  "note": "Pairing from the left, not CommonMark's run-length matching: the double backticks give two empty spans and `npm test` is bare text, which holds no path."
-}

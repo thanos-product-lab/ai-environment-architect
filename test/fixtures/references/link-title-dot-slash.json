@@ -1,0 +1,11 @@
+{
+  "content": "Open [x](./src/a.ts \"title\") now.\n",
+  "expect": {
+    "references": [{ "kind": "path", "value": "./src/a.ts" }],
+    "identifiers": []
+  },
+  "listed": { "./src/a.ts": true },
+  "nearMissOf": "link",
+  "section": "IMPL §3.4",
+  "note": "The title is not part of the target, and the `./` target names `src/a.ts` after §1.11 normalisation."
+}

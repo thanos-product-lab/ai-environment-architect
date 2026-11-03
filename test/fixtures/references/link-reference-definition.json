@@ -1,0 +1,11 @@
+{
+  "content": "See [the guide][g].\n\n[g]: docs/guide.md\n",
+  "expect": {
+    "references": [{ "kind": "path", "value": "docs/guide.md" }],
+    "identifiers": []
+  },
+  "listed": { "docs/guide.md": true },
+  "nearMissOf": "link",
+  "section": "IMPL §3.4",
+  "note": "A reference-style link is not an inline link, but its definition's destination is a whitespace-separated path-like word, so the path is still found as a bare path token."
+}

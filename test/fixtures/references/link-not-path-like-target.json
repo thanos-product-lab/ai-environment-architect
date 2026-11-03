@@ -1,0 +1,13 @@
+{
+  "content": "See [contributing](CONTRIBUTING) and [build](Makefile).\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "CONTRIBUTING" },
+      { "kind": "path", "value": "Makefile" }
+    ],
+    "identifiers": []
+  },
+  "listed": { "CONTRIBUTING": false, "Makefile": true },
+  "section": "IMPL §3.4",
+  "note": "A link target is a path whether or not it is path-like, so an invented `CONTRIBUTING` with no `/` or extension is still checked and rejected by REF-002, while `Makefile` is listed."
+}

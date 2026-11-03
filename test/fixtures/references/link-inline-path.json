@@ -1,0 +1,11 @@
+{
+  "content": "See [the guide](docs/guide.md) first.\n",
+  "expect": {
+    "references": [{ "kind": "path", "value": "docs/guide.md" }],
+    "identifiers": []
+  },
+  "listed": { "docs/guide.md": true },
+  "nearMissOf": "link",
+  "section": "IMPL §3.4",
+  "note": "A link target is a path token, detected once; the word `guide](docs/guide.md)` must not also be read as a bare path-like word."
+}

@@ -1,0 +1,12 @@
+{
+  "content": "Run `\u00A0npm test\u3000` or `npm\u00A0`.\n",
+  "expect": {
+    "references": [
+      { "kind": "command", "value": "\u00A0npm test\u3000", "match": "npm test" },
+      { "kind": "command", "value": "npm\u00A0", "match": "npm" }
+    ],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "Trimming removes Unicode White_Space at both ends, so the first span starts with a runner, and the second is a lone runner, a command matching `npm`; trimming only ASCII spaces would make the first an identifier."
+}

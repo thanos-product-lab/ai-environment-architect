@@ -1,0 +1,10 @@
+{
+  "content": "Edit _src/a.ts_ now.\n",
+  "expect": {
+    "references": [{ "kind": "path", "value": "src/a.ts" }],
+    "identifiers": []
+  },
+  "listed": { "src/a.ts": true },
+  "section": "IMPL §3.4",
+  "note": "Underscore emphasis is removed like `*`; without it, `a.ts_` would not end in an extension and the path would be missed."
+}

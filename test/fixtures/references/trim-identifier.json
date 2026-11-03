@@ -1,0 +1,9 @@
+{
+  "content": "Set ` fooBar ` in the config.\n",
+  "expect": {
+    "references": [],
+    "identifiers": [{ "value": " fooBar ", "match": "fooBar" }]
+  },
+  "section": "IMPL §3.4",
+  "note": "An identifier is trimmed too, so REF-005 looks for `fooBar` in the evidence, not the span with its spaces."
+}

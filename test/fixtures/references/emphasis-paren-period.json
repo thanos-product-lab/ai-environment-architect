@@ -1,0 +1,10 @@
+{
+  "content": "Read it (**docs/guide.md**).\n",
+  "expect": {
+    "references": [{ "kind": "path", "value": "docs/guide.md" }],
+    "identifiers": []
+  },
+  "listed": { "docs/guide.md": true },
+  "section": "IMPL §3.4",
+  "note": "The §3.2.3 punctuation is removed first, the `(` and the trailing `).`, and then the emphasis, so the order of the two steps matters."
+}

@@ -1,0 +1,9 @@
+{
+  "content": "This project uses npm.\nIt also uses docker, pnpm; and yarn!\nPrefer it (npm) over others.\nInstall with npm\n",
+  "expect": {
+    "references": [],
+    "identifiers": []
+  },
+  "section": "IMPL §3.4",
+  "note": "A runner whose own word ends its clause, or that ends the line, is not followed by another word of its clause and gives nothing, so a detector that emits a bare `npm` command would wrongly reject this content."
+}
