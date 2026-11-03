@@ -1,0 +1,162 @@
+{
+  "description": "Every runner form of the known-command table, each supported by its own command fact, is accepted.",
+  "section": "IMPL §3.3.5 step 7 (REF-003 known commands, REF-004 the fact's evidence), §3.2.5, §3.8",
+  "nearMissOf": "ref003-commands-not-known.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "section", "heading": "B-3" },
+        "content": "- The lint script runs with `npm run lint`.",
+        "rationale": "The manifest defines it.",
+        "support": ["F-7"],
+        "references": [{ "kind": "command", "value": "npm run lint", "support": "F-7" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "section", "heading": "B-3" },
+        "content": "- The test script runs with `npm test`.",
+        "rationale": "The manifest defines it.",
+        "support": ["F-6"],
+        "references": [{ "kind": "command", "value": "npm test", "support": "F-6" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "section", "heading": "B-3" },
+        "content": "- The start script runs with `npm start`.",
+        "rationale": "The manifest defines it.",
+        "support": ["F-5"],
+        "references": [{ "kind": "command", "value": "npm start", "support": "F-5" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r4",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "section", "heading": "B-3" },
+        "content": "- The test script runs with `pnpm test`.",
+        "rationale": "The manifest defines it.",
+        "support": ["F-6"],
+        "references": [{ "kind": "command", "value": "pnpm test", "support": "F-6" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r5",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "section", "heading": "B-3" },
+        "content": "- The lint script runs with `pnpm run lint`.",
+        "rationale": "The manifest defines it.",
+        "support": ["F-7"],
+        "references": [{ "kind": "command", "value": "pnpm run lint", "support": "F-7" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r6",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "section", "heading": "B-3" },
+        "content": "- The lint script runs with `yarn lint`.",
+        "rationale": "The manifest defines it.",
+        "support": ["F-7"],
+        "references": [{ "kind": "command", "value": "yarn lint", "support": "F-7" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r7",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "section", "heading": "B-3" },
+        "content": "- The test script runs with `yarn run test`.",
+        "rationale": "The manifest defines it.",
+        "support": ["F-6"],
+        "references": [{ "kind": "command", "value": "yarn run test", "support": "F-6" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r8",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "section", "heading": "B-3" },
+        "content": "- The start script runs with `bun run start`.",
+        "rationale": "The manifest defines it.",
+        "support": ["F-5"],
+        "references": [{ "kind": "command", "value": "bun run start", "support": "F-5" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r9",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "section", "heading": "B-3" },
+        "content": "- The build target runs with `make build`.",
+        "rationale": "The Makefile defines it.",
+        "support": ["F-2"],
+        "references": [{ "kind": "command", "value": "make build", "support": "F-2" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r10",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "section", "heading": "B-3" },
+        "content": "- The fmt recipe runs with `just fmt`.",
+        "rationale": "The recipe file defines it.",
+        "support": ["F-4"],
+        "references": [{ "kind": "command", "value": "just fmt", "support": "F-4" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r11",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "section", "heading": "B-3" },
+        "content": "- The check task runs with `task check`.",
+        "rationale": "The task file defines it.",
+        "support": ["F-3"],
+        "references": [{ "kind": "command", "value": "task check", "support": "F-3" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r12",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "section", "heading": "B-3" },
+        "content": "- The serve script runs with `uv run serve`.",
+        "rationale": "The Python project file defines it.",
+        "support": ["F-8"],
+        "references": [{ "kind": "command", "value": "uv run serve", "support": "F-8" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r13",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "section", "heading": "B-3" },
+        "content": "- The serve script runs with `poetry run serve`.",
+        "rationale": "The Python project file defines it.",
+        "support": ["F-8"],
+        "references": [{ "kind": "command", "value": "poetry run serve", "support": "F-8" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": {
+      "recommendations": ["r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12", "r13"],
+      "heldBack": [],
+      "noChangeReason": []
+    }
+  }
+}

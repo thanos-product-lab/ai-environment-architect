@@ -1,0 +1,51 @@
+{
+  "description": "REF-004 rejects a known command whose fact F-6 is not in the recommendation's support, a listed path whose supporting finding's evidence is another file, and a sibling path that is not under the evidence path.",
+  "section": "IMPL §3.3.5 step 7 (REF-004), DM §9.1 structured references, §3.8 (a reference whose supporting finding's evidence doesn't contain it)",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The suite runs with `pnpm test`.",
+        "rationale": "The README describes the API.",
+        "support": ["F-20"],
+        "references": [{ "kind": "command", "value": "pnpm test", "support": "F-6" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The testing guide is `docs/testing.md`.",
+        "rationale": "The client module is tested.",
+        "support": ["F-9"],
+        "references": [{ "kind": "path", "value": "docs/testing.md", "support": "F-9" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "`src/api/client.test.ts` covers the client.",
+        "rationale": "The client module is tested.",
+        "support": ["F-9"],
+        "references": [{ "kind": "path", "value": "src/api/client.test.ts", "support": "F-9" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "REF-004", "outcome": "rejected" },
+      { "itemKey": "r2", "stage": "item", "rule": "REF-004", "outcome": "rejected" },
+      { "itemKey": "r3", "stage": "item", "rule": "REF-004", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

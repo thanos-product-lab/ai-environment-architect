@@ -1,0 +1,25 @@
+{
+  "description": "Declaring the whole prose command `pnpm test before each push` passes REF-001, but in plain text a command must equal a known-command form exactly or appear in an excerpt, so REF-003 rejects it.",
+  "section": "IMPL §3.3.5 step 7 (REF-003: arguments are allowed only for commands in code; developer decision, fails closed)",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The suite runs with pnpm test before each push.",
+        "rationale": "The manifest defines the test script.",
+        "support": ["F-6"],
+        "references": [{ "kind": "command", "value": "pnpm test before each push", "support": "F-6" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [{ "itemKey": "r1", "stage": "item", "rule": "REF-003", "outcome": "rejected" }],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

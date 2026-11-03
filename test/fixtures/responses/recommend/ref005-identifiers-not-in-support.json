@@ -1,0 +1,51 @@
+{
+  "description": "REF-005 rejects an identifier found in no supporting record, a URL in inline code (an identifier) not in any supporting excerpt, and an identifier present only in a finding that isn't in the support.",
+  "section": "IMPL §3.3.5 step 7, §3.4 (identifiers, URLs included, REF-005), §3.8 (a URL in inline code treated as an identifier)",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Requests time out after `REQUEST_TIMEOUT_MS` milliseconds.",
+        "rationale": "The client module sends the requests.",
+        "support": ["F-9"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The staging API is at `https://staging.example.test/v1`.",
+        "rationale": "The client module sends the requests.",
+        "support": ["F-9"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The CI workflow has a step named `Run tests`.",
+        "rationale": "The manifest defines the test script.",
+        "support": ["F-6"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "REF-005", "outcome": "rejected" },
+      { "itemKey": "r2", "stage": "item", "rule": "REF-005", "outcome": "rejected" },
+      { "itemKey": "r3", "stage": "item", "rule": "REF-005", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

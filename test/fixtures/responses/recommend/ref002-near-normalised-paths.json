@@ -1,0 +1,37 @@
+{
+  "description": "`./src/api/client.ts` and `src/` are listed after normalisation, and REF-004 finds lines evidence at the normalised path or under it, so both are accepted.",
+  "section": "IMPL §3.3.5 step 7 (REF-002, REF-004), §1.11 (one leading ./ and one trailing / removed), §3.8",
+  "nearMissOf": "ref002-paths-not-listed.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "`./src/api/client.ts` exports the `request` helper.",
+        "rationale": "Observed in the client module.",
+        "support": ["F-9"],
+        "references": [{ "kind": "path", "value": "./src/api/client.ts", "support": "F-9" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Source files live under `src/`.",
+        "rationale": "The client module is in the source tree.",
+        "support": ["F-9"],
+        "references": [{ "kind": "path", "value": "src/", "support": "F-9" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1", "r2"], "heldBack": [], "noChangeReason": [] }
+  }
+}

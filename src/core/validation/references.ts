@@ -253,7 +253,19 @@ interface Event {
  * plain-text commands, and path-like tokens and known file names that aren't URLs.
  */
 export function detectReferences(content: string): Detection {
+  const { references, identifiers } = detectWithSources(content);
+  return { references, identifiers };
+}
+
+/** As `detectReferences`, and which commands were found in plain text rather than in code. */
+export interface SourcedDetection extends Detection {
+  /** Commands from bare text; every other command is from an inline code span or a fence. */
+  readonly proseCommands: ReadonlySet<DetectedReference>;
+}
+
+export function detectWithSources(content: string): SourcedDetection {
   const references: DetectedReference[] = [];
+  const proseCommands = new Set<DetectedReference>();
   const identifiers: DetectedIdentifier[] = [];
 
   /** Bare text with no inline code or link in it: commands and path tokens, line by line. */
@@ -273,7 +285,9 @@ export function detectReferences(content: string): Detection {
             (words[last] as RegExpExecArray).index + (words[last] as RegExpExecArray)[0].length;
           const value = line[0].slice(word.index + lead, end).replace(COMMAND_TAIL, "");
           if (WHITESPACE.test(value)) {
-            events.push({ at, reference: { kind: "command", value, match: trim(value) } });
+            const reference = { kind: "command", value, match: trim(value) } as const;
+            proseCommands.add(reference);
+            events.push({ at, reference });
             i = last;
             continue;
           }
@@ -349,7 +363,7 @@ export function detectReferences(content: string): Detection {
       }
     } else prose(block.text);
   });
-  return { references, identifiers };
+  return { references, identifiers, proseCommands };
 }
 
 /** A block of content as the detector reads it: code lines, or prose text with its type. */

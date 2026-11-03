@@ -1,0 +1,52 @@
+{
+  "description": "REF-002 rejects an invented path, a path with a `..` segment, which names nothing, and a withheld path, each declared so that REF-001 passes.",
+  "section": "IMPL §3.3.5 step 7 (REF-002), §1.11 (path normalisation, withheld paths), §3.8",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Retries live in `src/api/retry.ts`.",
+        "rationale": "The client module handles requests.",
+        "support": ["F-9"],
+        "references": [{ "kind": "path", "value": "src/api/retry.ts", "support": "F-9" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "`src/../package.json` holds the scripts.",
+        "rationale": "The manifest defines the scripts.",
+        "support": ["F-6"],
+        "references": [{ "kind": "path", "value": "src/../package.json", "support": "F-6" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Credentials load from `src/secret-{{aws-access-key-id}}.ts`.",
+        "rationale": "The source tree holds the credentials module.",
+        "support": ["F-9"],
+        "references": [{ "kind": "path", "value": "src/secret-{{aws-access-key-id}}.ts", "support": "F-9" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "REF-002", "outcome": "rejected" },
+      { "itemKey": "r2", "stage": "item", "rule": "REF-002", "outcome": "rejected" },
+      { "itemKey": "r3", "stage": "item", "rule": "REF-002", "outcome": "rejected" }
+    ],
+    "detailExcludes": ["{{aws-access-key-id}}", "retry.ts"],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

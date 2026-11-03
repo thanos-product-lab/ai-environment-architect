@@ -36,7 +36,16 @@ const DESTINATION = [
   "",
 ].join("\n");
 
-const PATHS = ["CLAUDE.md", "CONTRIBUTING.md", "package.json", "src/a.ts", "src/b.ts"];
+const WITHHELD = "src/secret-AKIAIOSFODNN7EXAMPLE.ts";
+const PATHS = [
+  "CLAUDE.md",
+  "CONTRIBUTING.md",
+  "package.json",
+  "scripts/build.sh",
+  "src/a.ts",
+  "src/b.ts",
+  WITHHELD,
+];
 
 const claim = (
   mode: "descriptive" | "prescriptive",
@@ -83,11 +92,28 @@ const FINDINGS: Record<string, RecommendFinding> = {
   ),
   "F-9": claim("descriptive", ["code_observation"], "await fetch(url)", "src/b.ts"),
   "F-10": claim("descriptive", ["code_observation"], "export const c = 3;", "src/b.ts"),
+  "F-11": {
+    kind: "claim",
+    mode: "descriptive",
+    basis: ["code_observation"],
+    current: true,
+    evidence: [{ id: "ev_build", kind: "entry", path: "scripts/build.sh" }],
+  },
+  "F-12": claim(
+    "descriptive",
+    ["documentation"],
+    "Run `cargo fmt --check` before pushing.",
+    "CONTRIBUTING.md",
+  ),
+  "F-13": claim("descriptive", ["code_observation"], "all:\n\tgo build ./...", "Makefile", {
+    command: { file: "Makefile", name: "all" },
+  }),
 };
 
 const DECISIONS: Record<string, RecommendDecision> = {
   "D-1": { current: true, statement: "Use pnpm for every script.", exceptions: [] },
   "D-2": { current: false, statement: "Use npm.", exceptions: [] },
+  "D-3": { current: true, statement: "Keep the old client.", exceptions: ["legacyClient stays."] },
 };
 
 const CONFLICTS = {
@@ -419,7 +445,10 @@ describe("recommend validation (IMPL §3.3.5)", () => {
     });
 
     it("leaves inline code, code blocks and inflections unchecked", () => {
-      expect(one(fact("`Use` is a function name."))).toEqual([]);
+      // D-1's statement holds `Use`, so REF-005 finds the identifier.
+      expect(one(base({ content: "`Use` is a function name.", support: ["F-1", "D-1"] }))).toEqual(
+        [],
+      );
       expect(one(fact("The build uses esbuild."))).toEqual([]);
       expect(one(fact("```\nUse this\n```"))).toEqual([]);
       expect(one(fact("The runner is fast.Use it"))).toEqual([]);
@@ -505,6 +534,162 @@ describe("recommend validation (IMPL §3.3.5)", () => {
         "heldBack/0:HELD-001",
         "noChangeReason:REC-009",
       ]);
+    });
+  });
+
+  describe("step 7: references", () => {
+    const path = (value: string, support = "F-1") => ({ kind: "path", value, support });
+    const command = (value: string, support = "F-6") => ({ kind: "command", value, support });
+    const withRefs = (content: string, references: Rec[], support = ["F-1", "F-6"]) =>
+      base({ content, references, support });
+
+    it("REF-001 rejects an undeclared reference and a declared one missing from the content", () => {
+      expect(one(withRefs("Code is in `src/a.ts`.", []))).toEqual(["r1:REF-001"]);
+      expect(one(withRefs("Code is in TypeScript.", [path("src/a.ts")]))).toEqual(["r1:REF-001"]);
+      expect(one(withRefs("Code is in `src/a.ts`.", [path("src/a.ts")]))).toEqual([]);
+    });
+
+    it("REF-001 compares the declared kind: ./scripts/build.sh is a path, with flags a command", () => {
+      const support = ["F-11"];
+      expect(
+        one(
+          withRefs(
+            "`./scripts/build.sh` builds it.",
+            [path("./scripts/build.sh", "F-11")],
+            support,
+          ),
+        ),
+      ).toEqual([]);
+      expect(
+        one(
+          withRefs(
+            "`./scripts/build.sh` builds it.",
+            [command("./scripts/build.sh", "F-11")],
+            support,
+          ),
+        ),
+      ).toEqual(["r1:REF-001"]);
+    });
+
+    it("REF-002 rejects an unlisted, `..` or withheld path, and accepts normalised forms", () => {
+      expect(one(withRefs("See `src/nope.ts`.", [path("src/nope.ts")]))).toEqual(["r1:REF-002"]);
+      expect(one(withRefs("See `src/../src/a.ts`.", [path("src/../src/a.ts")]))).toEqual([
+        "r1:REF-002",
+      ]);
+      expect(one(withRefs(`See \`${WITHHELD}\`.`, [path(WITHHELD)]))).toEqual(["r1:REF-002"]);
+      expect(one(withRefs("See `./src/a.ts`.", [path("./src/a.ts")]))).toEqual([]);
+      expect(one(withRefs("Code is under `src/`.", [path("src/")]))).toEqual([]);
+    });
+
+    it("REF-003 accepts a known command in each form, with arguments only from code", () => {
+      for (const form of [
+        "npm run test",
+        "npm test",
+        "pnpm test",
+        "pnpm run test",
+        "yarn test",
+        "yarn run test",
+        "bun run test",
+        "pnpm test --watch",
+      ])
+        expect(one(withRefs(`The suite runs with \`${form}\`.`, [command(form)])), form).toEqual(
+          [],
+        );
+      expect(
+        one(withRefs("The default target is `make all`.", [command("make all", "F-13")], ["F-13"])),
+      ).toEqual([]);
+      expect(one(withRefs("The suite runs with pnpm test.", [command("pnpm test")]))).toEqual([]);
+    });
+
+    it("REF-003 rejects an unknown command, and a plain-text command with words after it", () => {
+      expect(one(withRefs("It starts with `npm start`.", [command("npm start")]))).toEqual([
+        "r1:REF-003",
+      ]);
+      expect(one(withRefs("Lint with `pnpm lint`.", [command("pnpm lint")]))).toEqual([
+        "r1:REF-003",
+      ]);
+      expect(
+        one(withRefs("The suite is pnpm test --watch here.", [command("pnpm test --watch here")])),
+      ).toEqual(["r1:REF-003"]);
+      expect(one(withRefs("It is `pnpm testing`.", [command("pnpm testing")]))).toEqual([
+        "r1:REF-003",
+      ]);
+    });
+
+    it("REF-003 accepts a command found as written in an excerpt of its finding", () => {
+      expect(
+        one(
+          withRefs(
+            "Formatting is checked by `cargo fmt --check`.",
+            [command("cargo fmt --check", "F-12")],
+            ["F-12"],
+          ),
+        ),
+      ).toEqual([]);
+    });
+
+    it("REF-004 needs the reference's finding in support, with evidence holding the value", () => {
+      expect(one(withRefs("Code is in `src/a.ts`.", [path("src/a.ts", "F-6")], ["F-1"]))).toEqual([
+        "r1:REF-004",
+      ]);
+      expect(one(withRefs("Code is in `src/b.ts`.", [path("src/b.ts")], ["F-1"]))).toEqual([
+        "r1:REF-004",
+      ]);
+    });
+
+    it("REF-004 records the first evidence that holds the value, and verification", () => {
+      const outcome = run([
+        withRefs("Code is in `src/a.ts`; run `pnpm test`.", [
+          path("src/a.ts"),
+          command("pnpm test"),
+        ]),
+      ]);
+      expect(events(outcome)).toEqual([]);
+      expect(accepted(outcome)[0]?.value.resolvedReferences).toEqual([
+        {
+          kind: "path",
+          value: "src/a.ts",
+          support: "F-1",
+          evidenceId: "ev_src/a.ts",
+          verification: "exists_in_snapshot",
+        },
+        {
+          kind: "command",
+          value: "pnpm test",
+          support: "F-6",
+          evidenceId: "ev_package.json",
+          verification: "found_not_run",
+        },
+      ]);
+    });
+
+    it("REF-005 needs an identifier in a supporting excerpt or decision", () => {
+      expect(one(withRefs("The `fetchWidget` helper wraps HTTP.", []))).toEqual(["r1:REF-005"]);
+      expect(one(withRefs("Docs are at `https://example.com/docs.md`.", []))).toEqual([
+        "r1:REF-005",
+      ]);
+      expect(one(withRefs("The `legacyClient` is kept.", [], ["F-1", "D-3"]))).toEqual([]);
+      expect(one(withRefs("The constant `a` is exported.", []))).toEqual([]);
+    });
+
+    it("runs the REF rules after REC-008 and before SCOPE-001", () => {
+      expect(
+        one(
+          base({
+            content: "Code is in `src/nope.ts`.",
+            support: ["F-9"],
+            scope: { kind: "paths", paths: ["nowhere"] },
+          }),
+        ),
+      ).toEqual(["r1:REC-008"]);
+      expect(
+        one(
+          base({
+            content: "Code is in `src/nope.ts`.",
+            scope: { kind: "paths", paths: ["nowhere"] },
+          }),
+        ),
+      ).toEqual(["r1:REF-001"]);
     });
   });
 

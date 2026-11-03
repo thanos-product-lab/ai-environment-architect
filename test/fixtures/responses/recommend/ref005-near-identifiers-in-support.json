@@ -1,0 +1,37 @@
+{
+  "description": "Accepted: the URL in inline code supported by F-26, whose excerpt holds it, and an identifier found only in the exceptions of the supporting decision D-2.",
+  "section": "IMPL §3.3.5 step 7, §3.4 (REF-005: an excerpt of a supporting finding, or the statement or exceptions of a supporting decision), §3.8",
+  "nearMissOf": "ref005-identifiers-not-in-support.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The staging API is at `https://staging.example.test/v1`.",
+        "rationale": "The README names it.",
+        "support": ["F-26"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The health check uses `HEALTH_TIMEOUT_MS`.",
+        "rationale": "The developer described the exception.",
+        "support": ["D-2"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1", "r2"], "heldBack": [], "noChangeReason": [] }
+  }
+}

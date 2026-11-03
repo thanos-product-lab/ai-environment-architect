@@ -1,0 +1,75 @@
+{
+  "description": "REF-001 rejects an undeclared command in inline code, a declared command missing from the content, `./scripts/build.sh` declared as a command though the detector finds a path, a URL in inline code declared as a path, and a bare path left undeclared.",
+  "section": "IMPL §3.3.5 step 7 (REF-001), §3.4 (inline code spans, bare text path tokens), §3.8",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The suite runs with `pnpm test`.",
+        "rationale": "The manifest defines the test script.",
+        "support": ["F-6"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The suite runs with Vitest.",
+        "rationale": "The manifest defines the test script.",
+        "support": ["F-6"],
+        "references": [{ "kind": "command", "value": "pnpm test", "support": "F-6" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Release builds come from `./scripts/build.sh`.",
+        "rationale": "The contributing guide names the script.",
+        "support": ["F-19"],
+        "references": [{ "kind": "command", "value": "./scripts/build.sh", "support": "F-19" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r4",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The staging API is at `https://staging.example.test/v1`.",
+        "rationale": "The README names it.",
+        "support": ["F-26"],
+        "references": [{ "kind": "path", "value": "https://staging.example.test/v1", "support": "F-26" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r5",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The overview is in README.md.",
+        "rationale": "The README describes the API.",
+        "support": ["F-20"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "REF-001", "outcome": "rejected" },
+      { "itemKey": "r2", "stage": "item", "rule": "REF-001", "outcome": "rejected" },
+      { "itemKey": "r3", "stage": "item", "rule": "REF-001", "outcome": "rejected" },
+      { "itemKey": "r4", "stage": "item", "rule": "REF-001", "outcome": "rejected" },
+      { "itemKey": "r5", "stage": "item", "rule": "REF-001", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

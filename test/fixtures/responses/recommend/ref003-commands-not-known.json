@@ -1,0 +1,75 @@
+{
+  "description": "REF-003 rejects `npm lint` (npm needs run except for test and start), `make build` supported by the test script's fact, `uv run test` (a pyproject runner for a package.json script), `Pnpm test` (the known-command check is exact), and the invented `pnpm migrate`.",
+  "section": "IMPL §3.3.5 step 7 (REF-003: a known command whose fact is the reference's supporting finding, or as written in its excerpt), §3.4 (runners match case-insensitively in code; the known-command check stays exact), §3.8 (an undeclared or invented command)",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The lint script runs with `npm lint`.",
+        "rationale": "The manifest defines it.",
+        "support": ["F-7"],
+        "references": [{ "kind": "command", "value": "npm lint", "support": "F-7" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The build runs with `make build`.",
+        "rationale": "The project defines a build.",
+        "support": ["F-6"],
+        "references": [{ "kind": "command", "value": "make build", "support": "F-6" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The test script runs with `uv run test`.",
+        "rationale": "The manifest defines it.",
+        "support": ["F-6"],
+        "references": [{ "kind": "command", "value": "uv run test", "support": "F-6" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r4",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The test script runs with `Pnpm test`.",
+        "rationale": "The manifest defines it.",
+        "support": ["F-6"],
+        "references": [{ "kind": "command", "value": "Pnpm test", "support": "F-6" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r5",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Migrations run with `pnpm migrate`.",
+        "rationale": "Projects like this usually have one.",
+        "support": ["F-6"],
+        "references": [{ "kind": "command", "value": "pnpm migrate", "support": "F-6" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "REF-003", "outcome": "rejected" },
+      { "itemKey": "r2", "stage": "item", "rule": "REF-003", "outcome": "rejected" },
+      { "itemKey": "r3", "stage": "item", "rule": "REF-003", "outcome": "rejected" },
+      { "itemKey": "r4", "stage": "item", "rule": "REF-003", "outcome": "rejected" },
+      { "itemKey": "r5", "stage": "item", "rule": "REF-003", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

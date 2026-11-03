@@ -13,6 +13,7 @@ import {
   type ListMarker,
   parseGuidanceBlocks,
 } from "../destination/guidance-blocks.js";
+import { normalisePath } from "../paths.js";
 import { type AliasTable, resolveReference } from "./aliases.js";
 import type { Basis } from "./citations.js";
 import { type CoverageContext, scopeCheck } from "./coverage.js";
@@ -27,8 +28,8 @@ import {
   type ValidationResult,
   validateResponse,
 } from "./pipeline.js";
-import { walkBlocks } from "./references.js";
-import { hasDirective, type SupportContext } from "./support.js";
+import { type DetectedReference, detectWithSources, walkBlocks } from "./references.js";
+import { hasDirective, isListed, type SupportContext } from "./support.js";
 
 // `recommend` (IMPL §3.3.5). Each recommendation is validated on its own: aliases and currency
 // (REC-001), operation and target (REC-002), content shape with an assembly of it alone (REC-003),
@@ -40,8 +41,24 @@ type Response = z.infer<typeof recommend.response>;
 export type Recommendation = Response["recommendations"][number];
 export type HeldBack = Response["heldBack"][number];
 
-/** A recommendation as the checks pass it on: code attaches the target's block (REC-002). */
-export type RecommendationItem = Recommendation & { readonly resolvedTarget?: AssemblyTarget };
+/** A reference with what code adds: the evidence that holds it, and its verification (DM §9.1). */
+export interface ResolvedReference {
+  readonly kind: "path" | "command";
+  readonly value: string;
+  /** The `F` alias of its supporting finding. */
+  readonly support: string;
+  readonly evidenceId: string;
+  readonly verification: "exists_in_snapshot" | "found_not_run";
+}
+
+/**
+ * A recommendation as the checks pass it on: code attaches the target's block (REC-002), and the
+ * references' evidence and verification (REF-004).
+ */
+export type RecommendationItem = Recommendation & {
+  readonly resolvedTarget?: AssemblyTarget;
+  readonly resolvedReferences?: readonly ResolvedReference[];
+};
 
 /** The no-change reason with what REC-009 needs: the response's recommendations as proposed. */
 export interface NoChangeReasonItem {
@@ -455,6 +472,130 @@ const dependencyCheck: Check = (value, context) => {
   return accept(value);
 };
 
+// --- Step 7: references (§3.4) --------------------------------------------------------------
+
+const WHITESPACE = /\p{White_Space}/u;
+
+/** The runner forms of a command known fact, chosen by its file's name (§3.2.5). */
+export function runnerForms(file: string, name: string): string[] {
+  const base = file.slice(file.lastIndexOf("/") + 1).replace(/[A-Z]/g, (c) => c.toLowerCase());
+  if (base === "package.json")
+    return [
+      `npm run ${name}`,
+      ...(name === "test" || name === "start" ? [`npm ${name}`] : []),
+      `pnpm ${name}`,
+      `pnpm run ${name}`,
+      `yarn ${name}`,
+      `yarn run ${name}`,
+      `bun run ${name}`,
+    ];
+  if (base === "makefile") return [`make ${name}`];
+  if (base === "justfile") return [`just ${name}`];
+  if (base === "taskfile.yml" || base === "taskfile.yaml") return [`task ${name}`];
+  if (base === "pyproject.toml") return [`uv run ${name}`, `poetry run ${name}`];
+  return [];
+}
+
+/**
+ * Whether a command value is a known command of the fact: a runner form and the name, with
+ * arguments after whitespace only when every occurrence was found in code (REF-003).
+ */
+function isKnownCommand(value: string, finding: RecommendFinding, arguments_: boolean): boolean {
+  const fact = finding.command;
+  if (fact === undefined) return false;
+  return runnerForms(fact.file, fact.name).some(
+    (form) =>
+      value === form ||
+      (arguments_ && value.startsWith(form) && WHITESPACE.test(value.charAt(form.length))),
+  );
+}
+
+const excerpts = (finding: RecommendFinding | undefined): string[] =>
+  (finding?.evidence ?? []).flatMap((e) => (e.kind === "lines" ? [e.excerpt] : []));
+
+/** The first evidence of the finding that holds the value (REF-004), in evidence order. */
+function holdingEvidence(
+  reference: Recommendation["references"][number],
+  finding: RecommendFinding,
+  known: boolean,
+): string | undefined {
+  if (known) return finding.evidence[0]?.id;
+  const path = reference.kind === "path" ? normalisePath(reference.value) : undefined;
+  for (const evidence of finding.evidence) {
+    if (evidence.kind === "lines" && evidence.excerpt.includes(reference.value)) return evidence.id;
+    if (
+      path !== undefined &&
+      evidence.kind !== "absence_check" &&
+      (evidence.path === path || evidence.path.startsWith(`${path}/`))
+    )
+      return evidence.id;
+  }
+  return undefined;
+}
+
+const referenceCheck: Check = (value, context) => {
+  const detection = detectWithSources(value.content ?? "");
+  const detected = detection.references;
+  const declared = value.references;
+  const same = (d: DetectedReference, r: (typeof declared)[number]) =>
+    d.kind === r.kind && d.match === r.value;
+
+  // REF-001: what the content mentions is declared, and what is declared is in the content.
+  if (!detected.every((d) => declared.some((r) => same(d, r))))
+    return reject("REF-001", "a path or command in the content is not declared");
+  if (!declared.every((r) => detected.some((d) => same(d, r))))
+    return reject("REF-001", "a declared reference is not in the content");
+
+  // REF-002: paths are listed and not withheld, after normalisation (§1.11).
+  for (const r of declared)
+    if (r.kind === "path" && !isListed(r.value, context))
+      return reject("REF-002", "a path not in the file list");
+
+  // REF-003: commands are known commands of their fact, or in an excerpt as written.
+  const known = declared.map((r) => {
+    if (r.kind !== "command") return false;
+    const finding = context.input.findings.get(r.support);
+    if (finding === undefined) return false;
+    const fromProse = detected.some((d) => same(d, r) && detection.proseCommands.has(d));
+    return isKnownCommand(r.value, finding, !fromProse);
+  });
+  for (const [index, r] of declared.entries()) {
+    if (r.kind !== "command" || known[index]) continue;
+    if (!excerpts(context.input.findings.get(r.support)).some((e) => e.includes(r.value)))
+      return reject("REF-003", "a command that is neither a known command nor in an excerpt");
+  }
+
+  // REF-004: the supporting finding is in support, and has evidence holding the value.
+  const resolvedReferences: ResolvedReference[] = [];
+  for (const [index, r] of declared.entries()) {
+    const finding = context.input.findings.get(r.support);
+    if (finding === undefined || !value.support.includes(r.support))
+      return reject("REF-004", `${r.support} is not in the recommendation's support`);
+    const evidenceId = holdingEvidence(r, finding, known[index] === true);
+    if (evidenceId === undefined)
+      return reject("REF-004", `no evidence of ${r.support} holds the reference`);
+    resolvedReferences.push({
+      kind: r.kind,
+      value: r.value,
+      support: r.support,
+      evidenceId,
+      verification: r.kind === "path" ? "exists_in_snapshot" : "found_not_run",
+    });
+  }
+
+  // REF-005: identifiers appear in a supporting excerpt, or a supporting decision.
+  const texts = value.support.flatMap((alias) => {
+    const decision = context.input.decisions.get(alias);
+    if (decision !== undefined) return [decision.statement, ...decision.exceptions];
+    return excerpts(context.input.findings.get(alias));
+  });
+  for (const identifier of detection.identifiers)
+    if (!texts.some((text) => text.includes(identifier.match)))
+      return reject("REF-005", "an identifier not in the support");
+
+  return accept({ ...value, resolvedReferences });
+};
+
 // --- Held-back entries ------------------------------------------------------------------------
 
 const blockedByCheck: ItemCheck<HeldBack, RecommendContext> = (value, context, response) => {
@@ -543,6 +684,7 @@ export const recommendValidator: CallValidator<Response, RecommendContext, Items
         evidenceCheck,
         directiveCheck,
         dependencyCheck,
+        referenceCheck,
         scopeCheck(),
       ],
     },

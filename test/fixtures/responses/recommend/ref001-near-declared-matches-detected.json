@@ -1,0 +1,70 @@
+{
+  "description": "Accepted: `./scripts/build.sh` declared as a path, `./scripts/build.sh --fast` declared as a command found in F-19's excerpt, a bare README.md declared as a path, a path in inline code declared once, and `gofmt -w .` in a fence detecting nothing.",
+  "section": "IMPL §3.3.5 step 7 (REF-001, REF-003), §3.4 (a runner-prefixed span with no whitespace is a path when path-like; bare text excludes inline code; runners are whole words), §3.8",
+  "nearMissOf": "ref001-declared-and-detected-disagree.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Release builds come from `./scripts/build.sh`.",
+        "rationale": "The contributing guide names the script.",
+        "support": ["F-19"],
+        "references": [{ "kind": "path", "value": "./scripts/build.sh", "support": "F-19" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Release builds run `./scripts/build.sh --fast`.",
+        "rationale": "The contributing guide gives the command.",
+        "support": ["F-19"],
+        "references": [{ "kind": "command", "value": "./scripts/build.sh --fast", "support": "F-19" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The overview is in README.md.",
+        "rationale": "The README describes the API.",
+        "support": ["F-20"],
+        "references": [{ "kind": "path", "value": "README.md", "support": "F-20" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r4",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "`src/api/client.ts` exports the `request` helper.",
+        "rationale": "Observed in the client module.",
+        "support": ["F-9"],
+        "references": [{ "kind": "path", "value": "src/api/client.ts", "support": "F-9" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r5",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The fmt recipe formats the code:\n\n```sh\ngofmt -w .\n```",
+        "rationale": "The justfile defines the recipe.",
+        "support": ["F-4"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1", "r2", "r3", "r4", "r5"], "heldBack": [], "noChangeReason": [] }
+  }
+}

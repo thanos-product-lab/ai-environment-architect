@@ -129,7 +129,7 @@ The export (IMPL §4.10) is specified here and built in M8.
 - [ ] Claude API adapter: structured outputs, usage, cost basis, requested and returned model. The adapter sends the generated JSON Schema (IMPL §3.7) unchanged as `output_config.format`, never through the SDK's schema helpers.
 - [ ] Token check and reduction order. `/implement-spec IMPL 1.10`
 - [ ] Retry and failure policy. `/implement-spec IMPL 3.6`
-- [ ] Prompts, version 1, for all five calls (IMPL §3.7). The published package includes `prompts/`, and the CLI loads prompts relative to its install location, not the working directory.
+- [ ] Prompts, version 1, for all five calls (IMPL §3.7). The published package includes `prompts/`, and the CLI loads prompts relative to its install location, not the working directory. The `recommend` prompt tells the model to put every command and path in inline code: a plain-text command runs to the end of its clause, so `REF-003` accepts its arguments only from code (IMPL §3.3.5).
 - [ ] Expansion protocol. `/implement-spec IMPL 1.8`
 - [ ] Generation budget enforcement.
 - [ ] Manual live runs on each development repository. Record acceptance, correction and rejection rates by rule, and revise prompts with new versions.
@@ -194,3 +194,4 @@ Maintenance checks for stale paths and commands; scoped rule files; a local web 
 - **1 November 2026:** the load-check step covers the record types the file schema accepts so far. The steps that add model calls, retained exchanges and the M5 records each extend the load checks for their types (IMPL v0.35).
 - **2 November 2026:** M4 is done. The core and the storage adapter are built and tested; everything that needs a command moves to explicit M7 steps: opening a session under the lock, recovery on `resume`, interruption shown read-only, the stale-lock prompt, `purge-inputs` and `delete`. Records are appended and saved only through `HeldSession`, and load check 4 puts the first `generation_config` before every model call (IMPL v0.39–v0.40).
 - **2 November 2026:** M5 started. IMPL §2.7, §2.11, §3.3.5, §3.3.6, §3.4, §3.5, §3.8, §3.9, §4.4, §4.9, §4.11 and §4.12 and DM §7, §9–§12 and §17–§18 were reconciled with M1–M4 (IMPL v0.41, DM v0.25). The M5 steps are reordered by dependency: assembly comes before `recommend` validation, which assembles each recommendation alone, and each rule's fixtures are written in the step that builds it, with a closing audit. M7 gains an explicit "regenerate recommendations" action.
+- **3 November 2026:** M6's prompts step notes that the `recommend` prompt asks for commands and paths in inline code, because `REF-003` fails closed for plain-text commands (IMPL v0.46).

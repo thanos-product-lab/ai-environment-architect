@@ -1,0 +1,59 @@
+{
+  "description": "Accepted: the known command with F-6 in the support, `docs/testing.md` supported by F-10 whose lines evidence is that file, the test file supported by F-24, and `src/api/` with lines evidence under it.",
+  "section": "IMPL §3.3.5 step 7 (REF-004: lines or entry evidence whose path is the normalised path or lies under it)",
+  "nearMissOf": "ref004-evidence-does-not-hold-value.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The suite runs with `pnpm test`.",
+        "rationale": "The manifest defines the test script.",
+        "support": ["F-20", "F-6"],
+        "references": [{ "kind": "command", "value": "pnpm test", "support": "F-6" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The testing guide is `docs/testing.md`.",
+        "rationale": "The guide describes coverage runs.",
+        "support": ["F-10"],
+        "references": [{ "kind": "path", "value": "docs/testing.md", "support": "F-10" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "`src/api/client.test.ts` covers the client.",
+        "rationale": "The test file imports the client.",
+        "support": ["F-24"],
+        "references": [{ "kind": "path", "value": "src/api/client.test.ts", "support": "F-24" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r4",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "`src/api/` holds the HTTP client.",
+        "rationale": "The client module is there.",
+        "support": ["F-9"],
+        "references": [{ "kind": "path", "value": "src/api/", "support": "F-9" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1", "r2", "r3", "r4"], "heldBack": [], "noChangeReason": [] }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "description": "In prose, a comma ends the clause, so `pnpm test,` gives exactly `pnpm test`, a known command, and is accepted; in inline code, `pnpm test --watch` is a known command with arguments, also accepted.",
+  "section": "IMPL §3.3.5 step 7 (REF-001, REF-003), §3.4 (bare text commands)",
+  "nearMissOf": "ref001-prose-command-runs-to-end-of-clause.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The suite runs with pnpm test, before each push.",
+        "rationale": "The manifest defines the test script.",
+        "support": ["F-6"],
+        "references": [{ "kind": "command", "value": "pnpm test", "support": "F-6" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Watch mode runs with `pnpm test --watch`.",
+        "rationale": "The manifest defines the test script.",
+        "support": ["F-6"],
+        "references": [{ "kind": "command", "value": "pnpm test --watch", "support": "F-6" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1", "r2"], "heldBack": [], "noChangeReason": [] }
+  }
+}

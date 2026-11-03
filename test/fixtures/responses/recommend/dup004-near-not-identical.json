@@ -1,0 +1,81 @@
+{
+  "description": "Accepted: the same content after another block, two revisions of B-2 with different content, and an identical copy of a recommendation that the item stage rejected for an undeclared command.",
+  "section": "IMPL §3.3.5 step 9 (DUP-004), §3.3.5 (two recommendations targeting the same block are allowed), §3.5 (cross-item checks run only on items that passed)",
+  "nearMissOf": "dup004-identical-recommendations.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Tests sit next to their source files.",
+        "rationale": "The testing guide says so.",
+        "support": ["F-23"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-8" },
+        "content": "Tests sit next to their source files.",
+        "rationale": "The testing guide says so.",
+        "support": ["F-23"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "fact",
+        "operation": "revise",
+        "target": { "kind": "block", "block": "B-2" },
+        "content": "This service exposes a small HTTP API for widgets.",
+        "rationale": "Adds detail.",
+        "support": ["F-20"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r4",
+        "kind": "fact",
+        "operation": "revise",
+        "target": { "kind": "block", "block": "B-2" },
+        "content": "This service exposes a small HTTP API for the widget store.",
+        "rationale": "Matches the README.",
+        "support": ["F-20"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r5",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-5" },
+        "content": "- The suite runs with `pnpm test`.",
+        "rationale": "The manifest defines the test script.",
+        "support": ["F-6"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r6",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-5" },
+        "content": "- The suite runs with `pnpm test`.",
+        "rationale": "The manifest defines the test script.",
+        "support": ["F-6"],
+        "references": [{ "kind": "command", "value": "pnpm test", "support": "F-6" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [{ "itemKey": "r5", "stage": "item", "rule": "REF-001", "outcome": "rejected" }],
+    "accepted": { "recommendations": ["r1", "r2", "r3", "r4", "r6"], "heldBack": [], "noChangeReason": [] }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "description": "`pnpm exec vitest --coverage` is no known command, but it appears as written in the excerpt of its supporting finding F-10, so it is accepted.",
+  "section": "IMPL §3.3.5 step 7 (REF-003: or appear, as written, in an excerpt of that finding; REF-004), §3.8",
+  "nearMissOf": "ref003-commands-not-known.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-5" },
+        "content": "- Coverage runs with `pnpm exec vitest --coverage`.",
+        "rationale": "The testing guide gives the command.",
+        "support": ["F-10"],
+        "references": [{ "kind": "command", "value": "pnpm exec vitest --coverage", "support": "F-10" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1"], "heldBack": [], "noChangeReason": [] }
+  }
+}
