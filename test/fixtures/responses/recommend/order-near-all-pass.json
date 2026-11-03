@@ -1,0 +1,56 @@
+{
+  "description": "With the failing items of the ordering case corrected (a decision for the gap, a distinct second recommendation, open blockers, no noChangeReason), every item is accepted and there are no events.",
+  "section": "IMPL §3.5 (event ordering), §3.3.5 steps 9-11",
+  "nearMissOf": "order-item-then-cross-item.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "New HTTP calls go through the shared client.",
+        "rationale": "The developer confirmed the rule.",
+        "support": ["D-1"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Tests sit next to their source files.",
+        "rationale": "The testing guide says so.",
+        "support": ["F-23"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-8" },
+        "content": "Tests sit next to their source files.",
+        "rationale": "The testing guide says so.",
+        "support": ["F-23"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": [
+      { "topic": "Which port the API listens on", "blockedBy": ["Q-1"] },
+      { "topic": "How the server port is configured", "blockedBy": ["Q-2"] },
+      { "topic": "How database migrations run", "blockedBy": ["Q-4"] }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": {
+      "recommendations": ["r1", "r2", "r3"],
+      "heldBack": ["heldBack/0", "heldBack/1", "heldBack/2"],
+      "noChangeReason": []
+    }
+  }
+}

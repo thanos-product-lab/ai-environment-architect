@@ -1,0 +1,39 @@
+{
+  "description": "Revisions of the list item B-4 (marker `-`, no indentation) with a `*` marker and with two spaces of indentation are rejected.",
+  "section": "IMPL §3.3.5 step 3 (REC-003: same listMarker, indentation and marker exactly), DM §7, §3.8",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "revise",
+        "target": { "kind": "block", "block": "B-4" },
+        "content": "* Install dependencies with `pnpm install`.",
+        "rationale": "Clearer wording.",
+        "support": ["F-14", "F-6"],
+        "references": [{ "kind": "command", "value": "pnpm install", "support": "F-14" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "revise",
+        "target": { "kind": "block", "block": "B-4" },
+        "content": "  - Install dependencies with `pnpm install`.",
+        "rationale": "Clearer wording.",
+        "support": ["F-14", "F-6"],
+        "references": [{ "kind": "command", "value": "pnpm install", "support": "F-14" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "REC-003", "outcome": "rejected" },
+      { "itemKey": "r2", "stage": "item", "rule": "REC-003", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

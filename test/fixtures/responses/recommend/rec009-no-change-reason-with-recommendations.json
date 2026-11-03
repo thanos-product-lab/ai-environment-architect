@@ -1,0 +1,26 @@
+{
+  "description": "A noChangeReason next to a valid recommendation is rejected at the cross-item stage, last, and the recommendation is kept.",
+  "section": "IMPL §3.3.5 step 11 (REC-009), §3.5 (noChangeReason is named noChangeReason), §4.4.3, §3.8",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Tests sit next to their source files.",
+        "rationale": "The testing guide says so.",
+        "support": ["F-23"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": [],
+    "noChangeReason": "The existing guide already covers the essentials."
+  },
+  "expect": {
+    "status": "validated",
+    "events": [{ "itemKey": "noChangeReason", "stage": "cross_item", "rule": "REC-009", "outcome": "rejected" }],
+    "accepted": { "recommendations": ["r1"], "heldBack": [], "noChangeReason": [] }
+  }
+}

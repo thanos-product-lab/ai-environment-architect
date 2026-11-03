@@ -1,0 +1,26 @@
+{
+  "description": "A fenced code block added after B-5 stays a separate block when assembled, and its fenced line is a declared known command, so it is accepted.",
+  "section": "IMPL §3.3.5 steps 3 and 7 (REC-003, REF-001), §3.4 fenced code blocks",
+  "nearMissOf": "rec003-indented-code-after-list-item.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-5" },
+        "content": "```sh\npnpm test\n```",
+        "rationale": "Shows the test command.",
+        "support": ["F-6"],
+        "references": [{ "kind": "command", "value": "pnpm test", "support": "F-6" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1"], "heldBack": [], "noChangeReason": [] }
+  }
+}

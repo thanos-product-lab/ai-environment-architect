@@ -1,0 +1,51 @@
+{
+  "description": "A fact citing the prescriptive F-11, a fact citing the gap F-16, and a policy citing D-1 and the gap F-16 are rejected: no recommendation of either kind may cite a gap.",
+  "section": "IMPL §3.3.5 step 4 (REC-006), §3.8",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Contributors lint before pushing.",
+        "rationale": "The contributing guide describes it.",
+        "support": ["F-11"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Database migrations have no command yet.",
+        "rationale": "No migration command was found.",
+        "support": ["F-16"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Ask before adding a migration command.",
+        "rationale": "No migration command is known.",
+        "support": ["D-1", "F-16"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "REC-006", "outcome": "rejected" },
+      { "itemKey": "r2", "stage": "item", "rule": "REC-006", "outcome": "rejected" },
+      { "itemKey": "r3", "stage": "item", "rule": "REC-006", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

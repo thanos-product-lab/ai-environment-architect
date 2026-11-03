@@ -1,0 +1,75 @@
+{
+  "description": "Recommendations that depend on unresolved matters are rejected: support resolved only by the skipped Q-1, only by the unreached Q-2, by two different skipped or unreached questions, a policy with D-1 whose F-12 is in the unresolved C-1, and a fact citing C-1's other member F-13.",
+  "section": "IMPL §3.3.5 step 6 (REC-008), DM §8.1, §3.8 (a recommendation depending on a skipped question)",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The API listens on port 8080.",
+        "rationale": "The README states the port.",
+        "support": ["F-21"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The server reads `PORT` from the environment.",
+        "rationale": "The entry point reads it.",
+        "support": ["F-22"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The server reads `PORT` and falls back to port 8080.",
+        "rationale": "The README and the entry point agree.",
+        "support": ["F-21", "F-22"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r4",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "New HTTP calls go through `src/api/client.ts`.",
+        "rationale": "The developer confirmed the client rule, and the guide names the file.",
+        "support": ["D-1", "F-12"],
+        "references": [{ "kind": "path", "value": "src/api/client.ts", "support": "F-12" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r5",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "`src/index.ts` calls `fetch` directly.",
+        "rationale": "Observed in the entry point.",
+        "support": ["F-13"],
+        "references": [{ "kind": "path", "value": "src/index.ts", "support": "F-13" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "REC-008", "outcome": "rejected" },
+      { "itemKey": "r2", "stage": "item", "rule": "REC-008", "outcome": "rejected" },
+      { "itemKey": "r3", "stage": "item", "rule": "REC-008", "outcome": "rejected" },
+      { "itemKey": "r4", "stage": "item", "rule": "REC-008", "outcome": "rejected" },
+      { "itemKey": "r5", "stage": "item", "rule": "REC-008", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

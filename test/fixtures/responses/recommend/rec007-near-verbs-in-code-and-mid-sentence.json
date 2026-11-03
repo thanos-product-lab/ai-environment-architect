@@ -1,0 +1,70 @@
+{
+  "description": "Facts are accepted when the imperative or directive words are inside an inline code span, at the start of a sentence that begins with a code span, inside a fenced block, mid-sentence, or inflected (uses, requires).",
+  "section": "IMPL §3.3.5 step 5 (REC-007: code not checked, a sentence beginning with a code span begins with no verb, inflections don't match), §3.8",
+  "nearMissOf": "rec007-imperative-sentence-starts.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The CI workflow has a step named `Run tests`.",
+        "rationale": "The workflow file names the step.",
+        "support": ["F-25"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "`Run tests` is the name of the CI step.",
+        "rationale": "The workflow file names the step.",
+        "support": ["F-25"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The suite runs from the repository root:\n\n```sh\n# Always run from the root\npnpm test\n```",
+        "rationale": "The manifest defines the test script.",
+        "support": ["F-6"],
+        "references": [{ "kind": "command", "value": "pnpm test", "support": "F-6" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r4",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Tests in `src/` are run by Vitest, which the test script uses instead of Jest.",
+        "rationale": "A test file sits in the source tree, and the manifest runs Vitest.",
+        "support": ["F-24", "F-6"],
+        "references": [{ "kind": "path", "value": "src/", "support": "F-24" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r5",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Linting requires the Biome binary.",
+        "rationale": "The lint script calls Biome.",
+        "support": ["F-7"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1", "r2", "r3", "r4", "r5"], "heldBack": [], "noChangeReason": [] }
+  }
+}

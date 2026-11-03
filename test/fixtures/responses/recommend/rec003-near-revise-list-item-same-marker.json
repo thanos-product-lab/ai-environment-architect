@@ -1,0 +1,26 @@
+{
+  "description": "A revision of B-4 with the same `-` marker and no indentation is accepted; `pnpm install` is not a known command but appears as written in F-14's excerpt.",
+  "section": "IMPL §3.3.5 steps 3 and 7 (REC-003, REF-003), §3.8",
+  "nearMissOf": "rec003-revise-list-item-other-marker-or-indent.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "revise",
+        "target": { "kind": "block", "block": "B-4" },
+        "content": "- Install dependencies with `pnpm install`.",
+        "rationale": "Clearer wording.",
+        "support": ["F-14", "F-6"],
+        "references": [{ "kind": "command", "value": "pnpm install", "support": "F-14" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1"], "heldBack": [], "noChangeReason": [] }
+  }
+}

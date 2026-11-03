@@ -1,0 +1,26 @@
+{
+  "description": "An addition after B-2 of five blocks (two paragraphs, two list items, a paragraph) and no heading is accepted.",
+  "section": "IMPL §3.3.5 step 3 (REC-003: one to five blocks)",
+  "nearMissOf": "rec003-add-heading-or-too-many-blocks.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The API is small.\n\nIt serves widgets.\n\n- Widgets have names.\n- Widgets have prices.\n\nPrices are in cents.",
+        "rationale": "Describes the API.",
+        "support": ["F-20"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1"], "heldBack": [], "noChangeReason": [] }
+  }
+}

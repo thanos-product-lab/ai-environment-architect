@@ -1,0 +1,18 @@
+{
+  "description": "Held-back entries blocked by the skipped Q-1, the unreached Q-2, and the unresolved C-1 with the skipped Q-4 are accepted.",
+  "section": "IMPL §3.3.5 step 10 (HELD-001)",
+  "nearMissOf": "held001-blockers-not-open.json",
+  "response": {
+    "recommendations": [],
+    "heldBack": [
+      { "topic": "Which port the API listens on", "blockedBy": ["Q-1"] },
+      { "topic": "How the server port is configured", "blockedBy": ["Q-2"] },
+      { "topic": "Whether new HTTP calls go through the shared client", "blockedBy": ["C-1", "Q-4"] }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": [], "heldBack": ["heldBack/0", "heldBack/1", "heldBack/2"], "noChangeReason": [] }
+  }
+}

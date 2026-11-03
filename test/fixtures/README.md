@@ -53,7 +53,7 @@ Recorded model responses, one directory per call (IMPL §3.7). Each call directo
 
 ## `responses/`: call validation cases
 
-Whole-call item validation cases for `analyse`, `analyse_expansion` and `generate_questions` (IMPL §1.8, §1.11, §3.2.1–§3.2.3, §3.3.2–§3.3.4, §3.5): each case runs one complete recorded response through the call's validation sequence, item and cross-item stages together, and checks every event, every accepted item and the call-level results. They cover `LIMIT-002`, `EXP-001` to `EXP-005`, `DUP-001` to `DUP-003`, `CONF-001`, `REV-001` to `REV-003`, `Q-001`, replacement kinds (`ALIAS-003`), call-1 conflict outcomes, content notices, ranking and the corrected-citation rate. Rules with their own fixture directories (`CIT-*`, `SUP-*`, `SCOPE-*`, `GAP-*`, `ABS-*`) appear only where they interact with these.
+Whole-call item validation cases for `analyse`, `analyse_expansion`, `generate_questions` and `recommend` (IMPL §1.8, §1.11, §3.2.1–§3.2.3, §3.3.2–§3.3.5, §3.5): each case runs one complete recorded response through the call's validation sequence, item and cross-item stages together, and checks every event, every accepted item and the call-level results. They cover `LIMIT-002`, `EXP-001` to `EXP-005`, `DUP-001` to `DUP-003`, `CONF-001`, `REV-001` to `REV-003`, `Q-001`, `REC-001` to `REC-010`, `REF-001` to `REF-005`, `DUP-004`, `HELD-001`, replacement kinds (`ALIAS-003`), call-1 conflict outcomes, content notices, ranking and the corrected-citation rate. Rules with their own fixture directories (`CIT-*`, `SUP-*`, `SCOPE-*`, `GAP-*`, `ABS-*`) appear only where they interact with these.
 
 ### Contexts
 
@@ -73,6 +73,16 @@ The other `analyse` contexts are `context-limit2.json` (`maxExpansionRequests` 2
 `analyse_expansion/context.json` has the same fields, with expansion items `E-1` (lines 7–12 of `src/client.ts`) and `E-2` (lines 1–3 of the outline-only `src/util.ts`), plus `findings` (the call-1 records `F-2` to `F-6`, with their evidence paths; the known fact `F-1` stays in `knownFacts`). A record is a model claim unless it says otherwise: `kind` may be `gap` (with `statement`, `gapType` and `relatedPaths`) or `absenceClaim` (with `pathGlob`), and `producedBy` may be `deterministic`; together they are the call's required call-1 records (IMPL §3.3.3) and `conflicts` (the call-1 conflicts `C-1` to `C-3` with their members).
 
 `generate_questions/context.json` has `files`, `userExclusions` and `ignoreRules` for `SCOPE-001`; `findings`, each with `alias`, `kind` (`claim` or `gap`), `basis` (a set; a gap's may be `[]`) and, for gaps, `gapType`; `conflicts` with members and `status` (`unresolved` or `resolved`); `blocks`; and `questionBudget`.
+
+`recommend/context.json` has `files`, `userExclusions` and `ignoreRules`, for `SCOPE-001` and `REF-002`, and:
+
+- `destination`: `{ "state": "absent" }`, or `{ "state": "present", "text": "…" }`, the destination's exact text. Code parses it (DM §7); its blocks are `B-1`, `B-2`, … in document order. A case that needs a destination whose round trip failed builds it in a unit test, since valid text always parses;
+- `findings`: the input `F` records, each with `alias`, `kind` (`claim`, `gap` or `absence`), `mode` for claims, `basis` (a set), `current` (default `true`; `false` for a finding withdrawn, superseded, corrected or of an earlier snapshot, for `REC-001`), `evidence` in the finding's order (`{ "kind": "lines", "path", "excerpt" }`, `{ "kind": "entry", "path" }` or `{ "kind": "absence_check" }`), and for a command known fact `command`: `{ "file", "name" }`, `file` being the manifest's path, such as `package.json` or `packages/a/pyproject.toml`. Evidence IDs are `ev-<alias>-<n>`, from 1;
+- `decisions`: `D` records with `statement`, `exceptions` (a list of strings) and `current`;
+- `conflicts`: `C` records with `members` (`F` aliases) and `status` (`unresolved` or `resolved`);
+- `questions`: `Q` records with `status` (`open`, `answered`, `skipped` or `unreached`) and `resolves` (`F` and `C` aliases).
+
+Its `accepted` lists `recommendations` by local key, `heldBack` by `heldBack/<index>`, and `noChangeReason` as `noChangeReason`.
 
 A path holding `{{aws-access-key-id}}` is withheld by the secret scan: tests replace the placeholder, in contexts and responses, with AWS's documented example key ID, as in `support/`.
 
@@ -94,6 +104,6 @@ Every other file is one case:
   - `conflictOutcomes` (`analyse_expansion`): the call-1 conflicts whose status changes because of carried members, in alias order, with `status` and `withdrawnReason` (`member_withdrawn`, `members_merged` or `sources_not_distinct`); `revisedConflicts`, optional, the call-1 conflicts revised with new members, `{ "alias", "status": "revised", "members" }`. A call-1 conflict withdrawn or replaced by a revision is listed in `accepted.revisions`, not here;
   - `presented` and `unreached` (`generate_questions`): question keys in ranked order.
 
-Files are named `<rule>-<description>.json` after the rule that must reject them, and near misses `<rule>-near-<description>.json`. Cases about the corrected-citation rate start with `rate-`, cases about call-1 conflict outcomes with `outcome-`, cases about content notices that must be accepted with `notice-near-`, and cases about question ranking with `ranking-`.
+Files are named `<rule>-<description>.json` after the rule that must reject them, and near misses `<rule>-near-<description>.json`. Cases about the corrected-citation rate start with `rate-`, cases about call-1 conflict outcomes with `outcome-`, cases about content notices that must be accepted with `notice-near-`, cases about question ranking with `ranking-`, and cases about the order of `recommend`'s events across stages with `order-`.
 
 `test/call-fixtures.test.ts` runs every case twice, with the context's inputs listed in two orders, and requires the same result. Validation returns an outcome for every call-1 conflict (`kept`, `revised`, `replaced` or `withdrawn`). `conflictOutcomes` is compared with the conflicts withdrawn because their members changed, and `revisedConflicts`, when present, with the revised ones; a conflict the model withdraws or replaces itself shows in `accepted.revisions`, and the full list is covered by the unit tests in `src/core/validation/analyse-expansion.test.ts`.

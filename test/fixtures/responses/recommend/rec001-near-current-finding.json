@@ -1,0 +1,26 @@
+{
+  "description": "The same kind of fact supported by the current documented finding F-19 is accepted.",
+  "section": "IMPL §3.3.5 step 1 (REC-001)",
+  "nearMissOf": "rec001-support-withdrawn-finding.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The release build runs from a shell script.",
+        "rationale": "The contributing guide describes the release build.",
+        "support": ["F-19"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1"], "heldBack": [], "noChangeReason": [] }
+  }
+}

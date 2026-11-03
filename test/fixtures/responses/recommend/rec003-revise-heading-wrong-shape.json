@@ -1,0 +1,63 @@
+{
+  "description": "Revisions of the level-2 heading B-3 as a level-1 heading, as two heading lines, as a heading with a paragraph and as a setext heading are all rejected.",
+  "section": "IMPL §3.3.5 step 3 (REC-003: one ATX heading line of the same level), DM §9.1 Headings, §3.8",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "revise",
+        "target": { "kind": "block", "block": "B-3" },
+        "content": "# Commands and tasks",
+        "rationale": "The section covers tasks too.",
+        "support": ["F-7"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "revise",
+        "target": { "kind": "block", "block": "B-3" },
+        "content": "## Commands\n## Tasks",
+        "rationale": "The section covers tasks too.",
+        "support": ["F-7"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "fact",
+        "operation": "revise",
+        "target": { "kind": "block", "block": "B-3" },
+        "content": "## Commands\n\nThe scripts live in the package manifest.",
+        "rationale": "The section covers tasks too.",
+        "support": ["F-7"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r4",
+        "kind": "fact",
+        "operation": "revise",
+        "target": { "kind": "block", "block": "B-3" },
+        "content": "Commands and tasks\n------------------",
+        "rationale": "The section covers tasks too.",
+        "support": ["F-7"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "REC-003", "outcome": "rejected" },
+      { "itemKey": "r2", "stage": "item", "rule": "REC-003", "outcome": "rejected" },
+      { "itemKey": "r3", "stage": "item", "rule": "REC-003", "outcome": "rejected" },
+      { "itemKey": "r4", "stage": "item", "rule": "REC-003", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

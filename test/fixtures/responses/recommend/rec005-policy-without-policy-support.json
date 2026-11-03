@@ -1,0 +1,39 @@
+{
+  "description": "A policy built on a code observation (F-9), and one built on documentation that is part of the unresolved conflict C-1 (F-12), are rejected.",
+  "section": "IMPL §3.3.5 step 4 (REC-005), DM §6.4, §3.8 (a policy labelled as fact's counterpart: an observation presented as policy)",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Route every request through the `request` helper.",
+        "rationale": "The client module exports a helper, so it is the convention.",
+        "support": ["F-9"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "New HTTP calls go through `src/api/client.ts`.",
+        "rationale": "The contributing guide requires it.",
+        "support": ["F-12"],
+        "references": [{ "kind": "path", "value": "src/api/client.ts", "support": "F-12" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "REC-005", "outcome": "rejected" },
+      { "itemKey": "r2", "stage": "item", "rule": "REC-005", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

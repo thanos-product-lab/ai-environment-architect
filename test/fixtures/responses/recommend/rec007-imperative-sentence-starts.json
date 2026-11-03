@@ -1,0 +1,111 @@
+{
+  "description": "Facts with a sentence beginning with an imperative verb are rejected: at the start of the text, after a list marker, after heading marks, after `.`, `!` and `?`, after leading emphasis, and in a list item's continuation paragraph.",
+  "section": "IMPL §3.3.5 step 5 (REC-007 sentence boundaries), §3.8",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Use the `request` helper for HTTP calls.",
+        "rationale": "The client module exports it.",
+        "support": ["F-9"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-5" },
+        "content": "- Run `pnpm test` before pushing.",
+        "rationale": "The manifest defines the test script.",
+        "support": ["F-6"],
+        "references": [{ "kind": "command", "value": "pnpm test", "support": "F-6" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "fact",
+        "operation": "revise",
+        "target": { "kind": "block", "block": "B-3" },
+        "content": "## Avoid global installs",
+        "rationale": "The commands are project scripts.",
+        "support": ["F-14", "F-6"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r4",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Tests sit next to their source files. Avoid separate test folders.",
+        "rationale": "The testing guide describes the layout.",
+        "support": ["F-23"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r5",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The suite is fast! Avoid skipping it.",
+        "rationale": "The manifest defines the test script.",
+        "support": ["F-6"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r6",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Is the suite slow? Run the watch mode.",
+        "rationale": "The manifest defines the test script.",
+        "support": ["F-6"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r7",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "**Use** the `request` helper for HTTP calls.",
+        "rationale": "The client module exports it.",
+        "support": ["F-9"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r8",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-5" },
+        "content": "- The suite is quick.\n\n  Run it before each push.",
+        "rationale": "The manifest defines the test script.",
+        "support": ["F-6"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "REC-007", "outcome": "rejected" },
+      { "itemKey": "r2", "stage": "item", "rule": "REC-007", "outcome": "rejected" },
+      { "itemKey": "r3", "stage": "item", "rule": "REC-007", "outcome": "rejected" },
+      { "itemKey": "r4", "stage": "item", "rule": "REC-007", "outcome": "rejected" },
+      { "itemKey": "r5", "stage": "item", "rule": "REC-007", "outcome": "rejected" },
+      { "itemKey": "r6", "stage": "item", "rule": "REC-007", "outcome": "rejected" },
+      { "itemKey": "r7", "stage": "item", "rule": "REC-007", "outcome": "rejected" },
+      { "itemKey": "r8", "stage": "item", "rule": "REC-007", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

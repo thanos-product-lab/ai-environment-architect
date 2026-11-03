@@ -1,0 +1,62 @@
+{
+  "description": "Of two recommendations with the same operation, target and content, the second is rejected; it still is when it differs only by CRLF line endings or by kind and support.",
+  "section": "IMPL §3.3.5 step 9 (DUP-004: same operation, target after alias resolution, and content after line-ending conversion), §3.8",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Tests sit next to their source files.\n\nThe suite runs with Vitest.",
+        "rationale": "The testing guide says so.",
+        "support": ["F-23"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Tests sit next to their source files.\n\nThe suite runs with Vitest.",
+        "rationale": "Repeated for emphasis.",
+        "support": ["F-23"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Tests sit next to their source files.\r\n\r\nThe suite runs with Vitest.",
+        "rationale": "Same text, other line endings.",
+        "support": ["F-23"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r4",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Tests sit next to their source files.\n\nThe suite runs with Vitest.",
+        "rationale": "Same text as a policy.",
+        "support": ["D-1"],
+        "references": [],
+        "scope": { "kind": "paths", "paths": ["src"] }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r2", "stage": "cross_item", "rule": "DUP-004", "outcome": "rejected" },
+      { "itemKey": "r3", "stage": "cross_item", "rule": "DUP-004", "outcome": "rejected" },
+      { "itemKey": "r4", "stage": "cross_item", "rule": "DUP-004", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": ["r1"], "heldBack": [], "noChangeReason": [] }
+  }
+}

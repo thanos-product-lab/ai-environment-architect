@@ -1,0 +1,26 @@
+{
+  "description": "The same rejected recommendation with no noChangeReason gives only its REC-006 event; nothing is accepted and no REC-009 event is raised.",
+  "section": "IMPL §3.3.5 step 11 (REC-009 only when noChangeReason is present), §3.6 (every item rejected)",
+  "nearMissOf": "rec009-no-change-reason-after-all-rejected.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Database migrations have no command yet.",
+        "rationale": "No migration command was found.",
+        "support": ["F-16"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [{ "itemKey": "r1", "stage": "item", "rule": "REC-006", "outcome": "rejected" }],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

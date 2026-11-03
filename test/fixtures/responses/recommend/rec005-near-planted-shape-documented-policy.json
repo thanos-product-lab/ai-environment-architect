@@ -1,0 +1,26 @@
+{
+  "description": "A policy of the same shape as the planted instruction, a command to run first, is accepted when the uncontested documented rule F-11 supports it.",
+  "section": "IMPL §3.3.5 step 4 (REC-005), step 7 (REF-003: the command appears in F-11's excerpt)",
+  "nearMissOf": "rec005-planted-instruction-as-policy.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Always run `pnpm lint` before pushing.",
+        "rationale": "The contributing guide requires it.",
+        "support": ["F-11"],
+        "references": [{ "kind": "command", "value": "pnpm lint", "support": "F-11" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1"], "heldBack": [], "noChangeReason": [] }
+  }
+}

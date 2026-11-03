@@ -1,0 +1,37 @@
+{
+  "description": "A `-` item after B-5 and a `7.` item after B-8 (numbers aren't checked) are accepted.",
+  "section": "IMPL §3.3.5 step 3 (REC-003: numbers aren't checked)",
+  "nearMissOf": "rec003-list-items-that-do-not-continue-the-list.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-5" },
+        "content": "- The test script runs the suite.",
+        "rationale": "The commands list lacks the test script.",
+        "support": ["F-6"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-8" },
+        "content": "7. Route new HTTP calls through the shared client.",
+        "rationale": "The developer confirmed this.",
+        "support": ["D-1"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1", "r2"], "heldBack": [], "noChangeReason": [] }
+  }
+}

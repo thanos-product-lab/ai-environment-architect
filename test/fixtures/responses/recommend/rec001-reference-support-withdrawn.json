@@ -1,0 +1,25 @@
+{
+  "description": "A path reference whose support names the withdrawn F-18 is rejected, although the recommendation's own support is current.",
+  "section": "IMPL §3.3.5 step 1 (REC-001: the same holds for each reference's support), §3.8",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The release build lives in `scripts/build.sh`.",
+        "rationale": "The contributing guide and the script itself show it.",
+        "support": ["F-19"],
+        "references": [{ "kind": "path", "value": "scripts/build.sh", "support": "F-18" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [{ "itemKey": "r1", "stage": "item", "rule": "REC-001", "outcome": "rejected" }],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

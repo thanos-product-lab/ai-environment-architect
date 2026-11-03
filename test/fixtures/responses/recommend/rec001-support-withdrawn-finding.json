@@ -1,0 +1,25 @@
+{
+  "description": "A fact supported only by F-18, a finding that is no longer current, is rejected.",
+  "section": "IMPL §3.3.5 step 1 (REC-001), §4.4.2",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The release build calls the TypeScript compiler.",
+        "rationale": "The build script was observed calling the compiler.",
+        "support": ["F-18"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [{ "itemKey": "r1", "stage": "item", "rule": "REC-001", "outcome": "rejected" }],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

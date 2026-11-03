@@ -331,10 +331,14 @@ function sameBlocks(a: readonly ExpectedBlock[], b: readonly ExpectedBlock[]): b
 
 const ATX = /^ {0,3}(#{1,6})(?=[ \t]|$)/;
 
-/** A heading's level: its number of `#`, or 1 for a setext `=` underline and 2 for `-`. */
 function headingLevel(file: File, index: number): number {
-  const { start, end } = (file.blocks[index] as GuidanceBlock).sourceSpan;
-  const text = Buffer.from(file.bytes.subarray(start, end)).toString("latin1");
+  return blockHeadingLevel(file.bytes, file.blocks[index] as GuidanceBlock);
+}
+
+/** A heading's level: its number of `#`, or 1 for a setext `=` underline and 2 for `-`. */
+export function blockHeadingLevel(bytes: Uint8Array, block: GuidanceBlock): number {
+  const { start, end } = block.sourceSpan;
+  const text = Buffer.from(bytes.subarray(start, end)).toString("latin1");
   const atx = ATX.exec(text);
   if (atx !== null) return (atx[1] ?? "").length;
   const underline = text.split(/\r\n|\r|\n/).at(-1) ?? "";

@@ -1,0 +1,26 @@
+{
+  "description": "A newSection whose one-line heading has spaces around it is accepted; code trims it when rendering.",
+  "section": "IMPL §3.3.5 step 3 (REC-003), DM §9.3 step 3",
+  "nearMissOf": "rec003-new-section-bad-heading.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "newSection", "heading": "  Testing  " },
+        "content": "Tests sit next to their source files.",
+        "rationale": "The testing guide says so.",
+        "support": ["F-23"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1"], "heldBack": [], "noChangeReason": [] }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "description": "A fact citing only the decision D-2 is accepted, and its identifier `REQUEST_TIMEOUT_MS` is found only in that decision's statement.",
+  "section": "IMPL §3.3.5 steps 4 and 7 (REC-006: decisions are not findings, so a fact may cite them; REF-005), §3.8",
+  "nearMissOf": "rec006-fact-cites-prescriptive-or-gap.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Requests time out after `REQUEST_TIMEOUT_MS` milliseconds.",
+        "rationale": "The developer stated the timeout.",
+        "support": ["D-2"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1"], "heldBack": [], "noChangeReason": [] }
+  }
+}

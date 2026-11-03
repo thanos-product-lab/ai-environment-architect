@@ -1,0 +1,26 @@
+{
+  "description": "A policy supported by D-5, the current decision that superseded D-4, is accepted.",
+  "section": "IMPL §3.3.5 steps 1 and 4 (REC-001, REC-005: a current decision)",
+  "nearMissOf": "rec001-non-current-decision.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Lint runs on every branch, drafts included.",
+        "rationale": "The developer confirmed this.",
+        "support": ["D-5"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1"], "heldBack": [], "noChangeReason": [] }
+  }
+}

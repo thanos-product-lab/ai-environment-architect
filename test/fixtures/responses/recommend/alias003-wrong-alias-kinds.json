@@ -1,0 +1,56 @@
+{
+  "description": "Aliases of a kind the field doesn't accept are rejected with ALIAS-003: a conflict and a block in support, a decision as a reference's support, and a finding and a decision in blockedBy.",
+  "section": "IMPL §3.2.1 (ALIAS-003: F or D in support, F in a reference's support, Q or C in blockedBy)",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "New HTTP calls go through the shared client.",
+        "rationale": "The conflict shows the rule matters.",
+        "support": ["C-1"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The suite runs with `pnpm test`.",
+        "rationale": "The developer mentioned it.",
+        "support": ["F-6", "D-2"],
+        "references": [{ "kind": "command", "value": "pnpm test", "support": "D-2" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "fact",
+        "operation": "revise",
+        "target": { "kind": "block", "block": "B-2" },
+        "content": "This service exposes a small HTTP API for widgets.",
+        "rationale": "The existing paragraph supports itself.",
+        "support": ["B-2"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": [
+      { "topic": "Which port the API listens on", "blockedBy": ["F-21"] },
+      { "topic": "How timeouts work", "blockedBy": ["D-2"] }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "ALIAS-003", "outcome": "rejected" },
+      { "itemKey": "r2", "stage": "item", "rule": "ALIAS-003", "outcome": "rejected" },
+      { "itemKey": "r3", "stage": "item", "rule": "ALIAS-003", "outcome": "rejected" },
+      { "itemKey": "heldBack/0", "stage": "item", "rule": "ALIAS-003", "outcome": "rejected" },
+      { "itemKey": "heldBack/1", "stage": "item", "rule": "ALIAS-003", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

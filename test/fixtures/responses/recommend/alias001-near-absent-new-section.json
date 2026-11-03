@@ -1,0 +1,27 @@
+{
+  "description": "With an absent destination, a newSection without after, holding a known package.json command, is accepted.",
+  "section": "IMPL §3.3.5 steps 2-3 and 7 (REC-002, REC-003, REF-003), DM §9.3 step 2",
+  "context": "context-absent.json",
+  "nearMissOf": "alias001-absent-destination-block-targets.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "newSection", "heading": "Testing" },
+        "content": "Tests run with `npm test`.",
+        "rationale": "The manifest defines the test script.",
+        "support": ["F-1"],
+        "references": [{ "kind": "command", "value": "npm test", "support": "F-1" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1"], "heldBack": [], "noChangeReason": [] }
+  }
+}

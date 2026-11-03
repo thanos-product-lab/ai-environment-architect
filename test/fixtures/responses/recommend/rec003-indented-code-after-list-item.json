@@ -1,0 +1,25 @@
+{
+  "description": "An indented code block added after B-4, which is followed by a single line ending, would become a continuation of the list item, so assembly's check rejects it.",
+  "section": "IMPL §3.3.5 step 3 (REC-003: assembled alone, DM §9.3 step 6), §3.8",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-4" },
+        "content": "    pnpm test",
+        "rationale": "Shows the test command.",
+        "support": ["F-6"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [{ "itemKey": "r1", "stage": "item", "rule": "REC-003", "outcome": "rejected" }],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "description": "A policy that passes REC-005 through D-1 but also cites the absence claim F-17 to say the repository holds no SQL is rejected.",
+  "section": "IMPL §3.3.5 step 4 (REC-010), §1.11 (an absence claim cannot support a broader absence), §3.8",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "New HTTP calls go through the shared client, and the repository holds no SQL.",
+        "rationale": "The developer confirmed the client rule, and no SQL files were found.",
+        "support": ["D-1", "F-17"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [{ "itemKey": "r1", "stage": "item", "rule": "REC-010", "outcome": "rejected" }],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

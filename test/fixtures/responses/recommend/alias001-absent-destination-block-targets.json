@@ -1,0 +1,40 @@
+{
+  "description": "With an absent destination the table holds no B aliases, so an after target and a newSection's after naming B-1 fail ALIAS-001 before REC-002 is reached.",
+  "section": "IMPL §3.2.1 (ALIAS-001), §3.3.5 step 2 (REC-002: absent destination), §3.8",
+  "context": "context-absent.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-1" },
+        "content": "The API listens on port 8080.",
+        "rationale": "The README states the port.",
+        "support": ["F-2"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "newSection", "heading": "Service", "after": "B-1" },
+        "content": "The API listens on port 8080.",
+        "rationale": "The README states the port.",
+        "support": ["F-2"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "ALIAS-001", "outcome": "rejected" },
+      { "itemKey": "r2", "stage": "item", "rule": "ALIAS-001", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

@@ -9,7 +9,7 @@ import { comparePaths } from "../paths.js";
  * Increases with any change to what is accepted, thresholds and word lists included, and with a
  * runtime whose Unicode version changes CIT-007's or SUP-002's character classes.
  */
-export const VALIDATOR_VERSION = "validate/0.12.0";
+export const VALIDATOR_VERSION = "validate/0.13.0";
 
 /** The rule IDs this version applies. A test pins this list to `VALIDATOR_VERSION`. */
 export const RULE_IDS = [
@@ -55,6 +55,18 @@ export const RULE_IDS = [
   "REV-003",
   "Q-001",
   "EXP-006",
+  "REC-001",
+  "REC-002",
+  "REC-003",
+  "REC-004",
+  "REC-005",
+  "REC-006",
+  "REC-010",
+  "REC-007",
+  "REC-008",
+  "DUP-004",
+  "HELD-001",
+  "REC-009",
 ] as const;
 
 export type ValidationStage = "schema" | "item" | "cross_item";
@@ -144,6 +156,8 @@ export interface CollectionSpec<R, V, C> {
 export type ItemKey =
   | { readonly kind: "local"; readonly key: string }
   | { readonly kind: "alias"; readonly key: string }
+  /** An item that is not in a collection, named by its field: `noChangeReason` (§3.5). */
+  | { readonly kind: "named"; readonly key: string }
   | { readonly kind: "position" };
 
 const LOCAL_KEY = /^[a-z]{1,2}[1-9][0-9]{0,3}$/;
@@ -394,6 +408,7 @@ export function validateResponse<R, C, A>(
 function itemKey(key: ItemKey, position: string): { key: string; defines: boolean } {
   if (key.kind === "local" && LOCAL_KEY.test(key.key)) return { key: key.key, defines: true };
   if (key.kind === "alias" && ALIAS_KEY.test(key.key)) return { key: key.key, defines: false };
+  if (key.kind === "named") return { key: key.key, defines: false };
   return { key: position, defines: false };
 }
 

@@ -1,0 +1,52 @@
+{
+  "description": "Aliases missing from the call's table are rejected with ALIAS-001: an invented F-99 in support, a target B-9 past the destination's blocks, an R alias, which recommend's table never holds, and a held-back Q-9.",
+  "section": "IMPL §3.2.1 (ALIAS-001; R aliases appear in call 5 only), §3.3.5 step 1, §3.8 (unknown alias)",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Retries are handled by the shared client.",
+        "rationale": "Seen in the client.",
+        "support": ["F-99"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "revise",
+        "target": { "kind": "block", "block": "B-9" },
+        "content": "Retries are handled by the shared client.",
+        "rationale": "Seen in the client.",
+        "support": ["F-9"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Retries are handled by the shared client.",
+        "rationale": "Repeats an earlier recommendation.",
+        "support": ["R-1"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": [{ "topic": "How retries work", "blockedBy": ["Q-9"] }]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "ALIAS-001", "outcome": "rejected" },
+      { "itemKey": "r2", "stage": "item", "rule": "ALIAS-001", "outcome": "rejected" },
+      { "itemKey": "r3", "stage": "item", "rule": "ALIAS-001", "outcome": "rejected" },
+      { "itemKey": "heldBack/0", "stage": "item", "rule": "ALIAS-001", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

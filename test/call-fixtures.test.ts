@@ -6,11 +6,14 @@ import { validateAnalyse } from "../src/core/validation/analyse.js";
 import { validateAnalyseExpansion } from "../src/core/validation/analyse-expansion.js";
 import { validateGenerateQuestions } from "../src/core/validation/generate-questions.js";
 import type { Accepted, ValidationResult } from "../src/core/validation/pipeline.js";
+import { validateRecommend } from "../src/core/validation/recommend.js";
 import {
   analyseContext,
   analyseExpansionContext,
   type FixtureContext,
+  type FixtureRecommendContext,
   questionContext,
+  recommendContext,
 } from "./support/call-context.js";
 
 // Adversarial whole-call fixtures (IMPL §3.3.2–§3.3.4, §3.8), written from the spec without
@@ -19,7 +22,7 @@ import {
 // inputs in two orders, and must give the same result.
 
 const ROOT = join(import.meta.dirname, "fixtures", "responses");
-const CALLS = ["analyse", "analyse_expansion", "generate_questions"] as const;
+const CALLS = ["analyse", "analyse_expansion", "generate_questions", "recommend"] as const;
 type Call = (typeof CALLS)[number];
 
 /** A withheld name: AWS's documented example key ID, which the secret scan matches (IMPL §1.7). */
@@ -135,6 +138,13 @@ function observe(call: Call, text: string, fixture: FixtureContext, reversed: bo
             })
           : [],
     };
+  }
+  if (call === "recommend") {
+    const outcome = validateRecommend(
+      text,
+      recommendContext(fixture as unknown as FixtureRecommendContext, reversed),
+    );
+    return summary(outcome.result);
   }
   const outcome = validateGenerateQuestions(text, questionContext(fixture, reversed));
   return {

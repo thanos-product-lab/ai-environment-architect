@@ -1,0 +1,39 @@
+{
+  "description": "The paragraph B-2 revised as a list item, and as two paragraphs, is rejected: a revise is exactly one block of the target's type.",
+  "section": "IMPL §3.3.5 step 3 (REC-003)",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "revise",
+        "target": { "kind": "block", "block": "B-2" },
+        "content": "- This service exposes a small HTTP API.",
+        "rationale": "Easier to scan.",
+        "support": ["F-20"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "revise",
+        "target": { "kind": "block", "block": "B-2" },
+        "content": "This service exposes a small HTTP API.\n\nThe API serves widgets.",
+        "rationale": "Adds detail.",
+        "support": ["F-20"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "REC-003", "outcome": "rejected" },
+      { "itemKey": "r2", "stage": "item", "rule": "REC-003", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

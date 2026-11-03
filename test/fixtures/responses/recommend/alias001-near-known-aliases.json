@@ -1,0 +1,37 @@
+{
+  "description": "The same items with aliases from the table, F-9, the existing block B-2 and the unreached Q-2, are accepted.",
+  "section": "IMPL §3.2.1 (ALIAS-001)",
+  "nearMissOf": "alias001-unknown-aliases.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Retries are handled by the shared client.",
+        "rationale": "Seen in the client.",
+        "support": ["F-9"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "revise",
+        "target": { "kind": "block", "block": "B-2" },
+        "content": "This service exposes a small HTTP API with a shared client.",
+        "rationale": "Seen in the client.",
+        "support": ["F-9", "F-20"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": [{ "topic": "How the server port is configured", "blockedBy": ["Q-2"] }]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1", "r2"], "heldBack": ["heldBack/0"], "noChangeReason": [] }
+  }
+}

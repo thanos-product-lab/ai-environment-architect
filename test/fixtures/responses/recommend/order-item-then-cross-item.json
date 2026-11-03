@@ -1,0 +1,58 @@
+{
+  "description": "Events are ordered by stage: item events for recommendations then held-back entries, then cross-item events in check order, DUP-004, HELD-001, REC-009.",
+  "section": "IMPL §3.5 (event ordering), §3.3.5 steps 9-11",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Database migrations have no command yet.",
+        "rationale": "No migration command was found.",
+        "support": ["F-16"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Tests sit next to their source files.",
+        "rationale": "The testing guide says so.",
+        "support": ["F-23"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Tests sit next to their source files.",
+        "rationale": "The testing guide says so.",
+        "support": ["F-23"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": [
+      { "topic": "Which port the API listens on", "blockedBy": ["F-21"] },
+      { "topic": "Where tests live", "blockedBy": ["Q-3"] },
+      { "topic": "Which port the API listens on", "blockedBy": ["Q-1"] }
+    ],
+    "noChangeReason": "Little needs to change."
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "REC-006", "outcome": "rejected" },
+      { "itemKey": "heldBack/0", "stage": "item", "rule": "ALIAS-003", "outcome": "rejected" },
+      { "itemKey": "r3", "stage": "cross_item", "rule": "DUP-004", "outcome": "rejected" },
+      { "itemKey": "heldBack/1", "stage": "cross_item", "rule": "HELD-001", "outcome": "rejected" },
+      { "itemKey": "noChangeReason", "stage": "cross_item", "rule": "REC-009", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": ["r2"], "heldBack": ["heldBack/2"], "noChangeReason": [] }
+  }
+}

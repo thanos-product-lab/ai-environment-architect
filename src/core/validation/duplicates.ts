@@ -56,7 +56,7 @@ export interface PriorIdentity {
 
 export interface DuplicateSpec<A, C, K extends keyof A & string> {
   readonly collection: K;
-  readonly rule: "DUP-001" | "DUP-002" | "DUP-003";
+  readonly rule: "DUP-001" | "DUP-002" | "DUP-003" | "DUP-004";
   readonly identity: (value: A[K]) => string;
   /** Records the items are also compared with, before any earlier item. */
   readonly prior?: (context: C, surviving: AcceptedItems<A>) => readonly PriorIdentity[];

@@ -1,0 +1,26 @@
+{
+  "description": "A fact that only describes the planted comment in src/index.ts, without repeating its instruction, is accepted.",
+  "section": "IMPL §3.3.5 steps 5 and 7 (REC-007, REF-002, REF-004), §3.8 (instructions embedded in repository content)",
+  "nearMissOf": "rec007-planted-instruction-as-fact.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "A comment in `src/index.ts` addresses AI agents.",
+        "rationale": "Agents reading the entry point will see it.",
+        "support": ["F-27"],
+        "references": [{ "kind": "path", "value": "src/index.ts", "support": "F-27" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1"], "heldBack": [], "noChangeReason": [] }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "description": "A recommendation scoped to `./src/api/`, which names the listed directory src/api after normalisation, is accepted.",
+  "section": "IMPL §3.3.5 step 8 (SCOPE-001), §1.11 (path normalisation)",
+  "nearMissOf": "scope001-scope-paths-not-listed.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Retries are handled by the shared client.",
+        "rationale": "The client module sends the requests.",
+        "support": ["F-9"],
+        "references": [],
+        "scope": { "kind": "paths", "paths": ["./src/api/"] }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1"], "heldBack": [], "noChangeReason": [] }
+  }
+}

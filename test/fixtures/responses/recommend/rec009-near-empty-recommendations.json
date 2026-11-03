@@ -1,0 +1,15 @@
+{
+  "description": "A noChangeReason with no recommendations proposed, alongside a valid held-back entry, is accepted.",
+  "section": "IMPL §3.3.5 steps 10-11 (HELD-001, REC-009)",
+  "nearMissOf": "rec009-no-change-reason-with-recommendations.json",
+  "response": {
+    "recommendations": [],
+    "heldBack": [{ "topic": "Which port the API listens on", "blockedBy": ["Q-1"] }],
+    "noChangeReason": "The existing guide covers what the evidence supports; the port waits on a skipped question."
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": [], "heldBack": ["heldBack/0"], "noChangeReason": ["noChangeReason"] }
+  }
+}

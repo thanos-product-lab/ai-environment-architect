@@ -1,4 +1,4 @@
-import { parseGuidanceBlocks } from "../destination/guidance-blocks.js";
+import { type BlockType, parseGuidanceBlocks } from "../destination/guidance-blocks.js";
 import { barePathToken, stripTokenPunctuation } from "./support.js";
 
 // The reference detector (IMPL §3.4): finds the paths and commands that recommendation content
@@ -255,7 +255,6 @@ interface Event {
 export function detectReferences(content: string): Detection {
   const references: DetectedReference[] = [];
   const identifiers: DetectedIdentifier[] = [];
-  const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
 
   /** Bare text with no inline code or link in it: commands and path tokens, line by line. */
   const bare = (text: string, offset: number, events: Event[]): void => {
@@ -340,29 +339,42 @@ export function detectReferences(content: string): Detection {
     }
   };
 
+  walkBlocks(content, (block) => {
+    if (block.kind === "code") {
+      for (const value of fencedLines(block.lines) ?? []) {
+        const match = trim(value).replace(PROMPT, "");
+        if (match !== "" && classifySpan(match) === "command") {
+          references.push({ kind: "command", value, match });
+        }
+      }
+    } else prose(block.text);
+  });
+  return { references, identifiers };
+}
+
+/** A block of content as the detector reads it: code lines, or prose text with its type. */
+export type ContentBlock =
+  | { readonly kind: "code"; readonly lines: readonly string[] }
+  | { readonly kind: "prose"; readonly type: BlockType; readonly text: string };
+
+/**
+ * Content split into Guidance Blocks (DM §7), with a list item's content, after its marker and
+ * indentation, and a block quote's, after its `>` markers, split again the same way (§3.4).
+ */
+export function walkBlocks(content: string, visit: (block: ContentBlock) => void): void {
+  const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
   const walk = (text: string): void => {
     const bytes = new TextEncoder().encode(text);
     // A failed round trip gives one `other` block over the whole text, read as prose.
     for (const block of parseGuidanceBlocks(bytes).blocks) {
       const { start, end } = block.sourceSpan;
       const lines = linesOf(decoder.decode(bytes.subarray(start, end)));
-      if (block.type === "code_block") {
-        for (const value of fencedLines(lines) ?? []) {
-          const match = trim(value).replace(PROMPT, "");
-          if (match !== "" && classifySpan(match) === "command") {
-            references.push({ kind: "command", value, match });
-          }
-        }
-      } else if (block.type === "list_item") {
-        walk(listItemContent(lines));
-      } else if (block.type === "other" && BLOCK_QUOTE.test(lines[0] ?? "")) {
+      if (block.type === "code_block") visit({ kind: "code", lines });
+      else if (block.type === "list_item") walk(listItemContent(lines));
+      else if (block.type === "other" && BLOCK_QUOTE.test(lines[0] ?? ""))
         walk(lines.map((line) => line.replace(QUOTE_MARKER, "")).join(""));
-      } else {
-        prose(lines.join(""));
-      }
+      else visit({ kind: "prose", type: block.type, text: lines.join("") });
     }
   };
-
   walk(content);
-  return { references, identifiers };
 }

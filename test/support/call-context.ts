@@ -1,3 +1,4 @@
+import { parseGuidanceBlocks } from "../../src/core/destination/guidance-blocks.js";
 import { buildExclusionRules } from "../../src/core/snapshot/exclusions.js";
 import type { IgnoreRules } from "../../src/core/snapshot/git.js";
 import type { SnapshotFile } from "../../src/core/snapshot/snapshot.js";
@@ -13,6 +14,12 @@ import { coverageIndex } from "../../src/core/validation/coverage.js";
 import type { Scope } from "../../src/core/validation/duplicates.js";
 import { expansionIndex } from "../../src/core/validation/expansion.js";
 import type { GapType, QuestionContext } from "../../src/core/validation/generate-questions.js";
+import type {
+  RecommendContext,
+  RecommendEvidence,
+  RecommendFinding,
+  RecommendQuestion,
+} from "../../src/core/validation/recommend.js";
 import { anchorablePaths } from "../../src/core/validation/support.js";
 
 // Call contexts for whole-call validation, from the fixture format of
@@ -64,6 +71,35 @@ export interface FixtureContext {
   }[];
   readonly questionBudget?: number;
 }
+
+/** `recommend`: the call's input records, by alias, and the destination as text. */
+export interface FixtureRecommendContext {
+  readonly files: readonly FixtureFile[];
+  readonly userExclusions?: readonly string[];
+  readonly ignoreRules: IgnoreRules;
+  readonly destination:
+    | { readonly state: "absent" }
+    | { readonly state: "present"; readonly text: string };
+  readonly findings?: readonly (Omit<RecommendFinding, "current" | "evidence"> & {
+    readonly alias: string;
+    readonly current?: boolean;
+    readonly evidence?: readonly DistributiveOmit<RecommendEvidence, "id">[];
+  })[];
+  readonly decisions?: readonly {
+    readonly alias: string;
+    readonly statement: string;
+    readonly exceptions?: readonly string[];
+    readonly current?: boolean;
+  }[];
+  readonly conflicts?: readonly {
+    readonly alias: string;
+    readonly members: readonly string[];
+    readonly status: "unresolved" | "resolved";
+  }[];
+  readonly questions?: readonly ({ readonly alias: string } & RecommendQuestion)[];
+}
+
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 
 /** A call-1 record: a claim unless `kind` says otherwise, produced by the model by default. */
 export type FixtureCallOneFinding =
@@ -282,6 +318,78 @@ export function questionContext(fixture: FixtureContext, reversed = false): Ques
         ]),
       ),
       budget: fixture.questionBudget ?? 5,
+    },
+  };
+}
+
+/** Evidence IDs are `ev-<alias>-<n>`, counting from 1 in the finding's evidence order. */
+export function recommendContext(
+  fixture: FixtureRecommendContext,
+  reversed = false,
+): RecommendContext {
+  const findings = fixture.findings ?? [];
+  const decisions = fixture.decisions ?? [];
+  const conflicts = fixture.conflicts ?? [];
+  const questions = fixture.questions ?? [];
+  inAliasOrder("F", findings);
+  inAliasOrder("D", decisions);
+  inAliasOrder("C", conflicts);
+  inAliasOrder("Q", questions);
+  const files = order(snapshotFiles(fixture.files), reversed);
+  const destination =
+    fixture.destination.state === "absent"
+      ? ({ state: "absent" } as const)
+      : (() => {
+          const bytes = new TextEncoder().encode(fixture.destination.text);
+          return { state: "present" as const, bytes, parsed: parseGuidanceBlocks(bytes) };
+        })();
+  const blocks = destination.state === "present" ? destination.parsed.blocks : [];
+  return {
+    aliases: createAliasTable("recommend", {
+      findings: findings.map((f) => `record:${f.alias}`),
+      conflicts: conflicts.map((c) => `record:${c.alias}`),
+      questions: questions.map((q) => `record:${q.alias}`),
+      decisions: decisions.map((d) => `record:${d.alias}`),
+      blocks: blocks.map((b) => ({ blockId: b.blockId, hash: b.hash })),
+    }),
+    coverage: coverageIndex(
+      {
+        files,
+        exclusions: buildExclusionRules({ userExclusions: fixture.userExclusions ?? [] }),
+        ignoreRules: fixture.ignoreRules,
+      },
+      [],
+    ),
+    anchorable: anchorablePaths(files.map((file) => file.path)),
+    destination,
+    input: {
+      findings: new Map(
+        order(findings, reversed).map(({ alias, current, evidence, ...rest }) => [
+          alias,
+          {
+            ...rest,
+            current: current ?? true,
+            evidence: (evidence ?? []).map(
+              (e, i) => ({ ...e, id: `ev-${alias}-${i + 1}` }) as RecommendEvidence,
+            ),
+          },
+        ]),
+      ),
+      decisions: new Map(
+        order(decisions, reversed).map((d) => [
+          d.alias,
+          { statement: d.statement, exceptions: d.exceptions ?? [], current: d.current ?? true },
+        ]),
+      ),
+      conflicts: new Map(
+        order(conflicts, reversed).map((c) => [c.alias, { members: c.members, status: c.status }]),
+      ),
+      questions: new Map(
+        order(questions, reversed).map((q) => [
+          q.alias,
+          { status: q.status, resolves: q.resolves },
+        ]),
+      ),
     },
   };
 }

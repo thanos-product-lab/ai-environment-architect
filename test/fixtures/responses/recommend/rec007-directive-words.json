@@ -1,0 +1,75 @@
+{
+  "description": "Facts holding directive language anywhere in prose are rejected: must, don’t with a typographic apostrophe, do not, use … instead on one line, and required.",
+  "section": "IMPL §3.3.5 step 5 (REC-007: §3.2.3 word list, matched as in SUP-004), §3.8 (a policy labelled as fact)",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Tests must sit next to their source files.",
+        "rationale": "The testing guide describes the layout.",
+        "support": ["F-23"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Contributors don’t edit generated files.",
+        "rationale": "Generated output is rebuilt.",
+        "support": ["F-9"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Generated files do not belong in the repository.",
+        "rationale": "Generated output is rebuilt.",
+        "support": ["F-9"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r4",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The client wraps fetch, so new code can use it instead.",
+        "rationale": "The client module exports a helper.",
+        "support": ["F-9"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r5",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Linting is required before a push.",
+        "rationale": "The manifest defines the lint script.",
+        "support": ["F-7"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "REC-007", "outcome": "rejected" },
+      { "itemKey": "r2", "stage": "item", "rule": "REC-007", "outcome": "rejected" },
+      { "itemKey": "r3", "stage": "item", "rule": "REC-007", "outcome": "rejected" },
+      { "itemKey": "r4", "stage": "item", "rule": "REC-007", "outcome": "rejected" },
+      { "itemKey": "r5", "stage": "item", "rule": "REC-007", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

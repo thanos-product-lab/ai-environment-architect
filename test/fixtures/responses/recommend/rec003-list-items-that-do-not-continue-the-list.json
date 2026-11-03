@@ -1,0 +1,39 @@
+{
+  "description": "A numbered item added after the bulleted B-5, and a `)` item added after the `.`-numbered B-8, are rejected.",
+  "section": "IMPL §3.3.5 step 3 (REC-003: same bullet character or delimiter), §3.8",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-5" },
+        "content": "1. The test script runs the suite.",
+        "rationale": "The commands list lacks the test script.",
+        "support": ["F-6"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-8" },
+        "content": "3) Route new HTTP calls through the shared client.",
+        "rationale": "The developer confirmed this.",
+        "support": ["D-1"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "REC-003", "outcome": "rejected" },
+      { "itemKey": "r2", "stage": "item", "rule": "REC-003", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

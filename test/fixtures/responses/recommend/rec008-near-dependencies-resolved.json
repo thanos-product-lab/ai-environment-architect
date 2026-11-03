@@ -1,0 +1,48 @@
+{
+  "description": "Accepted: F-21 together with the decision D-2, F-21 together with F-20 that no question resolves, and F-23 whose conflict C-2 is resolved.",
+  "section": "IMPL §3.3.5 step 6 (REC-008: only support means no decision and every finding resolved by a skipped or unreached question)",
+  "nearMissOf": "rec008-unresolved-dependencies.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The API listens on port 8080.",
+        "rationale": "The README states the port.",
+        "support": ["F-21", "D-2"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The small HTTP API listens on port 8080.",
+        "rationale": "The README describes the API and its port.",
+        "support": ["F-21", "F-20"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Tests sit next to their source files.",
+        "rationale": "The testing guide says so, and the conflict about it is resolved.",
+        "support": ["F-23"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1", "r2", "r3"], "heldBack": [], "noChangeReason": [] }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "description": "A newSection whose heading is only spaces and a tab, and one whose heading spans two lines, are rejected.",
+  "section": "IMPL §3.3.5 step 3 (REC-003: the heading is one line, not empty after trimming spaces and tabs)",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "newSection", "heading": "  \t " },
+        "content": "Tests sit next to their source files.",
+        "rationale": "The testing guide says so.",
+        "support": ["F-23"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "newSection", "heading": "Testing\nLayout" },
+        "content": "Tests sit next to their source files.",
+        "rationale": "The testing guide says so.",
+        "support": ["F-23"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "REC-003", "outcome": "rejected" },
+      { "itemKey": "r2", "stage": "item", "rule": "REC-003", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "description": "Held-back entries blocked by the answered Q-3, by the resolved C-2, and by the skipped Q-1 together with the answered Q-3 are dropped at the cross-item stage.",
+  "section": "IMPL §3.3.5 step 10 (HELD-001: each blockedBy alias), §3.5, §3.8",
+  "response": {
+    "recommendations": [],
+    "heldBack": [
+      { "topic": "Where tests live", "blockedBy": ["Q-3"] },
+      { "topic": "Where tests live", "blockedBy": ["C-2"] },
+      { "topic": "The API port and the test layout", "blockedBy": ["Q-1", "Q-3"] }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "heldBack/0", "stage": "cross_item", "rule": "HELD-001", "outcome": "rejected" },
+      { "itemKey": "heldBack/1", "stage": "cross_item", "rule": "HELD-001", "outcome": "rejected" },
+      { "itemKey": "heldBack/2", "stage": "cross_item", "rule": "HELD-001", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

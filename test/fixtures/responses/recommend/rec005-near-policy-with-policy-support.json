@@ -1,0 +1,37 @@
+{
+  "description": "A policy citing the uncontested prescriptive documentation F-11, with an imperative REC-007 doesn't check in a policy, and a policy citing the decision D-1, are accepted.",
+  "section": "IMPL §3.3.5 steps 4-5 and 7 (REC-005, REC-007 applies to facts only, REF-003 command in an excerpt)",
+  "nearMissOf": "rec005-policy-without-policy-support.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-5" },
+        "content": "- Run `pnpm lint` before pushing.",
+        "rationale": "The contributing guide requires it.",
+        "support": ["F-11"],
+        "references": [{ "kind": "command", "value": "pnpm lint", "support": "F-11" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "New HTTP calls go through the shared client.",
+        "rationale": "The developer confirmed this.",
+        "support": ["D-1"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1", "r2"], "heldBack": [], "noChangeReason": [] }
+  }
+}

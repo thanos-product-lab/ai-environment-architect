@@ -1,0 +1,40 @@
+{
+  "description": "A recommendation scoped to an invented path, and one scoped to the withheld path, fail SCOPE-001, the last item rule.",
+  "section": "IMPL §3.3.5 step 8 (SCOPE-001), §1.11 (withheld paths don't satisfy a scope)",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Retries are handled by the shared client.",
+        "rationale": "The client module sends the requests.",
+        "support": ["F-9"],
+        "references": [],
+        "scope": { "kind": "paths", "paths": ["src/api/retry.ts"] }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Credentials are loaded by a module in the source tree.",
+        "rationale": "The source tree holds the credentials module.",
+        "support": ["F-9"],
+        "references": [],
+        "scope": { "kind": "paths", "paths": ["src/secret-{{aws-access-key-id}}.ts"] }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "SCOPE-001", "outcome": "rejected" },
+      { "itemKey": "r2", "stage": "item", "rule": "SCOPE-001", "outcome": "rejected" }
+    ],
+    "detailExcludes": ["{{aws-access-key-id}}", "retry.ts"],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

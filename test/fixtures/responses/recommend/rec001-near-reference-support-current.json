@@ -1,0 +1,26 @@
+{
+  "description": "The same path reference supported by the current F-19, whose excerpt holds scripts/build.sh as written, is accepted.",
+  "section": "IMPL §3.3.5 steps 1 and 7 (REC-001, REF-004)",
+  "nearMissOf": "rec001-reference-support-withdrawn.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The release build lives in `scripts/build.sh`.",
+        "rationale": "The contributing guide names the script.",
+        "support": ["F-19"],
+        "references": [{ "kind": "path", "value": "scripts/build.sh", "support": "F-19" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1"], "heldBack": [], "noChangeReason": [] }
+  }
+}

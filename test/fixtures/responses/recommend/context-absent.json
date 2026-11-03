@@ -1,0 +1,32 @@
+{
+  "files": [
+    { "path": "README.md", "status": "read" },
+    { "path": "package.json", "status": "read" },
+    { "path": "src/index.ts", "status": "read" }
+  ],
+  "userExclusions": [],
+  "ignoreRules": { "state": "applied" },
+  "destination": { "state": "absent" },
+  "findings": [
+    {
+      "alias": "F-1",
+      "kind": "claim",
+      "mode": "descriptive",
+      "basis": ["code_observation"],
+      "statement": "`package.json` defines the script `test`.",
+      "evidence": [{ "kind": "lines", "path": "package.json", "excerpt": "    \"test\": \"vitest run\"," }],
+      "command": { "file": "package.json", "name": "test" }
+    },
+    {
+      "alias": "F-2",
+      "kind": "claim",
+      "mode": "descriptive",
+      "basis": ["documentation"],
+      "statement": "`README.md` says the API listens on port 8080.",
+      "evidence": [{ "kind": "lines", "path": "README.md", "excerpt": "The API listens on port 8080." }]
+    }
+  ],
+  "decisions": [],
+  "conflicts": [],
+  "questions": []
+}

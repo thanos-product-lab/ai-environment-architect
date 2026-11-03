@@ -1,0 +1,29 @@
+{
+  "description": "A noChangeReason is judged against recommendations as proposed: with one proposed recommendation that fails REC-006, it is still rejected, so the outcome is never shown as no change.",
+  "section": "IMPL §3.3.5 step 11 (REC-009: as proposed, before validation), §2.12",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Database migrations have no command yet.",
+        "rationale": "No migration command was found.",
+        "support": ["F-16"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": [],
+    "noChangeReason": "Nothing else needs to change."
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "REC-006", "outcome": "rejected" },
+      { "itemKey": "noChangeReason", "stage": "cross_item", "rule": "REC-009", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "description": "A section target naming the paragraph B-2 and a newSection placed after the list item B-4 are rejected: both must name a heading block.",
+  "section": "IMPL §3.3.5 step 2 (REC-002), DM §9.3 step 2",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "section", "heading": "B-2" },
+        "content": "The API serves widgets.",
+        "rationale": "Adds detail to the introduction.",
+        "support": ["F-20"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "newSection", "heading": "Releases", "after": "B-4" },
+        "content": "Release builds come from a shell script.",
+        "rationale": "Agents need to know how releases are built.",
+        "support": ["F-19"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "REC-002", "outcome": "rejected" },
+      { "itemKey": "r2", "stage": "item", "rule": "REC-002", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

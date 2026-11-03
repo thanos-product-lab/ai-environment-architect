@@ -1,0 +1,51 @@
+{
+  "description": "The same recommendations and entries with aliases of the right kinds are accepted: a decision in support, a finding as the reference's support, an existing block target, and a conflict and a question in blockedBy.",
+  "section": "IMPL §3.2.1 (ALIAS-001, ALIAS-003)",
+  "nearMissOf": "alias003-wrong-alias-kinds.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "New HTTP calls go through the shared client.",
+        "rationale": "The developer confirmed the rule.",
+        "support": ["D-1"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The suite runs with `pnpm test`.",
+        "rationale": "The manifest defines the test script.",
+        "support": ["F-6", "D-2"],
+        "references": [{ "kind": "command", "value": "pnpm test", "support": "F-6" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "fact",
+        "operation": "revise",
+        "target": { "kind": "block", "block": "B-2" },
+        "content": "This service exposes a small HTTP API for widgets.",
+        "rationale": "The README agrees with the existing guide.",
+        "support": ["F-20"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": [
+      { "topic": "Which port the API listens on", "blockedBy": ["Q-1"] },
+      { "topic": "Whether new HTTP calls go through the shared client", "blockedBy": ["C-1"] }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1", "r2", "r3"], "heldBack": ["heldBack/0", "heldBack/1"], "noChangeReason": [] }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "description": "A section target naming the heading B-3, with a list item matching B-5's marker, and a newSection after the heading B-3 are accepted.",
+  "section": "IMPL §3.3.5 steps 2-3 (REC-002, REC-003), DM §9.3 step 2",
+  "nearMissOf": "rec002-targets-not-headings.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "section", "heading": "B-3" },
+        "content": "- The lint script is defined in the package manifest.",
+        "rationale": "The commands section lists the scripts.",
+        "support": ["F-7"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "newSection", "heading": "Releases", "after": "B-3" },
+        "content": "Release builds come from a shell script under `scripts/`.",
+        "rationale": "Agents need to know how releases are built.",
+        "support": ["F-19"],
+        "references": [{ "kind": "path", "value": "scripts/", "support": "F-19" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1", "r2"], "heldBack": [], "noChangeReason": [] }
+  }
+}

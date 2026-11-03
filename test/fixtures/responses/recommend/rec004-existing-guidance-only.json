@@ -1,0 +1,50 @@
+{
+  "description": "Recommendations supported only by what CLAUDE.md already says are rejected, whatever the operation: an add citing F-14, a remove citing F-14, and a policy revise citing the prescriptive F-15.",
+  "section": "IMPL §3.3.5 step 4 (REC-004 applies to every operation), DM §6.4, §3.8",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Dependencies install with `pnpm install`.",
+        "rationale": "The existing guide already says this.",
+        "support": ["F-14"],
+        "references": [{ "kind": "command", "value": "pnpm install", "support": "F-14" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "remove",
+        "target": { "kind": "block", "block": "B-4" },
+        "rationale": "The install line restates itself.",
+        "support": ["F-14"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "policy",
+        "operation": "revise",
+        "target": { "kind": "block", "block": "B-5" },
+        "content": "- Always lint with `pnpm lint` before pushing.",
+        "rationale": "The existing guide requires linting.",
+        "support": ["F-15"],
+        "references": [{ "kind": "command", "value": "pnpm lint", "support": "F-15" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "REC-004", "outcome": "rejected" },
+      { "itemKey": "r2", "stage": "item", "rule": "REC-004", "outcome": "rejected" },
+      { "itemKey": "r3", "stage": "item", "rule": "REC-004", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

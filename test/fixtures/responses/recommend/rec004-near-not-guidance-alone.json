@@ -1,0 +1,37 @@
+{
+  "description": "Support that isn't existing guidance alone is accepted: F-20 has a documentation basis besides existing_guidance, and F-1, the fact that CLAUDE.md exists, is code_observation from entry evidence.",
+  "section": "IMPL §3.3.5 step 4 (REC-004 definition), §3.2.4, DM §6.4 (an agent configuration file existing is a fact)",
+  "nearMissOf": "rec004-existing-guidance-only.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "revise",
+        "target": { "kind": "block", "block": "B-2" },
+        "content": "This service exposes a small HTTP API for widgets.",
+        "rationale": "The README agrees with the existing guide.",
+        "support": ["F-20"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Agent guidance lives in the root `CLAUDE.md`.",
+        "rationale": "The file list shows it.",
+        "support": ["F-1"],
+        "references": [{ "kind": "path", "value": "CLAUDE.md", "support": "F-1" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1", "r2"], "heldBack": [], "noChangeReason": [] }
+  }
+}

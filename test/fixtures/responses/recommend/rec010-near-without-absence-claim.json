@@ -1,0 +1,26 @@
+{
+  "description": "The same policy without the absence claim, supported by D-1 alone, is accepted.",
+  "section": "IMPL §3.3.5 step 4 (REC-010)",
+  "nearMissOf": "rec010-cites-absence-claim.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "New HTTP calls go through the shared client.",
+        "rationale": "The developer confirmed the client rule.",
+        "support": ["D-1"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1"], "heldBack": [], "noChangeReason": [] }
+  }
+}

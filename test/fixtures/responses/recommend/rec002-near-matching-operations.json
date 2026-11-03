@@ -1,0 +1,47 @@
+{
+  "description": "A revise of B-2 with content, an add after B-2 with content and a remove of B-4 without content pass REC-002 and are accepted.",
+  "section": "IMPL §3.3.5 step 2 (REC-002)",
+  "nearMissOf": "rec002-operation-target-mismatches.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "revise",
+        "target": { "kind": "block", "block": "B-2" },
+        "content": "This service exposes a small HTTP API for widgets.",
+        "rationale": "Sharper wording.",
+        "support": ["F-20"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The API serves widgets.",
+        "rationale": "Adds detail.",
+        "support": ["F-20"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "fact",
+        "operation": "remove",
+        "target": { "kind": "block", "block": "B-4" },
+        "rationale": "The install line is redundant.",
+        "support": ["F-14", "F-6"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1", "r2", "r3"], "heldBack": [], "noChangeReason": [] }
+  }
+}

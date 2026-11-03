@@ -1,0 +1,26 @@
+{
+  "description": "A paragraph revision of B-2 with blank lines before and after it is accepted, because those blank lines are ignored.",
+  "section": "IMPL §3.3.5 step 3 (REC-003: blank lines before the first block and after the last are ignored)",
+  "nearMissOf": "rec003-revise-paragraph-wrong-shape.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "revise",
+        "target": { "kind": "block", "block": "B-2" },
+        "content": "\n\nThis service exposes a small HTTP API for widgets.\n\n",
+        "rationale": "Adds detail.",
+        "support": ["F-20"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1"], "heldBack": [], "noChangeReason": [] }
+  }
+}
