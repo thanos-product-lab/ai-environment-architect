@@ -2,7 +2,7 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 4 November 2026  
-**Version:** 0.29 — consolidated specification  
+**Version:** 0.30 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,10 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.29
+
+1. **Tiered freshness (§11.1).** What a change is: an added or removed path, a different hash, symbolic link target, or status for an entry without a hash, and every path an unstable rescan names. The findings behind a selected revision include those its decisions' questions and conflicts cover, as in §12; a gap's related paths and an absence claim's glob count as their scope. A path reference exists when the rescan lists it, as `REF-002` checks. Warnings are the changed paths no blocking rule names.
 
 ### Changes from v0.28
 
@@ -581,6 +585,13 @@ Before any write, rescan the file list and hashes under the snapshot's scope. Co
 - files were added or removed within the scope of a finding that supports a selected revision (a repository-wide finding means anywhere in scope).
 
 **Warn** (explicit acknowledgement required) if any other file in scope changed. The acknowledgement lists the changed paths and is recorded on the apply attempt.
+
+Comparing the rescan with the snapshot:
+
+- A path is **added** or **removed** when only one of them lists it, and **changed** when both do and its content differs: its hash, for an entry that has one; its target, for a symbolic link; otherwise its status or kind. A file that becomes unreadable has changed. The same bytes under another hashed status are unchanged. If the rescan is unstable (§6.1), every path it names has changed, whatever its hashes.
+- The **findings supporting** a selected revision are its `finding` support, and the findings its decision support covers: those its question resolves, directly or through a conflict, and the members of its conflict, as in §12. Their `lines` and `entry` evidence gives the cited files. Their scopes are a claim's `scope`, a gap's related paths and an absence claim's glob. A scope path covers a path it matches and everything under a directory it matches, with the glob rules of [`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.11.
+- A **path reference** no longer exists when the rescan doesn't list it, as a file or as a directory holding one, after the path normalisation `REF-002` uses.
+- The destination is checked only by the first blocking rule. A warning lists every changed, added or removed path that no blocking rule names, in bytewise order.
 
 This keeps application safe without blocking a developer who is editing unrelated files. Narrowing the blocking rules further requires evidence from use.
 
