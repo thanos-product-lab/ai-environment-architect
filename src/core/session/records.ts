@@ -6,10 +6,10 @@ import type { Hash } from "../hash.js";
 // list of immutable records. Every record shares an envelope: `type`, `id`, `seq`, `createdAt`.
 // A record that can change has a lineage ID as well, shared by its revisions, and a `revision`.
 //
-// This defines the records §4.4–§4.6 and §4.8 produce, those of `recommend` (§3.3.5) and
-// selections (DM §9.2). The other types in the §4.4.1 table have their prefixes here, and get
-// their fields with their own steps: artifacts, reviews and apply (M5). Until then the file
-// schema doesn't accept them.
+// This defines the records §4.4–§4.6 and §4.8 produce, those of `recommend` (§3.3.5),
+// selections (DM §9.2), artifact revisions (DM §9.4) and reviews (DM §10). `apply_attempt` has
+// its prefix here and gets its fields with apply (DM §11.2); until then the file schema doesn't
+// accept it.
 
 export const SESSION_FORMAT = "ai-environment-architect/session";
 export const SESSION_SCHEMA_VERSION = 1;
@@ -886,6 +886,57 @@ export const selectionRecord = z.strictObject({
   selectedAt: timestamp,
 });
 
+// --- Artifact revisions and reviews (DM §9.4, §10) -------------------------------------------
+
+/**
+ * One change in the proposed file (DM §9.4), in file order: a `revise` or `remove` names its
+ * original block, by block ID in the artifact's snapshot; new content its bytes in the proposal.
+ */
+export const attributionEntry = z
+  .strictObject({
+    revisionId: recordId("recommendation_revision"),
+    operation: z.enum(["add", "revise", "remove"]),
+    originalBlockId: nonEmpty.optional(),
+    proposedSpan: z.strictObject({ start: count, end: count }).optional(),
+  })
+  .refine((e) => (e.operation === "add") === (e.originalBlockId === undefined), {
+    message: "a revise or remove names its original block, and an add doesn't",
+  })
+  .refine((e) => (e.operation === "remove") === (e.proposedSpan === undefined), {
+    message: "new content has a proposed span, and a removal doesn't",
+  });
+
+/**
+ * Immutable (DM §9.4): an assembled proposal. `revision` numbers the session's artifact revisions
+ * from 1. The content is in a content-addressed file (§4.2).
+ */
+export const artifactRevisionRecord = z.strictObject({
+  ...envelope("artifact_revision"),
+  revision: z.int().min(1),
+  snapshotId,
+  targetPath: z.literal("CLAUDE.md"),
+  /** `absent`, or the hash of the snapshot's destination, whose bytes are in the snapshot. */
+  original: z.union([z.literal("absent"), hash]),
+  proposedContent: contentRef,
+  proposedHash: hash,
+  /** The accepted recommendation revisions used, in the order of their recommendations. */
+  selectedRevisionIds: z.array(recordId("recommendation_revision")).min(1),
+  /** The current decision versions those revisions depend on. */
+  decisionIds: z.array(recordId("decision")),
+  attribution: z.array(attributionEntry).min(1),
+});
+
+/** Immutable (DM §10). An approval of the exact content hash the developer was shown. */
+export const reviewRecord = z.strictObject({
+  ...envelope("review"),
+  artifactRevisionId: recordId("artifact_revision"),
+  contentHash: hash,
+  outcome: z.enum(["approved", "rejected"]),
+  actor: nonEmpty,
+  reviewedAt: timestamp,
+  comment: z.string().optional(),
+});
+
 /** Collections with no record type of their own. Regeneration adds `actions` (M5). */
 export const failedItemCollection = z.enum([
   "revisions",
@@ -1224,6 +1275,8 @@ export const sessionRecord = z.union([
   heldBackRecord,
   noChangeReasonRecord,
   selectionRecord,
+  artifactRevisionRecord,
+  reviewRecord,
   failedItemRecord,
   modelCallRecord,
   effortIntervalRecord,

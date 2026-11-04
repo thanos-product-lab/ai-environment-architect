@@ -59,6 +59,17 @@ export interface CurrentState {
    * Final review is blocked while there is one. Derived only when the destination is given.
    */
   readonly clashes: readonly Clash[] | undefined;
+  /**
+   * The latest artifact revision, while its snapshot is the active one, its selected revisions
+   * are exactly those of the current accepted selections and its decisions are all current.
+   * Otherwise none, and the proposal is out of date (DM §12).
+   */
+  readonly activeArtifact: RecordOf<"artifact_revision"> | undefined;
+  /**
+   * The latest review of the active artifact revision, if it approves the revision's exact
+   * `proposedHash` (DM §10). Freshness (DM §11.1) is checked at apply, not here.
+   */
+  readonly usableApproval: RecordOf<"review"> | undefined;
 }
 
 /** Two accepted recommendations, in recommendation order, and why they can't both be. */
@@ -205,6 +216,29 @@ export function currentState(
       }
   }
 
+  const acceptedRevisionIds = new Set(
+    [...selections.values()].filter((s) => s.state === "accepted").map((s) => s.revisionId),
+  );
+  const latestArtifact = ofType("artifact_revision").at(-1);
+  const activeArtifact =
+    latestArtifact !== undefined &&
+    latestArtifact.snapshotId === activeSnapshotId &&
+    sameSet(latestArtifact.selectedRevisionIds, acceptedRevisionIds) &&
+    latestArtifact.decisionIds.every((id) => decisions.has(id))
+      ? latestArtifact
+      : undefined;
+  const latestReview =
+    activeArtifact === undefined
+      ? undefined
+      : ofType("review")
+          .filter((r) => r.artifactRevisionId === activeArtifact.id)
+          .at(-1);
+  const usableApproval =
+    latestReview?.outcome === "approved" &&
+    latestReview.contentHash === activeArtifact?.proposedHash
+      ? latestReview
+      : undefined;
+
   return {
     activeSnapshotId,
     findings,
@@ -218,7 +252,15 @@ export function currentState(
     noChangeReason,
     selections,
     clashes,
+    activeArtifact,
+    usableApproval,
   };
+}
+
+/** Set equality, so a repeated ID can't stand in for a missing one. */
+function sameSet(ids: readonly string[], set: ReadonlySet<string>): boolean {
+  const own = new Set(ids);
+  return own.size === set.size && [...own].every((id) => set.has(id));
 }
 
 // --- Stage, status, outcome and completeness (§4.4.2) ----------------------------------------

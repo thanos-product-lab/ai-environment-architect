@@ -2,7 +2,7 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 4 November 2026  
-**Version:** 0.28 — consolidated specification  
+**Version:** 0.29 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,10 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.28
+
+1. **Usable approval (§10).** Only the latest review of an artifact revision counts: a later rejection withdraws an earlier approval of the same revision ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.4.2).
 
 ### Changes from v0.27
 
@@ -557,6 +561,7 @@ The review screen shows the full proposed file, the diff from the original, and,
 An approval is usable only while all of these hold:
 
 - its artifact revision is the active one;
+- it is the latest review of that artifact revision, so a later rejection withdraws it;
 - the selected revisions and decision versions it records are still current;
 - freshness checks pass (§11.1).
 

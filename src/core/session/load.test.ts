@@ -2,12 +2,21 @@ import { describe, expect, it } from "vitest";
 import { callDraft, completedCall, hashOf, newLog } from "../../../test/support/session.js";
 import { parseGuidanceBlocks } from "../destination/guidance-blocks.js";
 import { sha256 } from "../hash.js";
+import { proposeArtifact, recordReview } from "./artifacts.js";
 import { recoverInterruptedWork } from "./calls.js";
 import { currentState } from "./current.js";
 import { type ContentReader, type LoadFailure, loadSession } from "./load.js";
 import type { SessionLog } from "./log.js";
-import { SESSION_FORMAT, SESSION_SCHEMA_VERSION, type SessionFile } from "./records.js";
+import {
+  REVISION_BOOKKEEPING,
+  REVISION_FIELDS,
+  recommendationRevisionRecord,
+  SESSION_FORMAT,
+  SESSION_SCHEMA_VERSION,
+  type SessionFile,
+} from "./records.js";
 import { serialiseSession } from "./serialise.js";
+import { contentRefOf } from "./store.js";
 
 // Load checks and schema versions (IMPL §4.9, §4.11).
 
@@ -566,7 +575,10 @@ describe("selection references (IMPL §4.4.1, §4.9 check 4)", () => {
       actor: "developer",
       selectedAt: "2026-11-01T10:30:00.000Z",
     });
-    expect(await failure(encode(serialiseSession(fileOf(log))))).toMatchObject({ check: 4 });
+    const found = await failure(encode(serialiseSession(fileOf(log))));
+    expect(found).toMatchObject({ check: 4 });
+    // The recommendation's only revision failed, so the lineage reference fails first.
+    expect(found.detail).toMatch(/rec_0009, which only failed validation/);
   });
 });
 
@@ -1369,5 +1381,426 @@ describe("check 5: one current effort correction (IMPL §4.6, §4.9)", () => {
       renumber(json);
     });
     expect((await loadSession(bytes, memoryContent())).ok).toBe(true);
+  });
+});
+
+// --- Artifact revisions, reviews and target blocks (DM §9.4, §10; IMPL §4.9 checks 3, 4, 7) ---
+
+/** A refresh in a load-test log: a new active snapshot of `text`, and its content file. */
+function appendRefresh(log: SessionLog, text: string): Record<string, Uint8Array> {
+  const bytes = encode(text);
+  const parsed = parseGuidanceBlocks(bytes);
+  const ref = contentRefOf(bytes);
+  log.append(
+    {
+      type: "snapshot",
+      capturedAt: "2026-11-01T11:00:00.000Z",
+      scope: { roots: ["."] },
+      exclusions: [],
+      files: [{ path: "CLAUDE.md", status: "read", size: bytes.length, hash: sha256(bytes) }],
+      destination: {
+        state: "present",
+        contentRef: ref,
+        hash: sha256(bytes),
+        blocks: parsed.blocks as never,
+        lineEndings: parsed.lineEndings,
+        roundTrip: parsed.roundTrip,
+      },
+      readFailures: [],
+      stability: { state: "stable" },
+      git: { state: "unknown", reason: "not_inspected" },
+      ignoreRules: { state: "applied" },
+    },
+    { id: "snap_0002" },
+  );
+  return { [ref]: bytes };
+}
+
+/**
+ * The target session with both recommendations accepted, a third left unselected, and an
+ * artifact revision of the two, approved.
+ */
+function artifactLog(): { log: SessionLog; files: Record<string, Uint8Array> } {
+  const { log } = targetLog();
+  const revisions = log.records.filter((r) => r.type === "recommendation_revision") as unknown as {
+    id: string;
+    recommendationId: string;
+  }[];
+  const {
+    id: _i,
+    seq: _s,
+    createdAt: _c,
+    recommendationId: _r,
+    revision: _v,
+    ...draft
+  } = revisions[0] as unknown as Record<string, unknown>;
+  log.start({ ...draft, target: { kind: "newSection", heading: "Extra" } } as never);
+  for (const revision of revisions)
+    log.append({
+      type: "selection",
+      recommendationId: revision.recommendationId,
+      revisionId: revision.id,
+      state: "accepted",
+      actor: "developer",
+      selectedAt: "2026-11-01T10:30:00.000Z",
+    });
+  const outcome = proposeArtifact(log, DESTINATION);
+  if (outcome.kind !== "created") throw new Error(outcome.kind);
+  recordReview(log, {
+    artifactRevisionId: outcome.artifact.id,
+    contentHash: outcome.artifact.proposedHash,
+    outcome: "approved",
+    actor: "developer",
+    reviewedAt: "2026-11-01T10:40:00.000Z",
+  });
+  return {
+    log,
+    files: { [DESTINATION_REF]: DESTINATION, [contentRefOf(outcome.content)]: outcome.content },
+  };
+}
+
+/** The recommendation the artifact leaves out. */
+const unselectedRevision = (json: Json) =>
+  json.records.filter((r: Json) => r.type === "recommendation_revision").at(-1);
+
+const artifactOf = (json: Json) => json.records.find((r: Json) => r.type === "artifact_revision");
+
+async function artifactFailure(edit: (json: Json) => void): Promise<LoadFailure> {
+  const { log, files } = artifactLog();
+  const json = JSON.parse(serialiseSession(fileOf(log)));
+  edit(json);
+  return failure(encode(JSON.stringify(json)), memoryContent(files));
+}
+
+describe("artifact revisions and reviews load (DM §9.4, §10, IMPL §4.9)", () => {
+  it("loads an artifact revision and its review, and derives the usable approval", async () => {
+    const { log, files } = artifactLog();
+    const content = memoryContent(files);
+    const result = await loadSession(encode(serialiseSession(fileOf(log))), content);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const state = currentState(result.file.records);
+    expect(state.activeArtifact?.type).toBe("artifact_revision");
+    expect(state.usableApproval?.outcome).toBe("approved");
+  });
+
+  it("check 3 rejects artifact revisions not numbered 1, 2, 3…", async () => {
+    const found = await artifactFailure((json) => {
+      artifactOf(json).revision = 2;
+    });
+    expect(found).toMatchObject({ check: 3, name: "envelope" });
+  });
+
+  it("check 4 rejects a dangling snapshot, selected revision, decision or attributed revision", async () => {
+    const edits: Record<string, (json: Json) => void> = {
+      snapshotId: (json) => {
+        artifactOf(json).snapshotId = "snap_9999";
+      },
+      selectedRevisionIds: (json) => {
+        artifactOf(json).selectedRevisionIds = ["rrev_9999"];
+      },
+      decisionIds: (json) => {
+        artifactOf(json).decisionIds = ["dec_9999"];
+      },
+      attribution: (json) => {
+        artifactOf(json).attribution[0].revisionId = "rrev_9999";
+      },
+    };
+    for (const [field, edit] of Object.entries(edits))
+      expect(await artifactFailure(edit), field).toMatchObject({ check: 4 });
+  });
+
+  it("check 4 rejects an artifact that selects a revision that failed validation", async () => {
+    const found = await artifactFailure((json) => {
+      const artifact = artifactOf(json);
+      json.records.splice(json.records.indexOf(artifact), 0, {
+        type: "recommendation_revision",
+        id: "rrev_9998",
+        seq: 0,
+        createdAt: "2026-11-01T10:30:00.000Z",
+        recommendationId: "rec_9998",
+        revision: 1,
+        status: "failed_validation",
+        producedBy: "developer_edit",
+        itemKey: "$edit",
+        rejectedBy: ["REF-002"],
+        proposed: {},
+      });
+      renumber(json);
+      artifact.selectedRevisionIds = [...artifact.selectedRevisionIds, "rrev_9998"];
+    });
+    expect(found).toMatchObject({ check: 4 });
+    expect(found.detail).toMatch(/failed validation/);
+  });
+
+  it("check 4 rejects repeated selected revisions or decisions", async () => {
+    const selected = await artifactFailure((json) => {
+      const artifact = artifactOf(json);
+      artifact.selectedRevisionIds = [
+        ...artifact.selectedRevisionIds,
+        artifact.selectedRevisionIds[0],
+      ];
+    });
+    expect(selected).toMatchObject({ check: 4 });
+    expect(selected.detail).toMatch(/twice/);
+    const decisions = await artifactFailure((json) => {
+      const artifact = artifactOf(json);
+      artifact.decisionIds = [...artifact.decisionIds, artifact.decisionIds[0]];
+    });
+    expect(decisions).toMatchObject({ check: 4 });
+    expect(decisions.detail).toMatch(/twice/);
+  });
+
+  it("check 4 rejects decisionIds other than the selected revisions' decision support", async () => {
+    const { log } = artifactLog();
+    const json = JSON.parse(serialiseSession(fileOf(log)));
+    expect(artifactOf(json).decisionIds).toHaveLength(1);
+    const missing = await artifactFailure((json) => {
+      artifactOf(json).decisionIds = [];
+    });
+    expect(missing).toMatchObject({ check: 4 });
+    expect(missing.detail).toMatch(/decisionIds/);
+    const other = await artifactFailure((json) => {
+      // A second, unrelated decision, written before the artifact and listed by it.
+      const artifact = artifactOf(json);
+      const decision = json.records.find((r: Json) => r.type === "decision");
+      const { questionId: _q, conflictId: _c, ...unrelated } = decision;
+      json.records.splice(json.records.indexOf(artifact), 0, { ...unrelated, id: "dec_9997" });
+      renumber(json);
+      artifact.decisionIds = [...artifact.decisionIds, "dec_9997"];
+    });
+    expect(other).toMatchObject({ check: 4 });
+  });
+
+  it("check 9 rejects a selected revision the attribution and content leave out", async () => {
+    const found = await artifactFailure((json) => {
+      const artifact = artifactOf(json);
+      artifact.selectedRevisionIds = [...artifact.selectedRevisionIds, unselectedRevision(json).id];
+    });
+    expect(found).toMatchObject({ check: 9, name: "assembly" });
+  });
+
+  it("check 9 rejects attribution that isn't the one assembly gives", async () => {
+    const edits: Record<string, (json: Json) => void> = {
+      revisionId: (json) => {
+        const [first, second] = artifactOf(json).attribution;
+        [first.revisionId, second.revisionId] = [second.revisionId, first.revisionId];
+      },
+      originalBlockId: (json) => {
+        const revise = artifactOf(json).attribution.find((e: Json) => e.originalBlockId);
+        revise.originalBlockId = "Guide/list-item-1";
+      },
+      proposedSpan: (json) => {
+        artifactOf(json).attribution[0].proposedSpan.end += 1;
+      },
+      order: (json) => {
+        artifactOf(json).attribution.reverse();
+      },
+    };
+    for (const [name, edit] of Object.entries(edits))
+      expect(await artifactFailure(edit), name).toMatchObject({ check: 9 });
+  });
+
+  it("check 9 rejects content that isn't the one assembly gives, even with a matching hash", async () => {
+    const { log, files } = artifactLog();
+    const other = encode("# Something else\n");
+    const json = JSON.parse(serialiseSession(fileOf(log)));
+    artifactOf(json).proposedContent = contentRefOf(other);
+    artifactOf(json).proposedHash = sha256(other);
+    const found = await failure(
+      encode(JSON.stringify(json)),
+      memoryContent({ ...files, [contentRefOf(other)]: other }),
+    );
+    expect(found).toMatchObject({ check: 9 });
+  });
+
+  it("check 4 rejects an original that isn't the artifact snapshot's destination", async () => {
+    for (const original of ["absent", hashOf("e")]) {
+      const found = await artifactFailure((json) => {
+        artifactOf(json).original = original;
+      });
+      expect(found, original).toMatchObject({ check: 4 });
+    }
+  });
+
+  it("check 4 rejects a review of an artifact revision that isn't in the session, or comes later", async () => {
+    const dangling = await artifactFailure((json) => {
+      json.records.find((r: Json) => r.type === "review").artifactRevisionId = "art_9999";
+    });
+    expect(dangling).toMatchObject({ check: 4 });
+    const later = await artifactFailure((json) => {
+      const review = json.records.find((r: Json) => r.type === "review");
+      const artifact = artifactOf(json);
+      json.records.splice(json.records.indexOf(review), 1);
+      json.records.splice(json.records.indexOf(artifact), 0, review);
+      renumber(json);
+    });
+    expect(later).toMatchObject({ check: 4 });
+  });
+
+  it("check 7 rejects missing or altered artifact content, and a proposedHash that doesn't match", async () => {
+    const { log, files } = artifactLog();
+    const bytes = encode(serialiseSession(fileOf(log)));
+    const artifactRef = Object.keys(files).find((ref) => ref !== DESTINATION_REF) as string;
+    const missing = await failure(bytes, memoryContent({ [DESTINATION_REF]: DESTINATION }));
+    expect(missing).toMatchObject({ check: 7 });
+    const altered = Uint8Array.from(files[artifactRef] as Uint8Array);
+    altered[0] = 0x21;
+    expect(await failure(bytes, memoryContent({ ...files, [artifactRef]: altered }))).toMatchObject(
+      { check: 7 },
+    );
+    const wrongHash = await artifactFailure((json) => {
+      artifactOf(json).proposedHash = hashOf("f");
+    });
+    expect(wrongHash).toMatchObject({ check: 7 });
+  });
+});
+
+/** The recommend session with a `revise` of the paragraph `Use pnpm.` in the first snapshot. */
+function targetLog(): { log: SessionLog; recommendationId: string } {
+  const log = recommendLog();
+  const base = log.records.find((r) => r.type === "recommendation_revision") as unknown as Record<
+    string,
+    unknown
+  >;
+  const { id: _i, seq: _s, createdAt: _c, recommendationId: _r, revision: _v, ...draft } = base;
+  const paragraph = parseGuidanceBlocks(DESTINATION).blocks.find(
+    (b) => b.blockId === "Guide/paragraph-1",
+  );
+  if (paragraph === undefined) throw new Error("no paragraph");
+  const revision = log.start({
+    ...draft,
+    operation: "revise",
+    target: { kind: "block", blockId: paragraph.blockId, blockHash: paragraph.hash },
+    content: "Use pnpm 9.",
+    references: [],
+    // The answered question's decision, so the artifact records it.
+    support: [
+      ...(draft["support"] as unknown[]),
+      { kind: "decision", decisionId: log.records.find((r) => r.type === "decision")?.id },
+    ],
+  } as never) as unknown as { recommendationId: string };
+  return { log, recommendationId: revision.recommendationId };
+}
+
+describe("check 4: target blocks (IMPL §4.9, §4.11)", () => {
+  it("rejects a first revision whose target isn't in its snapshot", async () => {
+    for (const edit of [
+      (target: Json) => {
+        target.blockId = "Guide/paragraph-9";
+      },
+      (target: Json) => {
+        target.blockHash = hashOf("c");
+      },
+    ]) {
+      const json = JSON.parse(serialiseSession(fileOf(targetLog().log)));
+      edit(json.records.filter((r: Json) => r.type === "recommendation_revision").at(-1).target);
+      expect(await failure(encode(JSON.stringify(json)))).toMatchObject({ check: 4 });
+    }
+  });
+
+  it("rejects a newSection whose heading isn't in its snapshot, and accepts one without", async () => {
+    const json = JSON.parse(serialiseSession(fileOf(targetLog().log)));
+    const revision = json.records.find((r: Json) => r.type === "recommendation_revision");
+    expect((await loadSession(encode(JSON.stringify(json)), memoryContent())).ok).toBe(true);
+    revision.target.after = { blockId: "Guide", blockHash: hashOf("d") };
+    expect(await failure(encode(JSON.stringify(json)))).toMatchObject({ check: 4 });
+  });
+
+  it("accepts a target_changed invalidation after a refresh removed the target", async () => {
+    const { log, recommendationId } = targetLog();
+    const files = appendRefresh(log, "# Guide\n\n- Run the tests.\n");
+    log.revise("recommendation_revision", recommendationId, {
+      status: "invalidated",
+      invalidatedReason: "target_changed",
+    });
+    const result = await loadSession(
+      encode(serialiseSession(fileOf(log))),
+      memoryContent({ [DESTINATION_REF]: DESTINATION, ...files }),
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it("accepts an invalidation of a re-anchored target, checked against the first snapshot", async () => {
+    const { log, recommendationId } = targetLog();
+    const files = appendRefresh(log, "# Guide\n\n## Moved\n\nUse pnpm.\n");
+    log.revise("recommendation_revision", recommendationId, {
+      status: "invalidated",
+      invalidatedReason: "revalidation_failed",
+    });
+    const result = await loadSession(
+      encode(serialiseSession(fileOf(log))),
+      memoryContent({ [DESTINATION_REF]: DESTINATION, ...files }),
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it("checks a revision that sets a new target against the snapshot active when it was made", async () => {
+    const build = (blockId: string) => {
+      const { log, recommendationId } = targetLog();
+      const text = "# Guide\n\nUse pnpm.\n\n## New\n\nNew text.\n";
+      const files = appendRefresh(log, text);
+      const blocks = parseGuidanceBlocks(encode(text)).blocks;
+      const block = blocks.find((b) => b.blockId === blockId) ?? blocks[0];
+      if (block === undefined) throw new Error("no blocks");
+      log.revise("recommendation_revision", recommendationId, {
+        target: { kind: "block", blockId, blockHash: block.hash },
+        content: "Changed.",
+      });
+      return { log, files };
+    };
+    const inNew = build("Guide/New/paragraph-1");
+    expect(
+      (
+        await loadSession(
+          encode(serialiseSession(fileOf(inNew.log))),
+          memoryContent({ [DESTINATION_REF]: DESTINATION, ...inNew.files }),
+        )
+      ).ok,
+    ).toBe(true);
+    // Only the first snapshot has this ID with that hash.
+    const json = JSON.parse(serialiseSession(fileOf(inNew.log)));
+    json.records.filter((r: Json) => r.type === "recommendation_revision").at(-1).target.blockId =
+      "Guide/paragraph-7";
+    expect(
+      await failure(
+        encode(JSON.stringify(json)),
+        memoryContent({ [DESTINATION_REF]: DESTINATION, ...inNew.files }),
+      ),
+    ).toMatchObject({ check: 4 });
+  });
+});
+
+describe("the recommendation revision field list (IMPL §4.4.1)", () => {
+  it("names every field of a recommendation revision but the envelope, lineage and bookkeeping", () => {
+    const schema = recommendationRevisionRecord.options[0] as unknown as {
+      shape: Record<string, unknown>;
+    };
+    const fields = Object.keys(schema.shape).filter(
+      (field) => !REVISION_BOOKKEEPING.has(field) && field !== "recommendationId",
+    );
+    expect([...REVISION_FIELDS.recommendation_revision].sort()).toEqual(fields.sort());
+  });
+
+  it("check 3 accepts a revision that changes every listed field", async () => {
+    const { log, recommendationId } = targetLog();
+    const call = log.start(callDraft({ purpose: "regenerate_recommendations" }));
+    log.revise("model_call", call.modelCallId, completedCall());
+    const json = JSON.parse(serialiseSession(fileOf(log)));
+    const finding = json.records.find((r: Json) => r.type === "finding" && r.kind === "claim");
+    log.revise("recommendation_revision", recommendationId, {
+      kind: "policy",
+      operation: "add",
+      target: { kind: "newSection", heading: "Other" },
+      content: "Other.",
+      rationale: "Other.",
+      support: [{ kind: "finding", findingId: finding.findingId }],
+      references: [],
+      scope: { kind: "paths", paths: ["docs/guide.md"] },
+      // `kind` is fixed by the log's types for other records; a recommendation may change it.
+    } as never);
+    expect((await loadSession(encode(serialiseSession(fileOf(log))), memoryContent())).ok).toBe(
+      true,
+    );
   });
 });

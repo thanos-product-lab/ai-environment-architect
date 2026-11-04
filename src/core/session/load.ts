@@ -1,6 +1,9 @@
+import { type AssemblyDestination, assemble } from "../assembly/assemble.js";
+import { parseGuidanceBlocks } from "../destination/guidance-blocks.js";
 import { sha256 } from "../hash.js";
 import { comparePaths } from "../paths.js";
-import { isFailed, LINEAGE_FIELDS, lineageOf, SELF_SUPERSEDING } from "./log.js";
+import { assemblyRevisionsOf, decisionIdsOf } from "./artifact-input.js";
+import { isFailed, LINEAGE_FIELDS, lineageOf, type Revised, SELF_SUPERSEDING } from "./log.js";
 import {
   CURRENT_STATUSES,
   INVALIDATION_FIELDS,
@@ -23,13 +26,16 @@ import { pretty } from "./serialise.js";
 // rejects the session, naming the check and the record. Load only reads: it never repairs and
 // never writes, so a rejected file is left untouched.
 //
-// Checks 4, 7 and 8 cover the record types the file schema accepts so far. Artifact content and
-// the apply-approval check arrive with their record types (M5).
+// Checks 4, 7 and 8 cover the record types the file schema accepts so far. The apply-approval
+// check (8) and apply-attempt references (4) arrive with apply (DM §11.2).
 //
-// Some branches can't be reached yet, because ID prefixes and the schema stop the input first:
-// a lineage ID used as a record ID, a record reference of the wrong type, a lineage whose
-// revisions all failed, and superseding a failed or immutable record. They become reachable
-// with the M5 records, whose step tests them. The CLI words the messages (`src/cli`).
+// Some branches are safeguards that no file can reach, because ID prefixes, the schema or an
+// earlier check stop the input first: a lineage ID used as a record ID (no record prefix is a
+// lineage prefix), a record reference of the wrong type (record IDs carry their type's prefix),
+// superseding a failed record (check 4 refuses the reference) and superseding an immutable one
+// (only decisions and effort corrections have `supersedes`). A lineage whose revisions all
+// failed is reachable through recommendations, and tested. The CLI words the messages
+// (`src/cli`).
 
 /** Reads a content-addressed file of the session directory (IMPL §4.2), or undefined if absent. */
 export interface ContentReader {
@@ -45,6 +51,7 @@ export const LOAD_CHECKS = {
   6: "evidence",
   7: "content",
   8: "state",
+  9: "assembly",
 } as const;
 
 export type LoadCheck = keyof typeof LOAD_CHECKS;
@@ -112,6 +119,7 @@ export async function loadSession(
     checkEvidence(file.records);
     await checkContent(file.records, content);
     checkState(file.records);
+    await checkAssembly(file.records, content);
     return { ok: true, file };
   } catch (error) {
     if (error instanceof Rejected) return { ok: false, failure: error.failure };
@@ -195,6 +203,12 @@ function checkEnvelope(records: readonly SessionRecord[]): void {
       if (typeof value === "string" && ids.has(value) && lineageOf(record) === value)
         reject(3, `lineage ID ${value} is also a record ID`, record);
     }
+
+  // Artifact revisions are immutable, and numbered 1, 2, 3… in `seq` order (DM §9.4).
+  let artifacts = 0;
+  for (const record of records)
+    if (record.type === "artifact_revision" && record.revision !== ++artifacts)
+      reject(3, `artifact revision ${artifacts} is numbered ${record.revision}`, record);
 
   const lineages = new Map<string, SessionRecord[]>();
   for (const record of records) {
@@ -302,6 +316,12 @@ const REFERENCES: Partial<Record<RecordTypeName, readonly Reference[]>> = {
     lineage("recommendationId", "recommendation_revision"),
     record("revisionId", "recommendation_revision"),
   ],
+  artifact_revision: [
+    record("snapshotId", "snapshot"),
+    record("selectedRevisionIds", "recommendation_revision"),
+    record("decisionIds", "decision"),
+  ],
+  review: [record("artifactRevisionId", "artifact_revision")],
   failed_item: [producedBy],
   model_call: [lineage("retryOf", "model_call")],
   decision: [
@@ -333,6 +353,13 @@ function referencesOf(r: SessionRecord): { reference: Reference; id: string }[] 
   for (const reference of [...(REFERENCES[r.type] ?? []), record("supersedes", r.type)])
     for (const id of valuesOf(r, reference.field))
       if (reference.field !== "producedBy" || !NOT_A_CALL.has(id)) found.push({ reference, id });
+  // An artifact's attribution names recommendation revisions by record ID (§4.4.1).
+  if (r.type === "artifact_revision")
+    for (const entry of r.attribution)
+      found.push({
+        reference: record("attribution", "recommendation_revision"),
+        id: entry.revisionId,
+      });
   if (r.type === "model_call") {
     found.push({
       reference: record("inputManifest.snapshotId", "snapshot"),
@@ -414,6 +441,84 @@ function checkReferences(records: readonly SessionRecord[]): void {
         }
       }
     }
+
+  checkArtifacts(records, byId);
+  checkTargets(records);
+}
+
+type Snapshot = RecordOf<"snapshot">;
+
+/**
+ * An artifact revision's `original` is its snapshot's destination: `absent`, or its hash. It
+ * names each selected revision and decision once, and its decisions are exactly the decision
+ * support of its selected revisions (DM §9.4). Its attribution is checked by assembling it again
+ * (check 9).
+ */
+function checkArtifacts(
+  records: readonly SessionRecord[],
+  byId: ReadonlyMap<string, SessionRecord>,
+): void {
+  for (const r of records) {
+    if (r.type !== "artifact_revision") continue;
+    // The reference loop has made sure the snapshot and revisions exist, and didn't fail.
+    const { destination } = byId.get(r.snapshotId) as Snapshot;
+    const expected = destination.state === "present" ? destination.hash : destination.state;
+    if (r.original !== expected)
+      reject(4, `original is ${r.original}, but its snapshot's destination is ${expected}`, r);
+    for (const field of ["selectedRevisionIds", "decisionIds"] as const) {
+      const twice = r[field].find((id, i) => r[field].indexOf(id) !== i);
+      if (twice !== undefined) reject(4, `${field} names ${twice} twice`, r);
+    }
+    const selected = r.selectedRevisionIds.map(
+      (id) => byId.get(id) as Revised<"recommendation_revision">,
+    );
+    const decisions = decisionIdsOf(selected);
+    if (decisions.join() !== r.decisionIds.join())
+      reject(
+        4,
+        `decisionIds are ${r.decisionIds.join(", ") || "none"}, but its revisions depend on ${decisions.join(", ") || "none"}`,
+        r,
+      );
+  }
+}
+
+type RecommendationTarget = Extract<
+  RecordOf<"recommendation_revision">,
+  { target: unknown }
+>["target"];
+
+/**
+ * A recommendation revision's target blocks exist, with their hashes, in the snapshot active when
+ * the revision that set the target was created: the earliest revision from which every later one
+ * that isn't `failed_validation` repeats the target. So an invalidation is checked against that
+ * snapshot, not its own.
+ */
+function checkTargets(records: readonly SessionRecord[]): void {
+  let active: Snapshot | undefined;
+  const lastTarget = new Map<string, string>();
+  for (const r of records) {
+    if (r.type === "snapshot") active = r;
+    if (r.type !== "recommendation_revision" || isFailed(r) || !("target" in r)) continue;
+    const target = pretty(r.target, "");
+    if (lastTarget.get(r.recommendationId) === target) continue;
+    lastTarget.set(r.recommendationId, target);
+    const blocks =
+      active?.destination.state === "present" ? active.destination.blocks : ([] as const);
+    for (const ref of blockRefsOf(r.target))
+      if (!blocks.some((b) => b.blockId === ref.blockId && b.hash === ref.blockHash))
+        reject(
+          4,
+          `the target ${ref.blockId} isn't in the snapshot active when it was set, with its hash`,
+          r,
+        );
+  }
+}
+
+function blockRefsOf(
+  target: RecommendationTarget,
+): readonly { blockId: string; blockHash: string }[] {
+  if (target.kind !== "newSection") return [target];
+  return target.after === undefined ? [] : [target.after];
 }
 
 // --- Check 5: superseding ---------------------------------------------------------------------
@@ -471,6 +576,7 @@ function checkEvidence(records: readonly SessionRecord[]): void {
 
 async function checkContent(records: readonly SessionRecord[], content: ContentReader) {
   await checkDestinations(records, content);
+  await checkArtifactContent(records, content);
   await checkRetainedExchanges(records, content);
 }
 
@@ -491,6 +597,19 @@ async function checkDestinations(records: readonly SessionRecord[], content: Con
       if (sha256(bytes.subarray(start, end)) !== block.hash)
         reject(7, `block ${block.blockId}'s hash doesn't match its bytes`, r);
     }
+  }
+}
+
+/** Each artifact revision's content exists, hashes to its name and to its `proposedHash`. */
+async function checkArtifactContent(records: readonly SessionRecord[], content: ContentReader) {
+  for (const r of records) {
+    if (r.type !== "artifact_revision") continue;
+    const bytes = await content.read(r.proposedContent);
+    if (bytes === undefined) reject(7, `${r.proposedContent} is missing`, r);
+    const actual = sha256(bytes);
+    if (`content/${actual.replace(":", "-")}` !== r.proposedContent)
+      reject(7, `${r.proposedContent} doesn't hash to its name`, r);
+    if (actual !== r.proposedHash) reject(7, "the proposedHash doesn't match its content", r);
   }
 }
 
@@ -564,4 +683,37 @@ function checkState(records: readonly SessionRecord[]): void {
   for (const state of states)
     if (state.outcome !== undefined && state !== last)
       reject(8, "only the last session_state has an outcome", state);
+}
+
+// --- Check 9: assembly -----------------------------------------------------------------------
+
+/**
+ * Each artifact revision is what assembly gives for its selected revisions in its snapshot's
+ * destination: the same content hash and the same attribution (DM §9.3–§9.4). Checks 4 and 7 have
+ * made sure the records exist and the destination's bytes match their hash.
+ */
+async function checkAssembly(records: readonly SessionRecord[], content: ContentReader) {
+  const byId = new Map(records.map((r) => [r.id, r]));
+  for (const r of records) {
+    if (r.type !== "artifact_revision") continue;
+    const { destination } = byId.get(r.snapshotId) as Snapshot;
+    let assembled: AssemblyDestination = { state: "absent" };
+    if (destination.state === "present") {
+      const bytes = (await content.read(destination.contentRef)) as Uint8Array;
+      assembled = { state: "present", bytes, parsed: parseGuidanceBlocks(bytes) };
+    }
+    const selected = r.selectedRevisionIds.map(
+      (id) => byId.get(id) as Revised<"recommendation_revision">,
+    );
+    const blocks = assembled.state === "present" ? assembled.parsed.blocks : [];
+    const input = assemblyRevisionsOf(records, selected, blocks);
+    if ("unresolved" in input)
+      reject(9, `the target of ${input.unresolved} isn't in the artifact's snapshot`, r);
+    const result = assemble(assembled, input.revisions);
+    if (!result.ok) reject(9, "its selected revisions don't assemble", r);
+    if (result.hash !== r.proposedHash)
+      reject(9, "its content isn't what its selected revisions assemble to", r);
+    if (pretty(result.attribution, "") !== pretty(r.attribution, ""))
+      reject(9, "its attribution isn't the one assembly gives", r);
+  }
 }
