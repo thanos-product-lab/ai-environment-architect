@@ -3,6 +3,7 @@ import { callDraft, completedCall, hashOf, newLog } from "../../../test/support/
 import { parseGuidanceBlocks } from "../destination/guidance-blocks.js";
 import { sha256 } from "../hash.js";
 import { recoverInterruptedWork } from "./calls.js";
+import { currentState } from "./current.js";
 import { type ContentReader, type LoadFailure, loadSession } from "./load.js";
 import type { SessionLog } from "./log.js";
 import { SESSION_FORMAT, SESSION_SCHEMA_VERSION, type SessionFile } from "./records.js";
@@ -474,6 +475,138 @@ describe("recommend records (IMPL §3.3.5, §4.4.1)", () => {
     const entry = json.records.find((r: Json) => r.type === "held_back");
     entry.modelCallId = "call_9999";
     expect(await failure(encode(JSON.stringify(json)))).toMatchObject({ check: 4 });
+  });
+});
+
+/** The recommend session with a second recommendation and an accepted selection (DM §9.2). */
+function selectionLog(): SessionLog {
+  const log = recommendLog();
+  const first = log.records.find((r) => r.type === "recommendation_revision") as {
+    id: string;
+    recommendationId: string;
+  };
+  const {
+    id: _id,
+    seq: _seq,
+    createdAt: _c,
+    recommendationId: _r,
+    revision: _v,
+    ...draft
+  } = first as unknown as Record<string, unknown>;
+  log.start(draft as never);
+  log.append({
+    type: "selection",
+    recommendationId: first.recommendationId,
+    revisionId: first.id,
+    state: "accepted",
+    actor: "developer",
+    selectedAt: "2026-11-01T10:30:00.000Z",
+  });
+  return log;
+}
+
+describe("selection references (IMPL §4.4.1, §4.9 check 4)", () => {
+  const selectionOf = (json: Json) => json.records.find((r: Json) => r.type === "selection");
+  const revisions = (json: Json) =>
+    json.records.filter((r: Json) => r.type === "recommendation_revision");
+
+  it("loads an accepted selection", async () => {
+    const result = await loadSession(
+      encode(serialiseSession(fileOf(selectionLog()))),
+      memoryContent(),
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects a selection whose recommendation or revision isn't in the session", async () => {
+    for (const [field, value] of [
+      ["recommendationId", "rec_9999"],
+      ["revisionId", "rrev_9999"],
+    ] as const) {
+      const json = JSON.parse(serialiseSession(fileOf(selectionLog())));
+      selectionOf(json)[field] = value;
+      expect(await failure(encode(JSON.stringify(json))), field).toMatchObject({ check: 4 });
+    }
+  });
+
+  it("rejects a selection whose revision belongs to another recommendation", async () => {
+    const json = JSON.parse(serialiseSession(fileOf(selectionLog())));
+    selectionOf(json).revisionId = revisions(json)[1].id;
+    const rejected = await failure(encode(JSON.stringify(json)));
+    expect(rejected).toMatchObject({ check: 4 });
+    expect(rejected.detail).toMatch(/another recommendation/);
+  });
+
+  it("rejects a selection that names a later revision", async () => {
+    const json = JSON.parse(serialiseSession(fileOf(selectionLog())));
+    const selection = selectionOf(json);
+    json.records.splice(json.records.indexOf(selection), 1);
+    json.records.splice(json.records.indexOf(revisions(json)[0]), 0, selection);
+    renumber(json);
+    expect(await failure(encode(JSON.stringify(json)))).toMatchObject({ check: 4 });
+  });
+
+  it("rejects a selection of a revision that failed validation", async () => {
+    const log = recommendLog();
+    const failed = log.append({
+      type: "recommendation_revision",
+      recommendationId: "rec_0009",
+      revision: 1,
+      status: "failed_validation",
+      producedBy: "developer_edit",
+      itemKey: "$edit",
+      rejectedBy: ["REF-002"],
+      proposed: {},
+    });
+    log.append({
+      type: "selection",
+      recommendationId: "rec_0009",
+      revisionId: failed.id,
+      state: "accepted",
+      actor: "developer",
+      selectedAt: "2026-11-01T10:30:00.000Z",
+    });
+    expect(await failure(encode(serialiseSession(fileOf(log))))).toMatchObject({ check: 4 });
+  });
+});
+
+describe("clashing selections load (DM §9.2, IMPL §4.4.2)", () => {
+  it("two accepted revisions of one block load, and current state reports the clash", async () => {
+    const log = recommendLog();
+    const base = log.records.find((r) => r.type === "recommendation_revision") as unknown as Record<
+      string,
+      unknown
+    >;
+    const { id: _i, seq: _s, createdAt: _c, recommendationId: _r, revision: _v, ...draft } = base;
+    const paragraph = parseGuidanceBlocks(DESTINATION).blocks.find(
+      (b) => b.blockId === "Guide/paragraph-1",
+    );
+    if (paragraph === undefined) throw new Error("no paragraph");
+    const target = { kind: "block", blockId: paragraph.blockId, blockHash: paragraph.hash };
+    const ids = [1, 2].map((n) => {
+      const revision = log.start({
+        ...draft,
+        operation: "revise",
+        target,
+        content: `Use pnpm ${n}.`,
+        references: [],
+      } as never) as unknown as { id: string; recommendationId: string };
+      log.append({
+        type: "selection",
+        recommendationId: revision.recommendationId,
+        revisionId: revision.id,
+        state: "accepted",
+        actor: "developer",
+        selectedAt: "2026-11-01T10:30:00.000Z",
+      });
+      return revision.recommendationId;
+    });
+    const result = await loadSession(encode(serialiseSession(fileOf(log))), memoryContent());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(currentState(result.file.records, { destination: DESTINATION }).clashes).toEqual([
+      { recommendationIds: ids, reason: "same_block" },
+    ]);
   });
 });
 

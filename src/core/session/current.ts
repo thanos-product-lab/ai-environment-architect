@@ -1,4 +1,5 @@
 import { comparePaths } from "../paths.js";
+import { activeDestination, type ExclusionReason, exclusionBetween } from "./exclusion.js";
 import { isFailed, lineageOf, type Revised } from "./log.js";
 import { CURRENT_STATUSES, type RecordOf, type SessionRecord } from "./records.js";
 
@@ -47,10 +48,35 @@ export interface CurrentState {
   readonly heldBack: readonly RecordOf<"held_back">[];
   /** The latest completed `recommend` call's, while no recommendation has a current revision. */
   readonly noChangeReason: RecordOf<"no_change_reason"> | undefined;
+  /**
+   * By `recommendationId`: the latest selection, while the revision it names is the current one
+   * (DM §9.2). A recommendation missing here is pending, and nothing is written to make it so.
+   */
+  readonly selections: ReadonlyMap<string, RecordOf<"selection">>;
+  /**
+   * Pairs of current accepted selections that can't both be accepted (DM §9.1–§9.2), as a
+   * refresh's re-anchoring or a hand-edited file can leave them, in recommendation order.
+   * Final review is blocked while there is one. Derived only when the destination is given.
+   */
+  readonly clashes: readonly Clash[] | undefined;
+}
+
+/** Two accepted recommendations, in recommendation order, and why they can't both be. */
+export type Clash = { readonly recommendationIds: readonly [string, string] } & ExclusionReason;
+
+export interface CurrentStateOptions {
+  /**
+   * The bytes the caller read for the active snapshot's destination, checked against its hash,
+   * or undefined when it isn't present. Given, `clashes` is derived; heading levels need them.
+   */
+  readonly destination: Uint8Array | undefined;
 }
 
 /** `records` must be in `seq` order, as `SessionLog.records` and a loaded file give them. */
-export function currentState(records: readonly SessionRecord[]): CurrentState {
+export function currentState(
+  records: readonly SessionRecord[],
+  options?: CurrentStateOptions,
+): CurrentState {
   const superseded = new Set<string>();
   for (const record of records)
     for (const id of (record as { supersedes?: readonly string[] }).supersedes ?? [])
@@ -157,6 +183,28 @@ export function currentState(records: readonly SessionRecord[]): CurrentState {
       ? undefined
       : ofType("no_change_reason").find((r) => r.modelCallId === recommendCall);
 
+  const latestSelections = new Map<string, RecordOf<"selection">>();
+  for (const selection of ofType("selection"))
+    latestSelections.set(selection.recommendationId, selection);
+  const selections = new Map<string, RecordOf<"selection">>();
+  for (const [id, selection] of latestSelections)
+    if (recommendations.get(id)?.id === selection.revisionId) selections.set(id, selection);
+
+  let clashes: Clash[] | undefined;
+  if (options !== undefined) {
+    const destination = activeDestination(records, options.destination);
+    const accepted = [...recommendations.values()].filter(
+      (r) => selections.get(r.recommendationId)?.state === "accepted",
+    );
+    clashes = [];
+    for (const [i, a] of accepted.entries())
+      for (const b of accepted.slice(i + 1)) {
+        const reason = exclusionBetween(a, b, destination);
+        if (reason !== undefined)
+          clashes.push({ recommendationIds: [a.recommendationId, b.recommendationId], ...reason });
+      }
+  }
+
   return {
     activeSnapshotId,
     findings,
@@ -168,6 +216,8 @@ export function currentState(records: readonly SessionRecord[]): CurrentState {
     contentNotices: ofType("content_notice").filter((n) => n.snapshotId === activeSnapshotId),
     heldBack,
     noChangeReason,
+    selections,
+    clashes,
   };
 }
 

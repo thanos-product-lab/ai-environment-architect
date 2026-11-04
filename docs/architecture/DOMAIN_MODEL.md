@@ -1,8 +1,8 @@
 # Domain Model
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 3 November 2026  
-**Version:** 0.27 — consolidated specification  
+**Date:** 4 November 2026  
+**Version:** 0.28 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,10 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.27
+
+1. **Clashing selections (§9.2).** A refresh's re-anchoring, or a hand-edited session, can leave two accepted recommendations that §9.1 makes exclusive. Code derives the clash with the same rules and reasons as accepting; final review is blocked until the developer rejects one, and assembly is never given a clashing set. It is not a load error ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §2.7, §4.4.2).
 
 ### Changes from v0.26
 
@@ -495,6 +499,8 @@ The current selection is **one per stable `recommendationId`**, pointing at one 
 | `actor`, `selectedAt` | |
 
 Selecting a new revision replaces the previous selection for that recommendation. Selection history is retained. A selection, accepted or rejected, counts only while the revision it names is current: when a regeneration or an edit creates a new revision, the recommendation is pending again, without any selection being written for the developer (§12). A recommendation with no current revision, such as an invalidated one, is not shown for selection. Rejecting a proposed addition never removes similar existing guidance; removal happens only through an accepted `remove` recommendation.
+
+**Clashes.** Exclusion is checked when a recommendation is accepted, on targets resolved in the active snapshot (§12). A refresh can still re-anchor two accepted recommendations so that they exclude each other, and a hand-edited session can hold such a pair. Code derives every such **clash** from the current accepted selections, with the same rules and reasons as accepting, and writes nothing. While a clash exists, final review is blocked and the CLI names the pair; the developer rejects one. Assembly is never given a clashing set. A clash is not a load error.
 
 ### 9.3 Assembly
 

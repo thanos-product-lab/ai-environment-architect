@@ -345,13 +345,24 @@ export function blockHeadingLevel(bytes: Uint8Array, block: GuidanceBlock): numb
   return underline.trim().startsWith("=") ? 1 : 2;
 }
 
-/** The last block of a heading's section: up to the next heading of the same or higher level. */
 function sectionEnd(file: File, index: number): number {
-  const level = headingLevel(file, index);
+  return sectionLastIndex(file.bytes, file.blocks, index);
+}
+
+/**
+ * The index of the last block of the heading at `index`'s section (DM §9.1): up to the next
+ * heading of the same or a higher level, or the end of the file.
+ */
+export function sectionLastIndex(
+  bytes: Uint8Array,
+  blocks: readonly GuidanceBlock[],
+  index: number,
+): number {
+  const level = blockHeadingLevel(bytes, blocks[index] as GuidanceBlock);
   let last = index;
-  while (last + 1 < file.blocks.length) {
-    const next = file.blocks[last + 1] as GuidanceBlock;
-    if (next.type === "heading" && headingLevel(file, last + 1) <= level) break;
+  while (last + 1 < blocks.length) {
+    const next = blocks[last + 1] as GuidanceBlock;
+    if (next.type === "heading" && blockHeadingLevel(bytes, next) <= level) break;
     last++;
   }
   return last;

@@ -6,10 +6,10 @@ import type { Hash } from "../hash.js";
 // list of immutable records. Every record shares an envelope: `type`, `id`, `seq`, `createdAt`.
 // A record that can change has a lineage ID as well, shared by its revisions, and a `revision`.
 //
-// This defines the records §4.4–§4.6 and §4.8 produce, and those of `recommend` (§3.3.5). The
-// other types in the §4.4.1 table have their prefixes here, and get their fields with their own
-// steps: selections, artifacts, reviews and apply (M5). Until then the file schema doesn't
-// accept them.
+// This defines the records §4.4–§4.6 and §4.8 produce, those of `recommend` (§3.3.5) and
+// selections (DM §9.2). The other types in the §4.4.1 table have their prefixes here, and get
+// their fields with their own steps: artifacts, reviews and apply (M5). Until then the file
+// schema doesn't accept them.
 
 export const SESSION_FORMAT = "ai-environment-architect/session";
 export const SESSION_SCHEMA_VERSION = 1;
@@ -873,6 +873,19 @@ export const noChangeReasonRecord = z.strictObject({
   modelCallId,
 });
 
+/**
+ * Immutable (DM §9.2): the developer's choice for one exact revision. The latest per
+ * `recommendationId` is current, and counts only while its revision is (§4.4.2).
+ */
+export const selectionRecord = z.strictObject({
+  ...envelope("selection"),
+  recommendationId,
+  revisionId: recordId("recommendation_revision"),
+  state: z.enum(["pending", "accepted", "rejected"]),
+  actor: nonEmpty,
+  selectedAt: timestamp,
+});
+
 /** Collections with no record type of their own. Regeneration adds `actions` (M5). */
 export const failedItemCollection = z.enum([
   "revisions",
@@ -1210,6 +1223,7 @@ export const sessionRecord = z.union([
   recommendationRevisionRecord,
   heldBackRecord,
   noChangeReasonRecord,
+  selectionRecord,
   failedItemRecord,
   modelCallRecord,
   effortIntervalRecord,

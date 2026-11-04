@@ -298,6 +298,10 @@ const REFERENCES: Partial<Record<RecordTypeName, readonly Reference[]>> = {
   recommendation_revision: [producedBy, revisedBy],
   held_back: [lineage("blockedBy", "question", "conflict"), lineage("modelCallId", "model_call")],
   no_change_reason: [lineage("modelCallId", "model_call")],
+  selection: [
+    lineage("recommendationId", "recommendation_revision"),
+    record("revisionId", "recommendation_revision"),
+  ],
   failed_item: [producedBy],
   model_call: [lineage("retryOf", "model_call")],
   decision: [
@@ -383,6 +387,12 @@ function checkReferences(records: readonly SessionRecord[]): void {
         if (target.seq >= r.seq) reject(4, `${reference.field} names the later ${id}`, r);
         if (!isFailed(r) && isFailed(target))
           reject(4, `${reference.field} names ${id}, which failed validation`, r);
+        if (
+          r.type === "selection" &&
+          reference.field === "revisionId" &&
+          lineageOf(target) !== r.recommendationId
+        )
+          reject(4, `revisionId names ${id}, a revision of another recommendation`, r);
       } else {
         const types = [reference.type, ...(reference.or ?? [])];
         const revisions = types
