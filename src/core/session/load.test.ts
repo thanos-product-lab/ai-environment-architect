@@ -1804,3 +1804,166 @@ describe("the recommendation revision field list (IMPL §4.4.1)", () => {
     );
   });
 });
+
+// --- Apply attempts (DM §11.2; IMPL §4.4.1, §4.9 checks 3, 4 and 8, §4.11) ----------------------
+
+/** The artifact session with an apply attempt that started and succeeded. */
+function applyLog(): { log: SessionLog; files: Record<string, Uint8Array> } {
+  const { log, files } = artifactLog();
+  const artifact = log.records.find((r) => r.type === "artifact_revision") as {
+    id: string;
+    proposedHash: `sha256:${string}`;
+  };
+  const review = log.records.find((r) => r.type === "review") as { id: string };
+  const started = log.start({
+    type: "apply_attempt",
+    artifactRevisionId: artifact.id,
+    reviewId: review.id,
+    expectedOriginal: DESTINATION_HASH,
+    intendedHash: artifact.proposedHash,
+    freshness: { state: "acknowledged", changedPaths: ["src/app.ts"] },
+    state: "started",
+    startedAt: "2026-11-01T10:50:00.000Z",
+  });
+  log.revise("apply_attempt", started.applyAttemptId, {
+    state: "succeeded",
+    resultHash: artifact.proposedHash,
+    endedAt: { state: "known", value: "2026-11-01T10:50:01.000Z" },
+  });
+  return { log, files };
+}
+
+const attemptsOf = (json: Json) => json.records.filter((r: Json) => r.type === "apply_attempt");
+const reviewOf = (json: Json) => json.records.find((r: Json) => r.type === "review");
+
+async function applyFailure(edit: (json: Json) => void): Promise<LoadFailure> {
+  const { log, files } = applyLog();
+  const json = JSON.parse(serialiseSession(fileOf(log)));
+  edit(json);
+  return failure(encode(JSON.stringify(json)), memoryContent(files));
+}
+
+describe("apply attempts load (DM §11.2, IMPL §4.9)", () => {
+  it("loads a started and a succeeded revision, and a blocked attempt", async () => {
+    const { log, files } = applyLog();
+    const artifact = log.records.find((r) => r.type === "artifact_revision") as {
+      id: string;
+      proposedHash: `sha256:${string}`;
+    };
+    const review = log.records.find((r) => r.type === "review") as { id: string };
+    log.start({
+      type: "apply_attempt",
+      artifactRevisionId: artifact.id,
+      reviewId: review.id,
+      expectedOriginal: DESTINATION_HASH,
+      intendedHash: artifact.proposedHash,
+      freshness: {
+        state: "blocked",
+        blockers: [{ rule: "destination", from: DESTINATION_HASH, to: "absent" }],
+        changedPaths: [],
+      },
+      state: "blocked",
+      startedAt: "2026-11-01T10:51:00.000Z",
+      endedAt: { state: "known", value: "2026-11-01T10:51:00.000Z" },
+    });
+    const result = await loadSession(encode(serialiseSession(fileOf(log))), memoryContent(files));
+    expect(result.ok).toBe(true);
+  });
+
+  it("check 2 rejects a succeeded attempt without a resultHash, and a failed one without an error", async () => {
+    const missingResult = await applyFailure((json) => {
+      delete attemptsOf(json)[1].resultHash;
+    });
+    expect(missingResult).toMatchObject({ check: 2 });
+    const missingError = await applyFailure((json) => {
+      const ended = attemptsOf(json)[1];
+      ended.state = "failed";
+      delete ended.resultHash;
+    });
+    expect(missingError).toMatchObject({ check: 2 });
+  });
+
+  it("check 2 rejects a started attempt recorded with an unacknowledged warning", async () => {
+    const found = await applyFailure((json) => {
+      attemptsOf(json)[0].freshness = { state: "warn", changedPaths: ["src/app.ts"] };
+    });
+    expect(found).toMatchObject({ check: 2 });
+  });
+
+  it("check 3 rejects a revision that changes what an apply attempt fixes", async () => {
+    const found = await applyFailure((json) => {
+      attemptsOf(json)[1].freshness = { state: "fresh" };
+    });
+    expect(found).toMatchObject({ check: 3, name: "envelope" });
+  });
+
+  it("check 4 rejects a dangling or later artifact revision or review", async () => {
+    const dangling = await applyFailure((json) => {
+      for (const attempt of attemptsOf(json)) attempt.artifactRevisionId = "art_9999";
+    });
+    expect(dangling).toMatchObject({ check: 4, name: "references" });
+    const missingReview = await applyFailure((json) => {
+      for (const attempt of attemptsOf(json)) attempt.reviewId = "revw_9999";
+    });
+    expect(missingReview).toMatchObject({ check: 4, name: "references" });
+    const later = await applyFailure((json) => {
+      const review = reviewOf(json);
+      json.records.splice(json.records.indexOf(review), 1);
+      json.records.push(review);
+      renumber(json);
+    });
+    expect(later).toMatchObject({ check: 4, name: "references" });
+    expect(later.detail).toMatch(/later/);
+  });
+
+  it("check 4 rejects a review of another artifact revision", async () => {
+    const found = await applyFailure((json) => {
+      const artifact = artifactOf(json);
+      const review = reviewOf(json);
+      const copy = { ...artifact, id: "art_9000", revision: 2 };
+      json.records.splice(json.records.indexOf(review) + 1, 0, copy);
+      renumber(json);
+      for (const attempt of attemptsOf(json)) attempt.artifactRevisionId = copy.id;
+    });
+    expect(found).toMatchObject({ check: 4, name: "references" });
+    expect(found.detail).toMatch(/review of another artifact revision/);
+  });
+
+  it("check 8 rejects an apply attempt without a matching approved review (IMPL §4.11)", async () => {
+    const rejected = await applyFailure((json) => {
+      reviewOf(json).outcome = "rejected";
+    });
+    expect(rejected).toMatchObject({ check: 8, name: "state" });
+    const otherHash = await applyFailure((json) => {
+      reviewOf(json).contentHash = hashOf("e");
+    });
+    expect(otherHash).toMatchObject({ check: 8, name: "state" });
+  });
+
+  it("check 8 rejects an expectedOriginal, intendedHash or resultHash that isn't the artifact's", async () => {
+    const edits: Record<string, (json: Json) => void> = {
+      expectedOriginal: (json) => {
+        for (const attempt of attemptsOf(json)) attempt.expectedOriginal = "absent";
+      },
+      intendedHash: (json) => {
+        for (const attempt of attemptsOf(json)) attempt.intendedHash = hashOf("e");
+      },
+      resultHash: (json) => {
+        attemptsOf(json)[1].resultHash = hashOf("e");
+      },
+    };
+    for (const [field, edit] of Object.entries(edits)) {
+      const found = await applyFailure(edit);
+      expect(found, field).toMatchObject({ check: 8, name: "state" });
+      expect(found.detail, field).toMatch(field);
+    }
+  });
+});
+
+describe("the apply-attempt field list (IMPL §4.4.1)", () => {
+  it("lets a revision change only state, error, resultHash and endedAt", () => {
+    expect([...REVISION_FIELDS.apply_attempt].sort()).toEqual(
+      ["endedAt", "error", "resultHash", "state"].sort(),
+    );
+  });
+});

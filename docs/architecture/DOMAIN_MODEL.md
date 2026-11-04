@@ -2,7 +2,7 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 4 November 2026  
-**Version:** 0.30 — consolidated specification  
+**Version:** 0.31 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,10 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.30
+
+1. **Apply attempt (§11.2).** A blocking freshness result records one `blocked` attempt, and nothing is written. The temporary file is named after the attempt, `.CLAUDE.md.<applyAttemptId>.tmp`, and recovery removes it before recording the outcome; a file already at that name isn't the attempt's and is left alone. Recovery records the end time as unknown, because the write's real end isn't known. Apply refuses while an earlier attempt is still `started`, until recovery has run.
 
 ### Changes from v0.29
 
@@ -604,21 +608,21 @@ This keeps application safe without blocking a developer who is editing unrelate
 | `intendedHash` | |
 | `resultHash?` | The destination's hash after the write, recorded with `succeeded` |
 | `freshness` | Result of §11.1, including acknowledged warnings |
-| `state` | `started`, `succeeded`, `blocked`, `failed`, `recovery_required` |
-| `error?`, timestamps | |
+| `state` | `started`, `succeeded`, `blocked`, `failed`, `recovery_required`. `blocked` is the only revision of an attempt whose freshness check blocked |
+| `error?`, timestamps | `startedAt`; `endedAt`, unknown when recovery records it |
 
 Procedure:
 
-1. Resolve the destination inside the repository root; reject path traversal and symlinked destinations.
+1. Resolve the destination inside the repository root; reject path traversal and symlinked destinations. Refuse while an earlier attempt is still `started`: recovery runs first.
 2. Confirm a usable approval (§10).
-3. Run freshness checks (§11.1).
+3. Run freshness checks (§11.1). If they block, record the attempt as `blocked` and stop; nothing is written. A warning waits for its acknowledgement.
 4. Persist the attempt as `started`.
-5. Write the approved bytes to a temporary file in the same directory. Re-check the destination hash, then rename over the destination (or create it, if `absent`).
+5. Write the approved bytes to a temporary file in the same directory, named `.CLAUDE.md.<applyAttemptId>.tmp`; a file already there isn't this attempt's and is left alone. Re-check the destination hash, then rename over the destination (or create it, if `absent`).
 6. Hash the destination and record `succeeded`, or `failed` with the reason.
 
 A session lock prevents two instances of this CLI from operating on one session. It cannot stop other editors, which is why step 5 re-checks the hash.
 
-**Recovery** for a `started` attempt found on resume:
+**Recovery** for a `started` attempt found on resume. First remove the attempt's temporary file, if it is there; then:
 
 | Destination now | Action |
 |---|---|

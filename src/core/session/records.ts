@@ -7,9 +7,8 @@ import type { Hash } from "../hash.js";
 // A record that can change has a lineage ID as well, shared by its revisions, and a `revision`.
 //
 // This defines the records §4.4–§4.6 and §4.8 produce, those of `recommend` (§3.3.5),
-// selections (DM §9.2), artifact revisions (DM §9.4) and reviews (DM §10). `apply_attempt` has
-// its prefix here and gets its fields with apply (DM §11.2); until then the file schema doesn't
-// accept it.
+// selections (DM §9.2), artifact revisions (DM §9.4), reviews (DM §10) and apply attempts
+// (DM §11.2).
 
 export const SESSION_FORMAT = "ai-environment-architect/session";
 export const SESSION_SCHEMA_VERSION = 1;
@@ -104,7 +103,7 @@ export const REVISION_FIELDS: Readonly<Record<RevisableType, readonly string[]>>
     "status",
     "invalidatedReason",
   ],
-  apply_attempt: [],
+  apply_attempt: ["state", "error", "resultHash", "endedAt"],
   // What the end adds to the `started` revision (§4.6).
   model_call: [
     "state",
@@ -937,6 +936,125 @@ export const reviewRecord = z.strictObject({
   comment: z.string().optional(),
 });
 
+// --- Apply attempts (DM §11.1, §11.2) --------------------------------------------------------
+
+const findingLineage = lineageId(RECORD_KINDS.finding.lineage.prefix);
+
+/** One blocking freshness rule that held (DM §11.1), as `checkFreshness` gives it. */
+export const freshnessBlocker = z.union([
+  z.strictObject({
+    rule: z.literal("destination"),
+    from: z.union([z.literal("absent"), hash]),
+    to: z.union([z.literal("absent"), z.literal("unavailable"), hash]),
+  }),
+  z.strictObject({
+    rule: z.literal("cited_file"),
+    path: z.string(),
+    change: z.enum(["changed", "removed"]),
+    findingId: findingLineage,
+  }),
+  z.strictObject({
+    rule: z.literal("missing_reference"),
+    value: z.string(),
+    revisionId: recordId("recommendation_revision"),
+  }),
+  z.strictObject({
+    rule: z.literal("scope"),
+    path: z.string(),
+    change: z.enum(["added", "removed"]),
+    findingId: findingLineage,
+  }),
+]);
+
+/**
+ * The freshness result an attempt records (DM §11.2): fresh, warnings the developer acknowledged,
+ * or blocked. An unacknowledged warning starts no attempt.
+ */
+export const recordedFreshness = z.union([
+  z.strictObject({ state: z.literal("fresh") }),
+  z.strictObject({ state: z.literal("acknowledged"), changedPaths: z.array(z.string()).min(1) }),
+  z.strictObject({
+    state: z.literal("blocked"),
+    blockers: z.array(freshnessBlocker).min(1),
+    changedPaths: z.array(z.string()),
+  }),
+]);
+
+/** What the destination held when an attempt failed or needs recovery. */
+const observedDestination = z.union([z.literal("absent"), z.literal("unavailable"), hash]);
+
+/**
+ * Why an attempt failed or needs recovery. Code-written; `detail` is the storage adapter's
+ * failure reason, never file content.
+ */
+export const applyError = z.union([
+  z.strictObject({ reason: z.literal("interrupted_before_write") }),
+  z.strictObject({ reason: z.literal("destination_changed"), destination: observedDestination }),
+  z.strictObject({ reason: z.literal("write_failed"), detail: nonEmpty }),
+  z.strictObject({ reason: z.literal("result_mismatch"), destination: observedDestination }),
+  z.strictObject({ reason: z.literal("destination_conflict"), destination: observedDestination }),
+]);
+
+const applyFields = {
+  ...envelope("apply_attempt"),
+  applyAttemptId: lineageId(RECORD_KINDS.apply_attempt.lineage.prefix),
+  artifactRevisionId: recordId("artifact_revision"),
+  /** The usable approval it wrote under (DM §10). */
+  reviewId: recordId("review"),
+  /** The artifact's `original`: the destination's hash, or `absent`. */
+  expectedOriginal: z.union([z.literal("absent"), hash]),
+  /** The artifact's `proposedHash`. */
+  intendedHash: hash,
+  freshness: recordedFreshness,
+  startedAt: timestamp,
+};
+
+/** Unknown, with the reason `interrupted`, when recovery records it (§4.6 "unknown is never zero"). */
+const endedAt = z.union([
+  z.strictObject({ state: z.literal("known"), value: timestamp }),
+  z.strictObject({ state: z.literal("unknown"), reason: z.literal("interrupted") }),
+]);
+
+/**
+ * DM §11.2. `started` is saved before the temporary file is written; each later state is a new
+ * revision, recovery included. A blocked freshness check records one `blocked` revision and
+ * nothing is written.
+ */
+export const applyAttemptRecord = z.union([
+  z.strictObject({
+    ...applyFields,
+    revision: z.literal(1),
+    state: z.literal("started"),
+    freshness: z.union([recordedFreshness.options[0], recordedFreshness.options[1]]),
+  }),
+  z.strictObject({
+    ...applyFields,
+    revision: z.literal(1),
+    state: z.literal("blocked"),
+    freshness: recordedFreshness.options[2],
+    endedAt,
+  }),
+  z.strictObject({
+    ...applyFields,
+    revision: z.literal(2),
+    supersedes: z.tuple([recordId("apply_attempt")]),
+    freshness: z.union([recordedFreshness.options[0], recordedFreshness.options[1]]),
+    state: z.literal("succeeded"),
+    /** The destination's hash after the write. */
+    resultHash: hash,
+    endedAt,
+  }),
+  z.strictObject({
+    ...applyFields,
+    revision: z.literal(2),
+    supersedes: z.tuple([recordId("apply_attempt")]),
+    freshness: z.union([recordedFreshness.options[0], recordedFreshness.options[1]]),
+    state: z.enum(["failed", "recovery_required"]),
+    error: applyError,
+    endedAt,
+  }),
+]);
+
 /** Collections with no record type of their own. Regeneration adds `actions` (M5). */
 export const failedItemCollection = z.enum([
   "revisions",
@@ -1277,6 +1395,7 @@ export const sessionRecord = z.union([
   selectionRecord,
   artifactRevisionRecord,
   reviewRecord,
+  applyAttemptRecord,
   failedItemRecord,
   modelCallRecord,
   effortIntervalRecord,

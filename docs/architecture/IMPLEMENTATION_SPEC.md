@@ -2,8 +2,12 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 4 November 2026  
-**Version:** 0.52  
+**Version:** 0.53  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.52
+
+- **Apply attempts (§4.4.1, §4.9, §4.11).** The record's fields: the recorded freshness (`fresh`, `acknowledged` with its paths, or `blocked` with its blockers), `startedAt`, `endedAt` (known or unknown) and `error` with its reasons. Load check 8 also requires an attempt's `expectedOriginal`, `intendedHash` and `resultHash` to be its artifact revision's `original`, `proposedHash` and `proposedHash`. Domain model v0.31.
 
 ### Changes from v0.51
 
@@ -2202,7 +2206,7 @@ The lineage of `session_state` and `generation_config` is the session itself, so
 | `selection` | — | `sel_` | Immutable. DM §9.2. A new selection per change, naming its `recommendationId` and `revisionId` | the latest per `recommendationId` |
 | `artifact_revision` | — | `art_` | Immutable. Content in `content/` | §4.4.2 |
 | `review` | — | `revw_` | Immutable. DM §10 | — |
-| `apply_attempt` | `applyAttemptId` (`apply_`) | `applyr_` | `started` is written, and synced, before the temporary file (DM §11.2 step 4). Each later state is a new revision, recovery included | the latest |
+| `apply_attempt` | `applyAttemptId` (`apply_`) | `applyr_` | `started` is written, and synced, before the temporary file (DM §11.2 step 4). Each later state is a new revision, recovery included. A blocked freshness check writes one `blocked` revision. `freshness` is `fresh`, `acknowledged` with the paths the developer acknowledged, or `blocked` with the blockers and changed paths of DM §11.1. `endedAt` is known, or unknown with the reason `interrupted` when recovery records it. `error` has a reason: `interrupted_before_write`; `destination_changed`, `result_mismatch` or `destination_conflict`, with what the destination held (a hash, `absent` or `unavailable`); or `write_failed`, with the storage adapter's reason | the latest |
 | `model_call` | `modelCallId` (`call_`) | `callr_` | `started` before the request is sent; then `completed`, `failed` or `interrupted` (§4.6) | the latest |
 | `effort_interval` | `effortIntervalId` (`eff_`) | `effr_` | `open` when a prompt is shown; `closed` when it is answered (§4.6) | the latest |
 | `effort_correction` | — | `effc_` | The developer's corrected total, with a reason (§2.13); a later one supersedes it | not superseded |
@@ -2413,7 +2417,7 @@ This implements §1.12, which covers responses as well as requests.
 5. Superseding: a record supersedes only records of its own type, each at most once; failed and immutable records are never superseded, except decisions and effort corrections by their own type; every effort correction after the first supersedes the current one, so at most one is current; a revision whose status isn't current (§4.4.1), such as a withdrawn finding, is never superseded.
 6. Evidence: every accepted finding that isn't a gap has evidence; an `absence` finding's is one `absence_check`, and a `claim`'s are `lines` or `entry`. The schema (check 2) already enforces the count, so a finding without evidence fails there; this check covers the kinds.
 7. Content: every `contentRef` exists and its bytes hash to its name; the destination's `hash` and its Guidance Block hashes match its bytes; each artifact revision's `proposedHash` matches its content. A call's `retainedInputRef` equals its input manifest's; with `retainModelInputs` off both references are `null`, and with it on `retainedInputRef` isn't. Every `retainedInputRef` and `retainedResponseRef` exists and matches, unless an `inputs_purged` record comes after the call: after its first revision for the request, after the revision that added it for the response. A file that is still there is checked either way.
-8. State: at most one `session_state` has an outcome, and it is the last one; every `apply_attempt` names an `approved` review of its artifact revision whose `contentHash` equals the revision's `proposedHash`.
+8. State: at most one `session_state` has an outcome, and it is the last one; every `apply_attempt` names an `approved` review of its artifact revision whose `contentHash` equals the revision's `proposedHash`, and its `expectedOriginal` and `intendedHash` are the revision's `original` and `proposedHash`, as its `resultHash` is when set.
 9. Assembly: each artifact revision is assembled again (DM §9.3) from its snapshot's destination bytes and its selected revisions, with targets resolved in that snapshot. Assembly must pass, and the result's content hash and attribution must equal the recorded `proposedHash` and `attribution`.
 
 A session that passes is loaded as a list of typed records. On resume, the process holding the lock then runs the interrupted-work rules, in this order: apply recovery (DM §11.2), interrupted model calls and effort intervals (§4.6), and a `session_state` with the reason `interrupted` and status `ready`, at the same stage, if the last state was `running`.
@@ -2494,6 +2498,7 @@ A `failed` session's failure details come from the `error` fields of its failed 
 - Load check 4 accepts a `target_changed` invalidation and an invalidation of a re-anchored target, and rejects a first revision whose target isn't in its snapshot.
 - Artifact revisions and reviews: load rejects artifact revisions numbered out of order, an `original` that isn't the snapshot's destination, a selected revision or decision named twice, `decisionIds` other than the selected revisions' decision support, content that doesn't match `proposedHash`, and, by assembling again, content or attribution other than what the selected revisions assemble to. The active artifact revision stops being active when its snapshot, selections or decisions change; an approval is usable only as the latest review of the active revision, and never transfers to a new one, even with identical bytes.
 - Apply recovery: a `started` attempt whose destination holds the original is recorded `failed` with `interrupted_before_write`, and the retry is a new attempt under the same approval, after the freshness checks.
+- Load rejects an apply attempt whose `expectedOriginal`, `intendedHash` or `resultHash` isn't its artifact revision's, or whose review is of another artifact revision.
 - A failed regeneration action invalidates its recommendation as `not_reconsidered`, and a failed developer edit keeps its validation events.
 - The export: each section contains its records, alias tables, input manifests and returned models included; `contentState` is right in the proposed, approved, applied and no-change cases; `evaluationStatus` follows every row of the outcome mapping; excerpts, failed items' quotes and exchanges appear only with their options; hashes match the session; unknown totals carry reasons; a seeded secret stops the export; `--out` inside the repository is refused.
 - Nothing in `src/core/session/` or `src/core/export/` reads the clock, randomness or the filesystem directly.

@@ -94,7 +94,8 @@ const intervals = (records: readonly SessionRecord[]) =>
 const unknownBecauseInterrupted = { state: "unknown", reason: INTERRUPTED } as const;
 
 /**
- * The interrupted-work rules for the process holding the lock (§4.9), after apply recovery (M5):
+ * The interrupted-work rules for the process holding the lock (§4.9), after apply recovery
+ * (`recoverInterruptedApply`, DM §11.2):
  * interrupted model calls, then effort intervals, then a `session_state` with the reason
  * `interrupted` if the last state was `running`. Returns the records appended.
  */

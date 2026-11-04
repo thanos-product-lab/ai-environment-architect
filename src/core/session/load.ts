@@ -26,9 +26,6 @@ import { pretty } from "./serialise.js";
 // rejects the session, naming the check and the record. Load only reads: it never repairs and
 // never writes, so a rejected file is left untouched.
 //
-// Checks 4, 7 and 8 cover the record types the file schema accepts so far. The apply-approval
-// check (8) and apply-attempt references (4) arrive with apply (DM §11.2).
-//
 // Some branches are safeguards that no file can reach, because ID prefixes, the schema or an
 // earlier check stop the input first: a lineage ID used as a record ID (no record prefix is a
 // lineage prefix), a record reference of the wrong type (record IDs carry their type's prefix),
@@ -281,7 +278,7 @@ const lineage = (field: string, type: RecordTypeName, ...or: RecordTypeName[]): 
 });
 
 /**
- * The references table of IMPL §4.4.1, for the record types the file schema accepts so far.
+ * The references table of IMPL §4.4.1.
  * `supersedes` is checked for every record; its type is check 5's.
  */
 const producedBy = lineage("producedBy", "model_call");
@@ -322,6 +319,7 @@ const REFERENCES: Partial<Record<RecordTypeName, readonly Reference[]>> = {
     record("decisionIds", "decision"),
   ],
   review: [record("artifactRevisionId", "artifact_revision")],
+  apply_attempt: [record("artifactRevisionId", "artifact_revision"), record("reviewId", "review")],
   failed_item: [producedBy],
   model_call: [lineage("retryOf", "model_call")],
   decision: [
@@ -420,6 +418,12 @@ function checkReferences(records: readonly SessionRecord[]): void {
           lineageOf(target) !== r.recommendationId
         )
           reject(4, `revisionId names ${id}, a revision of another recommendation`, r);
+        if (
+          r.type === "apply_attempt" &&
+          reference.field === "reviewId" &&
+          (target as RecordOf<"review">).artifactRevisionId !== r.artifactRevisionId
+        )
+          reject(4, `reviewId names ${id}, a review of another artifact revision`, r);
       } else {
         const types = [reference.type, ...(reference.or ?? [])];
         const revisions = types
@@ -683,6 +687,31 @@ function checkState(records: readonly SessionRecord[]): void {
   for (const state of states)
     if (state.outcome !== undefined && state !== last)
       reject(8, "only the last session_state has an outcome", state);
+  checkApplyAttempts(records);
+}
+
+/**
+ * Every apply attempt names an approved review of its artifact revision for the exact proposed
+ * content, and records what that revision gives: `expectedOriginal` its `original`,
+ * `intendedHash` its `proposedHash`, and a `resultHash` equal to `intendedHash` (DM §11.2).
+ * Check 4 has made sure the artifact revision and its review exist.
+ */
+function checkApplyAttempts(records: readonly SessionRecord[]): void {
+  const byId = new Map(records.map((r) => [r.id, r]));
+  for (const r of records) {
+    if (r.type !== "apply_attempt") continue;
+    const artifact = byId.get(r.artifactRevisionId) as RecordOf<"artifact_revision">;
+    const review = byId.get(r.reviewId) as RecordOf<"review">;
+    if (review.outcome !== "approved") reject(8, `${review.id} isn't an approval`, r);
+    if (review.contentHash !== artifact.proposedHash)
+      reject(8, `${review.id} approved other content than ${artifact.id}'s proposedHash`, r);
+    if (r.expectedOriginal !== artifact.original)
+      reject(8, `expectedOriginal isn't ${artifact.id}'s original`, r);
+    if (r.intendedHash !== artifact.proposedHash)
+      reject(8, `intendedHash isn't ${artifact.id}'s proposedHash`, r);
+    if ("resultHash" in r && r.resultHash !== r.intendedHash)
+      reject(8, "resultHash isn't the intendedHash", r);
+  }
 }
 
 // --- Check 9: assembly -----------------------------------------------------------------------
