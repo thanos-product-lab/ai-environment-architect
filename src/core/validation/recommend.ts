@@ -20,9 +20,11 @@ import { type CoverageContext, scopeCheck } from "./coverage.js";
 import { duplicateCheck } from "./duplicates.js";
 import { limitCheck } from "./limits.js";
 import {
+  type AcceptedItems,
   accept,
   type CallValidator,
   type CrossItemCheck,
+  type CrossItemRejection,
   type ItemCheck,
   reject,
   type ValidationResult,
@@ -188,12 +190,20 @@ interface Located {
 
 function locate(alias: string, context: RecommendContext): Located | undefined {
   const entry = context.aliases.entries.find((e) => e.alias === alias);
-  if (entry?.target.kind !== "block" || context.destination.state !== "present") return undefined;
-  const { blockId, hash } = entry.target;
-  const blocks = context.destination.parsed.blocks;
-  const index = blocks.findIndex((b) => b.blockId === blockId && b.hash === hash);
+  if (entry?.target.kind !== "block") return undefined;
+  return locateRef(
+    { blockId: entry.target.blockId, blockHash: entry.target.hash },
+    context.destination,
+  );
+}
+
+/** The block with exactly this ID and hash in the destination. */
+function locateRef(ref: BlockRef, destination: AssemblyDestination): Located | undefined {
+  if (destination.state !== "present") return undefined;
+  const blocks = destination.parsed.blocks;
+  const index = blocks.findIndex((b) => b.blockId === ref.blockId && b.hash === ref.blockHash);
   const block = blocks[index];
-  return block === undefined ? undefined : { ref: { blockId, blockHash: hash }, index, block };
+  return block === undefined ? undefined : { ref, index, block };
 }
 
 /** No blocks to anchor to: an absent destination, or one whose round trip failed (DM §7). */
@@ -271,15 +281,24 @@ function continuesList(previous: ListMarker, next: ListMarker): boolean {
   );
 }
 
-function contentFailure(value: RecommendationItem, context: RecommendContext): string | undefined {
-  const { operation, content, target } = value;
+/** A recommendation with its target resolved to blocks of the destination, as assembly takes it. */
+export interface ResolvedCandidate {
+  readonly operation: Recommendation["operation"];
+  readonly target: AssemblyTarget;
+  readonly content?: string | undefined;
+}
+
+function contentFailure(
+  candidate: ResolvedCandidate,
+  destination: AssemblyDestination,
+): string | undefined {
+  const { operation, content, target } = candidate;
   if (operation === "remove" || content === undefined) return undefined;
   const blocks = parseContent(content);
   if (blocks === undefined) return "content doesn't parse with a verified round trip";
-  const destination = context.destination;
 
   if (operation === "revise" && target.kind === "block") {
-    const located = locate(target.block, context);
+    const located = locateRef(target, destination);
     if (located === undefined || destination.state !== "present") return "target not found";
     const [only, ...rest] = blocks;
     if (only === undefined || rest.length > 0) return "a revision holds exactly one block";
@@ -307,7 +326,7 @@ function contentFailure(value: RecommendationItem, context: RecommendContext): s
     if (/[\r\n]/.test(target.heading) || target.heading.replace(/[ \t]/g, "") === "")
       return "a new section's heading is one line, not empty";
   }
-  let previous = anchorBlock(value, context);
+  let previous = anchorBlock(target, destination);
   for (const block of blocks) {
     if (block.listMarker !== undefined && previous?.type === "list_item") {
       const marker = previous.listMarker;
@@ -321,40 +340,65 @@ function contentFailure(value: RecommendationItem, context: RecommendContext): s
 
 /** The block an addition's first block follows directly: none for a new section (DM §9.3). */
 function anchorBlock(
-  value: RecommendationItem,
-  context: RecommendContext,
+  target: AssemblyTarget,
+  destination: AssemblyDestination,
 ): { readonly type: BlockType; readonly listMarker?: ListMarker } | undefined {
-  const { target } = value;
-  if (target.kind === "after") return locate(target.block, context)?.block;
-  if (target.kind !== "section" || context.destination.state !== "present") return undefined;
-  const located = locate(target.heading, context);
+  if (target.kind === "after") return locateRef(target, destination)?.block;
+  if (target.kind !== "section" || destination.state !== "present") return undefined;
+  const located = locateRef(target, destination);
   if (located === undefined) return undefined;
-  const blocks = context.destination.parsed.blocks;
+  const blocks = destination.parsed.blocks;
   let index = located.index;
   while (blocks[index + 1] !== undefined && blocks[index + 1]?.type !== "heading") index++;
   return blocks[index];
 }
 
-/** REC-003: the content's shape, then the recommendation assembled alone (DM §9.3). */
-const contentCheck: Check = (value, context) => {
-  const failure = contentFailure(value, context);
-  if (failure !== undefined) return reject("REC-003", failure);
-  if (value.resolvedTarget === undefined) throw new Error("REC-003 runs after REC-002");
-  const assembled = assemble(context.destination, [
+/** REC-003's detail for the content's shape, then for the candidate assembled alone (DM §9.3). */
+function shapeFailure(
+  candidate: ResolvedCandidate,
+  destination: AssemblyDestination,
+): string | undefined {
+  const failure = contentFailure(candidate, destination);
+  if (failure !== undefined) return failure;
+  const assembled = assemble(destination, [
     {
       revisionId: "candidate",
       firstSeq: 0,
-      operation: value.operation,
-      target: value.resolvedTarget,
-      ...(value.content === undefined ? {} : { content: value.content }),
+      operation: candidate.operation,
+      target: candidate.target,
+      ...(candidate.content === undefined ? {} : { content: candidate.content }),
     },
   ]);
-  if (!assembled.ok) {
-    const check =
-      assembled.failure.kind === "internal_error" ? assembled.failure.check : "conflict";
-    return reject("REC-003", `assembled alone, it fails the ${check} check`);
-  }
-  return accept(value);
+  if (assembled.ok) return undefined;
+  const check = assembled.failure.kind === "internal_error" ? assembled.failure.check : "conflict";
+  return `assembled alone, it fails the ${check} check`;
+}
+
+/**
+ * Why a recommendation, its target already resolved in `destination`, no longer passes alone:
+ * only a new section at the end fits a destination without blocks to anchor to (REC-002), and
+ * its content must keep its shape and assemble alone (REC-003). Change propagation runs this on
+ * every current revision after a refresh (IMPL §3.3.6, DM §9.4).
+ */
+export function aloneFailure(
+  candidate: ResolvedCandidate,
+  destination: AssemblyDestination,
+): { readonly rule: "REC-002" | "REC-003"; readonly detail: string } | undefined {
+  const { target } = candidate;
+  if (onlyNewSections(destination) && (target.kind !== "newSection" || target.after))
+    return { rule: "REC-002", detail: "only a new section at the end fits this destination" };
+  const failure = shapeFailure(candidate, destination);
+  return failure === undefined ? undefined : { rule: "REC-003", detail: failure };
+}
+
+/** REC-003: the content's shape, then the recommendation assembled alone (DM §9.3). */
+const contentCheck: Check = (value, context) => {
+  if (value.resolvedTarget === undefined) throw new Error("REC-003 runs after REC-002");
+  const failure = shapeFailure(
+    { operation: value.operation, target: value.resolvedTarget, content: value.content },
+    context.destination,
+  );
+  return failure === undefined ? accept(value) : reject("REC-003", failure);
 };
 
 // --- Step 4: evidence rules (DM §6.4) ---------------------------------------------------------
@@ -624,7 +668,7 @@ const referenceCheck: Check = (value, context) => {
 
 // --- Held-back entries ------------------------------------------------------------------------
 
-const blockedByCheck: ItemCheck<HeldBack, RecommendContext> = (value, context, response) => {
+export const blockedByCheck: ItemCheck<HeldBack, RecommendContext> = (value, context, response) => {
   for (const alias of value.blockedBy) {
     const resolved = resolveReference(context.aliases, response.localKeys, alias, {
       aliases: ["Q", "C"],
@@ -634,6 +678,22 @@ const blockedByCheck: ItemCheck<HeldBack, RecommendContext> = (value, context, r
   return accept(value);
 };
 
+/**
+ * A recommendation's checks after its limits, in rule order (§3.3.5 steps 1–8). Regeneration
+ * runs them on each `revise` and addition, and on the revision a `keep` names (§3.3.6).
+ */
+export const RECOMMENDATION_CHECKS: readonly Check[] = [
+  aliasCheck,
+  currencyCheck,
+  operationCheck,
+  contentCheck,
+  evidenceCheck,
+  directiveCheck,
+  dependencyCheck,
+  referenceCheck,
+  scopeCheck(),
+];
+
 // --- Cross-item -------------------------------------------------------------------------------
 
 type Items = {
@@ -642,8 +702,15 @@ type Items = {
   noChangeReason: NoChangeReasonItem;
 };
 
-/** The target after alias resolution, and the content after line-ending conversion. */
-function recommendationIdentity(value: RecommendationItem): string {
+/**
+ * DUP-004's identity: the operation, the target after alias resolution, and the content after
+ * line-ending conversion; a new section's heading trimmed of spaces and tabs.
+ */
+export function recommendationIdentity(value: {
+  readonly operation: Recommendation["operation"];
+  readonly resolvedTarget?: AssemblyTarget | undefined;
+  readonly content?: string | undefined;
+}): string {
   const target = value.resolvedTarget;
   const resolved =
     target === undefined
@@ -663,8 +730,11 @@ function recommendationIdentity(value: RecommendationItem): string {
 }
 
 /** HELD-001: every blocker is a skipped or unreached question, or an unresolved conflict. */
-const heldBackCheck: CrossItemCheck<Items, RecommendContext> = (surviving, context) =>
-  surviving.heldBack.flatMap((item) => {
+export function heldBackCheck<A extends { heldBack: HeldBack }, C extends RecommendContext>(
+  surviving: AcceptedItems<A>,
+  context: C,
+): CrossItemRejection<A>[] {
+  return surviving.heldBack.flatMap((item) => {
     const blocked = item.value.blockedBy.every((alias) => {
       const question = context.input.questions.get(alias);
       if (question !== undefined)
@@ -682,6 +752,7 @@ const heldBackCheck: CrossItemCheck<Items, RecommendContext> = (surviving, conte
           },
         ];
   });
+}
 
 /** REC-009: a no-change reason only when the response proposed no recommendation. */
 const noChangeCheck: CrossItemCheck<Items, RecommendContext> = (surviving) =>
@@ -701,18 +772,7 @@ export const recommendValidator: CallValidator<Response, RecommendContext, Items
     recommendations: {
       items: (response) => response.recommendations,
       key: (item) => ({ kind: "local", key: item.key }),
-      checks: [
-        limitCheck(recommend.items.recommendations),
-        aliasCheck,
-        currencyCheck,
-        operationCheck,
-        contentCheck,
-        evidenceCheck,
-        directiveCheck,
-        dependencyCheck,
-        referenceCheck,
-        scopeCheck(),
-      ],
+      checks: [limitCheck(recommend.items.recommendations), ...RECOMMENDATION_CHECKS],
     },
     heldBack: {
       items: (response) => response.heldBack,

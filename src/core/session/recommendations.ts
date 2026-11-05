@@ -1,6 +1,11 @@
 import type { AssemblyTarget } from "../assembly/assemble.js";
 import type { AliasTable } from "../validation/aliases.js";
-import type { RecommendValidation, ResolvedReference } from "../validation/recommend.js";
+import type {
+  HeldBack,
+  RecommendationItem,
+  RecommendValidation,
+  ResolvedReference,
+} from "../validation/recommend.js";
 import {
   type FailedTarget,
   recordFailedItems,
@@ -47,45 +52,18 @@ export function recordRecommend(
 
   const recommendations = new Map<string, string>();
   for (const { key, value } of result.accepted.recommendations) {
-    if (value.resolvedTarget === undefined || value.resolvedReferences === undefined)
-      throw new Error(`recommendation ${key} was accepted unresolved`);
     const revision = log.start({
       type: "recommendation_revision",
-      kind: value.kind,
-      operation: value.operation,
-      target: recordedTarget(value.resolvedTarget),
-      content: value.content,
-      rationale: value.rationale,
-      support: value.support.map((alias) => {
-        const record = resolve(alias);
-        if (record.type === "finding") return { kind: "finding", findingId: lineage(record) };
-        if (record.type === "decision") return { kind: "decision", decisionId: record.id };
-        throw new Error(`support ${alias} names a ${record.type}`);
-      }),
-      references: value.resolvedReferences.map((r) => recordedReference(r, resolve)),
-      scope:
-        value.scope.kind === "repository"
-          ? value.scope
-          : { kind: "paths", paths: [...value.scope.paths] },
-      producedBy: modelCallId,
-      status: "valid",
+      ...revisionFields(value, resolve, modelCallId),
     });
     recommendations.set(key, revision.recommendationId);
   }
 
-  const heldBack = result.accepted.heldBack.map(({ value }) =>
-    log.append({
-      type: "held_back",
-      topic: value.topic,
-      blockedBy: value.blockedBy.map((alias) => {
-        const record = resolve(alias);
-        const id = lineageOf(record);
-        if ((record.type === "question" || record.type === "conflict") && id !== undefined)
-          return id;
-        throw new Error(`blockedBy ${alias} names a ${record.type}`);
-      }),
-      modelCallId,
-    }),
+  const heldBack = recordHeldBack(
+    log,
+    modelCallId,
+    result.accepted.heldBack.map(({ value }) => value),
+    resolve,
   );
 
   const reason = result.accepted.noChangeReason[0];
@@ -108,10 +86,70 @@ export function recordRecommend(
   return { recommendations, heldBack, ...(noChangeReason === undefined ? {} : { noChangeReason }) };
 }
 
-type Resolved = RecordOf<"finding" | "decision" | "question" | "conflict">;
+type Resolved = RecordOf<
+  "finding" | "decision" | "question" | "conflict" | "recommendation_revision"
+>;
+
+/**
+ * The fields of a valid revision from an accepted recommendation, its aliases resolved through
+ * the call's table: support to typed entries, the target to block IDs and hashes, and each
+ * reference to its finding and evidence (§4.4.1).
+ */
+export function revisionFields(
+  value: RecommendationItem,
+  resolve: (alias: string) => Resolved,
+  producedBy: string,
+) {
+  if (value.resolvedTarget === undefined || value.resolvedReferences === undefined)
+    throw new Error(`recommendation ${value.key} was accepted unresolved`);
+  return {
+    kind: value.kind,
+    operation: value.operation,
+    target: recordedTarget(value.resolvedTarget),
+    content: value.content,
+    rationale: value.rationale,
+    support: value.support.map((alias) => {
+      const record = resolve(alias);
+      if (record.type === "finding")
+        return { kind: "finding" as const, findingId: lineage(record) };
+      if (record.type === "decision") return { kind: "decision" as const, decisionId: record.id };
+      throw new Error(`support ${alias} names a ${record.type}`);
+    }),
+    references: value.resolvedReferences.map((r) => recordedReference(r, resolve)),
+    scope:
+      value.scope.kind === "repository"
+        ? value.scope
+        : { kind: "paths" as const, paths: [...value.scope.paths] },
+    producedBy,
+    status: "valid" as const,
+  };
+}
+
+/** One immutable `held_back` record per accepted entry, blockers by lineage ID. */
+export function recordHeldBack(
+  log: SessionLog,
+  modelCallId: string,
+  entries: readonly HeldBack[],
+  resolve: (alias: string) => Resolved,
+): RecordOf<"held_back">[] {
+  return entries.map((value) =>
+    log.append({
+      type: "held_back",
+      topic: value.topic,
+      blockedBy: value.blockedBy.map((alias) => {
+        const record = resolve(alias);
+        const id = lineageOf(record);
+        if ((record.type === "question" || record.type === "conflict") && id !== undefined)
+          return id;
+        throw new Error(`blockedBy ${alias} names a ${record.type}`);
+      }),
+      modelCallId,
+    }),
+  );
+}
 
 /** An alias to the exact record sent, through the call's table (§3.2.1, §4.4.1). */
-function aliasResolver(call: RecommendRecording): (alias: string) => Resolved {
+export function aliasResolver(call: RecommendRecording): (alias: string) => Resolved {
   return (alias) => {
     const entry = call.aliases.entries.find((e) => e.alias === alias);
     if (entry?.target.kind !== "record") throw new Error(`${alias} names no record`);

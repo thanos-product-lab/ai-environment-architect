@@ -50,7 +50,7 @@ export function assemblyRevisionsOf(
 }
 
 /** A recorded target as assembly types it: a `newSection` without `after` has no such key. */
-function assemblyTarget(target: Revision["target"]): AssemblyTarget {
+export function assemblyTarget(target: Revision["target"]): AssemblyTarget {
   if (target.kind === "newSection")
     return target.after === undefined
       ? { kind: "newSection", heading: target.heading }

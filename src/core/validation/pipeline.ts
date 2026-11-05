@@ -107,6 +107,11 @@ export interface CheckEvent {
   /** Code-derived values only, such as `originalLines` for CIT-R01. */
   readonly original?: unknown;
   readonly subKey?: string;
+  /**
+   * Names another item instead of this one: the `R` alias whose stored revision a regeneration
+   * `keep` revalidates (IMPL §3.3.6). It must be a well-formed alias code made.
+   */
+  readonly itemKey?: string;
 }
 
 export type CheckResult<V> =
@@ -192,14 +197,26 @@ export interface CrossItemRejection<A> {
 }
 
 /**
- * Sees only items that are still accepted, and returns the ones to reject. `redirects` maps the
+ * An event that rejects no item, such as `REGEN-001` for an affected recommendation no action
+ * covers (IMPL §3.3.6). `itemKey` is a well-formed alias code made.
+ */
+export interface CrossItemNote {
+  readonly kind: "note";
+  readonly itemKey: string;
+  readonly rule: string;
+  readonly detail: string;
+}
+
+/**
+ * Sees only items that are still accepted, and returns the ones to reject, and any notes after
+ * them, in the order given. `redirects` maps the
  * key of each duplicate dropped so far to the key or alias of the item kept.
  */
 export type CrossItemCheck<A, C> = (
   surviving: AcceptedItems<A>,
   context: C,
   redirects?: ReadonlyMap<string, string>,
-) => readonly CrossItemRejection<A>[];
+) => readonly (CrossItemRejection<A> | CrossItemNote)[];
 
 export interface CallValidator<R, C, A> {
   readonly schema: z.ZodType<R>;
@@ -338,7 +355,9 @@ export function validateResponse<R, C, A>(
         const result = check(value, context, scope, item.index);
         for (const event of result.events) {
           events.push({
-            itemKey: event.subKey === undefined ? item.key : `${item.key}/${event.subKey}`,
+            itemKey:
+              event.itemKey ??
+              (event.subKey === undefined ? item.key : `${item.key}/${event.subKey}`),
             stage: "item",
             rule: event.rule,
             outcome: event.outcome,
@@ -371,10 +390,12 @@ export function validateResponse<R, C, A>(
   const position = (name: string): number => call.order.indexOf(name as keyof A & string);
   const redirects = new Map<string, string>();
   for (const check of call.crossItem) {
+    const results = check(current(), context, redirects);
+    const notes = results.filter((r): r is CrossItemNote => "kind" in r && r.kind === "note");
     // Events follow item order whatever order the check returns them in.
-    const rejections = [...check(current(), context, redirects)].sort(
-      (a, b) => position(a.collection) - position(b.collection) || a.index - b.index,
-    );
+    const rejections = results
+      .filter((r): r is CrossItemRejection<A> => !("kind" in r))
+      .sort((a, b) => position(a.collection) - position(b.collection) || a.index - b.index);
     for (const { collection, index, rule, detail, mergedInto } of rejections) {
       const list = survivors.get(collection) ?? [];
       const at = list.findIndex((item) => item.index === index);
@@ -385,6 +406,8 @@ export function validateResponse<R, C, A>(
       events.push(rejection(item.key, "cross_item", rule, detail));
       recordRejection(collection, index, item.key, "cross_item", rule);
     }
+    for (const note of notes)
+      events.push(rejection(note.itemKey, "cross_item", note.rule, note.detail));
   }
 
   const accepted = current();
