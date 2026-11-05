@@ -1,0 +1,15 @@
+{
+  "description": "An empty response with four affected recommendations is valid against the schema, and each of R-1 to R-4 gets a REGEN-001 coverage event in alias order: nothing is kept by default.",
+  "section": "IMPL §3.3.6 (REGEN-001: never kept by default), §3.5 (cross-item order)",
+  "response": { "actions": [], "additions": [], "heldBack": [] },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "R-1", "stage": "cross_item", "rule": "REGEN-001", "outcome": "rejected" },
+      { "itemKey": "R-2", "stage": "cross_item", "rule": "REGEN-001", "outcome": "rejected" },
+      { "itemKey": "R-3", "stage": "cross_item", "rule": "REGEN-001", "outcome": "rejected" },
+      { "itemKey": "R-4", "stage": "cross_item", "rule": "REGEN-001", "outcome": "rejected" }
+    ],
+    "accepted": { "actions": [], "additions": [], "heldBack": [] }
+  }
+}

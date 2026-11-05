@@ -1,0 +1,57 @@
+{
+  "description": "A revise and an addition with the same operation and target as the unaffected recommendations but different content are both accepted, as is a heading that differs only in case.",
+  "section": "IMPL §3.3.6 (Duplicates), §3.3.5 step 9 (DUP-004: same content required; only spaces and tabs are trimmed from a heading)",
+  "nearMissOf": "dup004-revise-duplicates-unaffected.json",
+  "response": {
+    "actions": [
+      { "target": "R-1", "action": "drop", "reason": "Its only support was withdrawn." },
+      { "target": "R-2", "action": "drop", "reason": "The decision it relied on was superseded." },
+      { "target": "R-3", "action": "keep", "reason": "The change does not touch it." },
+      {
+        "target": "R-4",
+        "action": "revise",
+        "reason": "Describe where tests live instead.",
+        "revision": {
+          "kind": "fact",
+          "operation": "add",
+          "target": { "kind": "after", "block": "B-2" },
+          "content": "Tests sit beside their source files.",
+          "rationale": "The testing guide says so.",
+          "support": ["F-23"],
+          "references": [],
+          "scope": { "kind": "repository" }
+        }
+      }
+    ],
+    "additions": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "newSection", "heading": "Testing" },
+        "content": "The suite runs with Vitest in one pass.",
+        "rationale": "The test script runs Vitest once.",
+        "support": ["F-6"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "newSection", "heading": "testing" },
+        "content": "The suite runs with Vitest.",
+        "rationale": "The test script runs Vitest.",
+        "support": ["F-6"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "actions": ["actions/0", "actions/1", "actions/2", "actions/3"], "additions": ["r1", "r2"], "heldBack": [] }
+  }
+}

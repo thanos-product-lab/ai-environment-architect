@@ -2,7 +2,7 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 4 November 2026  
-**Version:** 0.31 — consolidated specification  
+**Version:** 0.32 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,11 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.31
+
+1. **Change propagation (§9.4, §12).** After a refresh every current revision is checked alone again, not only a re-anchored one: a changed neighbour, such as a section's new last block, can make an unchanged target fail alone.
+2. **Stale revisions (§9.4).** An accepted revision whose support is no longer current is named and not assembled, so the developer can reject it and continue.
 
 ### Changes from v0.30
 
@@ -554,7 +559,7 @@ If any check fails, assembly fails and no artifact revision is created. The resu
 | `decisionIds` | Current decision versions those revisions depend on |
 | `attribution` | One entry per change, in file order: the recommendation revision; the operation; for a `revise` or `remove`, the original block, with one entry per removed block of a section; and for new content, its byte span in the proposed content (§9.3). The entries of a run of removed blocks stay together, followed by the additions placed where the run was |
 
-If assembly fails, no artifact revision is created. When every accepted revision passes assembly alone but some cannot be combined, such as an indented code block that would merge into a list item added before it, the failure is a conflict between the revisions involved: the developer is asked to reject one ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §2.7). Code finds them deterministically: it adds the accepted revisions one at a time in the order of §9.3, and names the first whose addition makes the checks fail, together with the revision whose block it merges into or breaks: the first earlier revision whose removal lets the rest pass. After a refresh, every current revision whose target was re-anchored is checked alone again and, if it fails, invalidated as `target_changed` (§12), so failing alone is never a conflict. Any other failure is reported as an internal error. If no revision is accepted, no artifact revision is created, and the session can complete as `no_change`. The diff shown at review is computed from the original and proposed content; it is not stored as a separate record.
+If assembly fails, no artifact revision is created. When every accepted revision passes assembly alone but some cannot be combined, such as an indented code block that would merge into a list item added before it, the failure is a conflict between the revisions involved: the developer is asked to reject one ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §2.7). Code finds them deterministically: it adds the accepted revisions one at a time in the order of §9.3, and names the first whose addition makes the checks fail, together with the revision whose block it merges into or breaks: the first earlier revision whose removal lets the rest pass. After a refresh, every current revision is checked alone again, with its target resolved, whether or not it was re-anchored, and, if it fails, invalidated as `target_changed` (§12), so failing alone is never a conflict. Any other failure is reported as an internal error. An accepted revision whose support is no longer current, because the regeneration that should follow the change failed or hasn't run (§12), is never assembled: nothing is created, and code names those revisions, so the developer can reject them, or regenerate, and propose again. If no revision is accepted, no artifact revision is created, and the session can complete as `no_change`. The diff shown at review is computed from the original and proposed content; it is not stored as a separate record.
 
 ## 10. Review
 
@@ -640,7 +645,7 @@ Currency is determined by the versions of dependencies, not by timestamps.
 | Recommendation edited | New revision; selection required |
 | Selection changed | New assembly and artifact revision; fresh review required |
 | Blocking freshness failure | New snapshot; affected findings refreshed; recommendations revalidated or regenerated; new review |
-| Destination changed | New snapshot with re-parsed blocks. A target resolves to the block with the same ID and hash, otherwise to the only block with that hash; this re-anchoring is derived, never written. A revision whose target resolves to no block, or whose re-anchored target no longer passes the content checks alone, is invalidated by code (`target_changed`), and the next regeneration's summary names it; it is not sent for reconsideration. |
+| Destination changed | New snapshot with re-parsed blocks. A target resolves to the block with the same ID and hash, otherwise to the only block with that hash; this re-anchoring is derived, never written. A revision whose target resolves to no block, or that no longer passes the content checks alone with its target resolved, re-anchored or not, is invalidated by code (`target_changed`), and the next regeneration's summary names it; it is not sent for reconsideration. |
 | All recommendations rejected | Session completes as `no_change` |
 
 In the first slice, invalidating the whole proposal is acceptable wherever the narrower impact cannot be established reliably.

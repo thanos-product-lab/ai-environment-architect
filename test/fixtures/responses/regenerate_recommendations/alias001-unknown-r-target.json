@@ -1,0 +1,24 @@
+{
+  "description": "A keep of the invented R-5, written in place of R-4, and a drop of R-01, a padded R-1, both fail ALIAS-001; R-1 is still covered by its own drop, and R-4 gets the coverage event.",
+  "section": "IMPL §3.2.1 (ALIAS-001; aliases match exactly, no change of padding), §3.3.6 (REGEN-001), §3.8 (unknown alias)",
+  "response": {
+    "actions": [
+      { "target": "R-1", "action": "drop", "reason": "Its only support was withdrawn." },
+      { "target": "R-2", "action": "drop", "reason": "The decision it relied on was superseded." },
+      { "target": "R-3", "action": "keep", "reason": "The change does not touch it." },
+      { "target": "R-5", "action": "keep", "reason": "The test script is unchanged." },
+      { "target": "R-01", "action": "drop", "reason": "Its only support was withdrawn." }
+    ],
+    "additions": [],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "actions/3", "stage": "item", "rule": "ALIAS-001", "outcome": "rejected" },
+      { "itemKey": "actions/4", "stage": "item", "rule": "ALIAS-001", "outcome": "rejected" },
+      { "itemKey": "R-4", "stage": "cross_item", "rule": "REGEN-001", "outcome": "rejected" }
+    ],
+    "accepted": { "actions": ["actions/0", "actions/1", "actions/2"], "additions": [], "heldBack": [] }
+  }
+}

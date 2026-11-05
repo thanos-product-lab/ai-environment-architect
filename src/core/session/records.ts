@@ -1055,12 +1055,13 @@ export const applyAttemptRecord = z.union([
   }),
 ]);
 
-/** Collections with no record type of their own. Regeneration adds `actions` (M5). */
+/** Collections with no record type of their own (§4.4.3). */
 export const failedItemCollection = z.enum([
   "revisions",
   "expansionRequests",
   "contentNotices",
   "heldBack",
+  "actions",
   "noChangeReason",
 ]);
 

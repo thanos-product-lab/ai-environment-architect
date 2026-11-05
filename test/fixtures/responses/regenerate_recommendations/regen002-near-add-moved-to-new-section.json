@@ -1,0 +1,34 @@
+{
+  "description": "A revise of R-4 that keeps add but moves it from after B-2 to a new section `Tests` at the end of the file is accepted with no events.",
+  "section": "IMPL §3.3.6 (REGEN-002: the target may change), §3.3.5 steps 2 and 3 (REC-002 newSection without after; REC-003 newSection content)",
+  "nearMissOf": "regen002-add-revised-as-heading-remove.json",
+  "response": {
+    "actions": [
+      { "target": "R-1", "action": "drop", "reason": "Its only support was withdrawn." },
+      { "target": "R-2", "action": "drop", "reason": "The decision it relied on was superseded." },
+      { "target": "R-3", "action": "keep", "reason": "The change does not touch it." },
+      {
+        "target": "R-4",
+        "action": "revise",
+        "reason": "Give the test command its own section.",
+        "revision": {
+          "kind": "fact",
+          "operation": "add",
+          "target": { "kind": "newSection", "heading": "Tests" },
+          "content": "The suite runs with `pnpm test`.",
+          "rationale": "The manifest defines the test script.",
+          "support": ["F-6"],
+          "references": [{ "kind": "command", "value": "pnpm test", "support": "F-6" }],
+          "scope": { "kind": "repository" }
+        }
+      }
+    ],
+    "additions": [],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "actions": ["actions/0", "actions/1", "actions/2", "actions/3"], "additions": [], "heldBack": [] }
+  }
+}

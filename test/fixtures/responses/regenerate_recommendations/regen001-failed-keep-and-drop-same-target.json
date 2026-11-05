@@ -1,0 +1,25 @@
+{
+  "description": "R-1 is both kept and dropped: the keep's revalidation still records REC-001 against R-1 at the item stage, then both actions are rejected by REGEN-001 (one target), and R-1 gets the coverage event.",
+  "section": "IMPL §3.3.6 (keep revalidation, REGEN-001), §3.3.5 step 1 (REC-001), §3.5 (events by stage)",
+  "response": {
+    "actions": [
+      { "target": "R-1", "action": "keep", "reason": "The build script is unchanged." },
+      { "target": "R-1", "action": "drop", "reason": "Its only support was withdrawn." },
+      { "target": "R-2", "action": "drop", "reason": "The decision it relied on was superseded." },
+      { "target": "R-3", "action": "keep", "reason": "The change does not touch it." },
+      { "target": "R-4", "action": "keep", "reason": "The change does not touch it." }
+    ],
+    "additions": [],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "R-1", "stage": "item", "rule": "REC-001", "outcome": "rejected" },
+      { "itemKey": "actions/0", "stage": "cross_item", "rule": "REGEN-001", "outcome": "rejected" },
+      { "itemKey": "actions/1", "stage": "cross_item", "rule": "REGEN-001", "outcome": "rejected" },
+      { "itemKey": "R-1", "stage": "cross_item", "rule": "REGEN-001", "outcome": "rejected" }
+    ],
+    "accepted": { "actions": ["actions/2", "actions/3", "actions/4"], "additions": [], "heldBack": [] }
+  }
+}

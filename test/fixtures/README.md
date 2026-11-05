@@ -53,7 +53,7 @@ Recorded model responses, one directory per call (IMPL §3.7). Each call directo
 
 ## `responses/`: call validation cases
 
-Whole-call item validation cases for `analyse`, `analyse_expansion`, `generate_questions` and `recommend` (IMPL §1.8, §1.11, §3.2.1–§3.2.3, §3.3.2–§3.3.5, §3.5): each case runs one complete recorded response through the call's validation sequence, item and cross-item stages together, and checks every event, every accepted item and the call-level results. They cover `LIMIT-002`, `EXP-001` to `EXP-005`, `DUP-001` to `DUP-003`, `CONF-001`, `REV-001` to `REV-003`, `Q-001`, `REC-001` to `REC-010`, `REF-001` to `REF-005`, `DUP-004`, `HELD-001`, replacement kinds (`ALIAS-003`), call-1 conflict outcomes, content notices, ranking and the corrected-citation rate. Rules with their own fixture directories (`CIT-*`, `SUP-*`, `SCOPE-*`, `GAP-*`, `ABS-*`) appear only where they interact with these.
+Whole-call item validation cases for `analyse`, `analyse_expansion`, `generate_questions`, `recommend` and `regenerate_recommendations` (IMPL §1.8, §1.11, §3.2.1–§3.2.3, §3.3.2–§3.3.6, §3.5): each case runs one complete recorded response through the call's validation sequence, item and cross-item stages together, and checks every event, every accepted item and the call-level results. They cover `LIMIT-002`, `EXP-001` to `EXP-005`, `DUP-001` to `DUP-003`, `CONF-001`, `REV-001` to `REV-003`, `Q-001`, `REC-001` to `REC-010`, `REF-001` to `REF-005`, `DUP-004`, `HELD-001`, `REGEN-001`, `REGEN-002`, replacement kinds (`ALIAS-003`), call-1 conflict outcomes, content notices, ranking and the corrected-citation rate. Rules with their own fixture directories (`CIT-*`, `SUP-*`, `SCOPE-*`, `GAP-*`, `ABS-*`) appear only where they interact with these.
 
 ### Contexts
 
@@ -83,6 +83,8 @@ The other `analyse` contexts are `context-limit2.json` (`maxExpansionRequests` 2
 - `questions`: `Q` records with `status` (`open`, `answered`, `skipped` or `unreached`) and `resolves` (`F` and `C` aliases).
 
 Its `accepted` lists `recommendations` by local key, `heldBack` by `heldBack/<index>`, and `noChangeReason` as `noChangeReason`.
+
+`regenerate_recommendations/context.json` has everything `recommend`'s has, and two more keys: `recommendations`, the affected recommendations sent as `R` aliases, each `{ alias, revision }` with the revision in alias form, like a `recommend` recommendation without `key`; and `unaffected`, the current recommendations not sent, `{ operation, target, content? }` with the target in alias form, which `DUP-004` compares with. Its `accepted` lists `actions` by `actions/<index>`, `additions` by local key and `heldBack` by `heldBack/<index>`.
 
 A path holding `{{aws-access-key-id}}` is withheld by the secret scan: tests replace the placeholder, in contexts and responses, with AWS's documented example key ID, as in `support/`.
 

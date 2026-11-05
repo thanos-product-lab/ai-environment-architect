@@ -1,0 +1,34 @@
+{
+  "description": "A revise of R-4 whose revision has R-4's own operation, target and content (only the rationale changes) is accepted: R-4 is affected and not kept, so its stored revision is not a DUP-004 prior.",
+  "section": "IMPL §3.3.6 (revise; Duplicates compare with recommendations not in the affected set and those this call keeps)",
+  "nearMissOf": "dup004-revise-duplicates-unaffected.json",
+  "response": {
+    "actions": [
+      { "target": "R-1", "action": "drop", "reason": "Its only support was withdrawn." },
+      { "target": "R-2", "action": "drop", "reason": "The decision it relied on was superseded." },
+      { "target": "R-3", "action": "keep", "reason": "The change does not touch it." },
+      {
+        "target": "R-4",
+        "action": "revise",
+        "reason": "Restate the rationale.",
+        "revision": {
+          "kind": "fact",
+          "operation": "add",
+          "target": { "kind": "after", "block": "B-2" },
+          "content": "The suite runs with `pnpm test`.",
+          "rationale": "The root manifest defines a test script.",
+          "support": ["F-6"],
+          "references": [{ "kind": "command", "value": "pnpm test", "support": "F-6" }],
+          "scope": { "kind": "repository" }
+        }
+      }
+    ],
+    "additions": [],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "actions": ["actions/0", "actions/1", "actions/2", "actions/3"], "additions": [], "heldBack": [] }
+  }
+}

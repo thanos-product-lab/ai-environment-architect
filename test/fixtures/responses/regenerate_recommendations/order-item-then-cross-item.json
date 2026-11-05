@@ -1,0 +1,67 @@
+{
+  "description": "Item events follow item order across collections, with R-1's keep revalidation event at its action's place; cross-item events follow check order: REGEN-001 (one target), DUP-004, HELD-001, then REGEN-001 coverage.",
+  "section": "IMPL §3.5 (events ordered by stage; item order, collections in schema order; cross-item in check order), §3.3.6, §3.3.5 steps 4, 9 and 10",
+  "response": {
+    "actions": [
+      { "target": "R-9", "action": "drop", "reason": "It no longer applies." },
+      { "target": "R-1", "action": "keep", "reason": "The build script still compiles the sources." },
+      { "target": "R-2", "action": "drop", "reason": "The decision it relied on was superseded." },
+      { "target": "R-3", "action": "keep", "reason": "The change does not touch it." },
+      { "target": "R-3", "action": "drop", "reason": "The overview already says this." },
+      {
+        "target": "R-4",
+        "action": "revise",
+        "reason": "Name the test runner.",
+        "revision": {
+          "kind": "fact",
+          "operation": "add",
+          "target": { "kind": "after", "block": "B-2" },
+          "content": "The suite runs with `pnpm test` under Vitest.",
+          "rationale": "The manifest defines the test script.",
+          "support": ["F-6"],
+          "references": [{ "kind": "command", "value": "pnpm test", "support": "F-6" }],
+          "scope": { "kind": "repository" }
+        }
+      }
+    ],
+    "additions": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Database migrations have no known command.",
+        "rationale": "No migration command was found.",
+        "support": ["F-16"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The suite runs with `pnpm test` under Vitest.",
+        "rationale": "Worth stating on its own.",
+        "support": ["F-6"],
+        "references": [{ "kind": "command", "value": "pnpm test", "support": "F-6" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": [{ "topic": "Where tests live", "blockedBy": ["C-2"] }]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "actions/0", "stage": "item", "rule": "ALIAS-001", "outcome": "rejected" },
+      { "itemKey": "R-1", "stage": "item", "rule": "REC-001", "outcome": "rejected" },
+      { "itemKey": "r1", "stage": "item", "rule": "REC-006", "outcome": "rejected" },
+      { "itemKey": "actions/3", "stage": "cross_item", "rule": "REGEN-001", "outcome": "rejected" },
+      { "itemKey": "actions/4", "stage": "cross_item", "rule": "REGEN-001", "outcome": "rejected" },
+      { "itemKey": "r2", "stage": "cross_item", "rule": "DUP-004", "outcome": "rejected" },
+      { "itemKey": "heldBack/0", "stage": "cross_item", "rule": "HELD-001", "outcome": "rejected" },
+      { "itemKey": "R-3", "stage": "cross_item", "rule": "REGEN-001", "outcome": "rejected" }
+    ],
+    "accepted": { "actions": ["actions/1", "actions/2", "actions/5"], "additions": [], "heldBack": [] }
+  }
+}

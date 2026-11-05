@@ -1,0 +1,36 @@
+{
+  "description": "R-4, an add, revised into a revise of the list item B-5 that would pass every other check fails REGEN-002 as actions/3, and since that was R-4's only action, R-4 gets the coverage event (not_reconsidered).",
+  "section": "IMPL §3.3.6 (REGEN-002: a revise keeps the affected recommendation's operation; failed actions; REGEN-001), §3.5 (item stage, then cross-item)",
+  "response": {
+    "actions": [
+      { "target": "R-1", "action": "drop", "reason": "Its only support was withdrawn." },
+      { "target": "R-2", "action": "drop", "reason": "The decision it relied on was superseded." },
+      { "target": "R-3", "action": "keep", "reason": "The change does not touch it." },
+      {
+        "target": "R-4",
+        "action": "revise",
+        "reason": "Fold the lint command into the commands list.",
+        "revision": {
+          "kind": "fact",
+          "operation": "revise",
+          "target": { "kind": "block", "block": "B-5" },
+          "content": "- Lint with `pnpm lint`.",
+          "rationale": "The manifest defines the lint script.",
+          "support": ["F-7"],
+          "references": [{ "kind": "command", "value": "pnpm lint", "support": "F-7" }],
+          "scope": { "kind": "repository" }
+        }
+      }
+    ],
+    "additions": [],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "actions/3", "stage": "item", "rule": "REGEN-002", "outcome": "rejected" },
+      { "itemKey": "R-4", "stage": "cross_item", "rule": "REGEN-001", "outcome": "rejected" }
+    ],
+    "accepted": { "actions": ["actions/0", "actions/1", "actions/2"], "additions": [], "heldBack": [] }
+  }
+}

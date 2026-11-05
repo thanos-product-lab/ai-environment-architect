@@ -1,0 +1,32 @@
+{
+  "description": "R-1 is kept but fails revalidation (REC-001, its support F-18 is no longer current), so it is not a DUP-004 prior: an addition with R-1's operation, target and content, now supported by the current F-19, is accepted.",
+  "section": "IMPL §3.3.6 (keep: revalidation_failed; Duplicates compare only with recommendations this call keeps), §3.3.5 steps 1 and 9",
+  "nearMissOf": "dup004-addition-duplicates-passing-keep.json",
+  "response": {
+    "actions": [
+      { "target": "R-1", "action": "keep", "reason": "The build script still compiles the sources." },
+      { "target": "R-2", "action": "drop", "reason": "The decision it relied on was superseded." },
+      { "target": "R-3", "action": "keep", "reason": "The change does not touch it." },
+      { "target": "R-4", "action": "keep", "reason": "The change does not touch it." }
+    ],
+    "additions": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The build script compiles the TypeScript sources.",
+        "rationale": "The contributing guide describes the release build.",
+        "support": ["F-19"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [{ "itemKey": "R-1", "stage": "item", "rule": "REC-001", "outcome": "rejected" }],
+    "accepted": { "actions": ["actions/0", "actions/1", "actions/2", "actions/3"], "additions": ["r1"], "heldBack": [] }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "description": "R-4 revised into exactly the first unaffected recommendation (an add after B-2 saying tests sit next to their source files) is rejected by DUP-004 in favour of the existing one, and R-4 then gets the coverage event.",
+  "section": "IMPL §3.3.6 (Duplicates: compared with current valid recommendations not in the affected set; the existing one is kept), §3.3.5 step 9 (DUP-004), §3.8",
+  "response": {
+    "actions": [
+      { "target": "R-1", "action": "drop", "reason": "Its only support was withdrawn." },
+      { "target": "R-2", "action": "drop", "reason": "The decision it relied on was superseded." },
+      { "target": "R-3", "action": "keep", "reason": "The change does not touch it." },
+      {
+        "target": "R-4",
+        "action": "revise",
+        "reason": "Describe where tests live instead.",
+        "revision": {
+          "kind": "fact",
+          "operation": "add",
+          "target": { "kind": "after", "block": "B-2" },
+          "content": "Tests sit next to their source files.",
+          "rationale": "The testing guide says so.",
+          "support": ["F-23"],
+          "references": [],
+          "scope": { "kind": "repository" }
+        }
+      }
+    ],
+    "additions": [],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "actions/3", "stage": "cross_item", "rule": "DUP-004", "outcome": "rejected" },
+      { "itemKey": "R-4", "stage": "cross_item", "rule": "REGEN-001", "outcome": "rejected" }
+    ],
+    "accepted": { "actions": ["actions/0", "actions/1", "actions/2"], "additions": [], "heldBack": [] }
+  }
+}

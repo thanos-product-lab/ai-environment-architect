@@ -1,0 +1,34 @@
+{
+  "description": "R-3 revised into a policy supported by the current decision D-1 is accepted.",
+  "section": "IMPL §3.3.6 (revise), §3.3.5 step 4 (REC-005)",
+  "nearMissOf": "rec005-revise-policy-without-support.json",
+  "response": {
+    "actions": [
+      { "target": "R-1", "action": "drop", "reason": "Its only support was withdrawn." },
+      { "target": "R-2", "action": "drop", "reason": "The decision it relied on was superseded." },
+      {
+        "target": "R-3",
+        "action": "revise",
+        "reason": "The developer decided how HTTP calls are made.",
+        "revision": {
+          "kind": "policy",
+          "operation": "add",
+          "target": { "kind": "after", "block": "B-2" },
+          "content": "New HTTP calls go through the shared client.",
+          "rationale": "The developer decided this.",
+          "support": ["D-1"],
+          "references": [],
+          "scope": { "kind": "repository" }
+        }
+      },
+      { "target": "R-4", "action": "keep", "reason": "The change does not touch it." }
+    ],
+    "additions": [],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "actions": ["actions/0", "actions/1", "actions/2", "actions/3"], "additions": [], "heldBack": [] }
+  }
+}

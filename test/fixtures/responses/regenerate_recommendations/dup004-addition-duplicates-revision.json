@@ -1,0 +1,45 @@
+{
+  "description": "An addition identical to the revise of R-4 in the same response is rejected by DUP-004: actions come before additions, so the revision is the earlier item and is kept.",
+  "section": "IMPL §3.3.6 (Duplicates: additions and revisions compared with each other), §3.3.5 step 9 (DUP-004 keeps the first), §3.5 (collections in schema order)",
+  "response": {
+    "actions": [
+      { "target": "R-1", "action": "drop", "reason": "Its only support was withdrawn." },
+      { "target": "R-2", "action": "drop", "reason": "The decision it relied on was superseded." },
+      { "target": "R-3", "action": "keep", "reason": "The change does not touch it." },
+      {
+        "target": "R-4",
+        "action": "revise",
+        "reason": "Name the test runner.",
+        "revision": {
+          "kind": "fact",
+          "operation": "add",
+          "target": { "kind": "after", "block": "B-2" },
+          "content": "The suite runs with `pnpm test` under Vitest.",
+          "rationale": "The manifest defines the test script.",
+          "support": ["F-6"],
+          "references": [{ "kind": "command", "value": "pnpm test", "support": "F-6" }],
+          "scope": { "kind": "repository" }
+        }
+      }
+    ],
+    "additions": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The suite runs with `pnpm test` under Vitest.",
+        "rationale": "Worth stating on its own.",
+        "support": ["F-6"],
+        "references": [{ "kind": "command", "value": "pnpm test", "support": "F-6" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [{ "itemKey": "r1", "stage": "cross_item", "rule": "DUP-004", "outcome": "rejected" }],
+    "accepted": { "actions": ["actions/0", "actions/1", "actions/2", "actions/3"], "additions": [], "heldBack": [] }
+  }
+}

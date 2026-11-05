@@ -20,6 +20,10 @@ import type {
   RecommendFinding,
   RecommendQuestion,
 } from "../../src/core/validation/recommend.js";
+import type {
+  RecommendationBody,
+  RegenerateContext,
+} from "../../src/core/validation/regenerate.js";
 import { anchorablePaths } from "../../src/core/validation/support.js";
 
 // Call contexts for whole-call validation, from the fixture format of
@@ -330,6 +334,8 @@ export function questionContext(fixture: FixtureContext, reversed = false): Ques
 export function recommendContext(
   fixture: FixtureRecommendContext,
   reversed = false,
+  call: "recommend" | "regenerate_recommendations" = "recommend",
+  recommendations: readonly string[] = [],
 ): RecommendContext {
   const findings = fixture.findings ?? [];
   const decisions = fixture.decisions ?? [];
@@ -349,11 +355,12 @@ export function recommendContext(
         })();
   const blocks = destination.state === "present" ? destination.parsed.blocks : [];
   return {
-    aliases: createAliasTable("recommend", {
+    aliases: createAliasTable(call, {
       findings: findings.map((f) => `record:${f.alias}`),
       conflicts: conflicts.map((c) => `record:${c.alias}`),
       questions: questions.map((q) => `record:${q.alias}`),
       decisions: decisions.map((d) => `record:${d.alias}`),
+      ...(call === "recommend" ? {} : { recommendations }),
       blocks: blocks.map((b) => ({ blockId: b.blockId, hash: b.hash })),
     }),
     coverage: coverageIndex(
@@ -401,5 +408,63 @@ export function recommendContext(
         ]),
       ),
     },
+  };
+}
+
+/**
+ * `regenerate_recommendations`: the `recommend` context, plus the affected recommendations sent
+ * as `R` aliases, in alias form, and the unaffected ones DUP-004 compares with.
+ */
+export interface FixtureRegenerateContext extends FixtureRecommendContext {
+  readonly recommendations?: readonly {
+    readonly alias: string;
+    readonly revision: RecommendationBody;
+  }[];
+  readonly unaffected?: readonly {
+    readonly operation: RecommendationBody["operation"];
+    readonly target: RecommendationBody["target"];
+    readonly content?: string;
+  }[];
+}
+
+export function regenerateContext(
+  fixture: FixtureRegenerateContext,
+  reversed = false,
+): RegenerateContext {
+  const recommendations = fixture.recommendations ?? [];
+  inAliasOrder("R", recommendations);
+  const base = recommendContext(
+    fixture,
+    reversed,
+    "regenerate_recommendations",
+    recommendations.map((r) => `record:${r.alias}`),
+  );
+  const block = (alias: string) => {
+    const entry = base.aliases.entries.find((e) => e.alias === alias);
+    if (entry?.target.kind !== "block") throw new Error(`${alias} is no block`);
+    return { blockId: entry.target.blockId, blockHash: entry.target.hash };
+  };
+  return {
+    ...base,
+    affected: new Map(
+      recommendations.map((r) => [
+        r.alias,
+        { operation: r.revision.operation, revision: r.revision },
+      ]),
+    ),
+    unaffected: order(fixture.unaffected ?? [], reversed).map(({ operation, target, content }) => ({
+      operation,
+      content,
+      target:
+        target.kind === "newSection"
+          ? {
+              kind: "newSection",
+              heading: target.heading,
+              ...(target.after === undefined ? {} : { after: block(target.after) }),
+            }
+          : target.kind === "section"
+            ? { kind: "section", ...block(target.heading) }
+            : { kind: target.kind, ...block(target.block) },
+    })),
   };
 }

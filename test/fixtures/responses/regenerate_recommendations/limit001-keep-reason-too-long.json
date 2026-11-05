@@ -1,0 +1,26 @@
+{
+  "description": "A keep of R-3 whose reason is 201 code points (190 digits and 11 astral characters) fails LIMIT-001 before its target is checked, and R-3 then gets the coverage event.",
+  "section": "IMPL §3.5 step 3 (LIMIT-001 first, limits counted in code points), §3.3.6 (reason ≤ 200, REGEN-001)",
+  "response": {
+    "actions": [
+      { "target": "R-1", "action": "drop", "reason": "Its only support was withdrawn." },
+      { "target": "R-2", "action": "drop", "reason": "The decision it relied on was superseded." },
+      {
+        "target": "R-3",
+        "action": "keep",
+        "reason": "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789𝑥𝑥𝑥𝑥𝑥𝑥𝑥𝑥𝑥𝑥𝑥"
+      },
+      { "target": "R-4", "action": "keep", "reason": "The change does not touch it." }
+    ],
+    "additions": [],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "actions/2", "stage": "item", "rule": "LIMIT-001", "outcome": "rejected" },
+      { "itemKey": "R-3", "stage": "cross_item", "rule": "REGEN-001", "outcome": "rejected" }
+    ],
+    "accepted": { "actions": ["actions/0", "actions/1", "actions/3"], "additions": [], "heldBack": [] }
+  }
+}

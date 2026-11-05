@@ -1,0 +1,35 @@
+{
+  "description": "R-3, an add, revised into a remove of the Workflow heading B-6 backed by the current decision D-3, would pass every other check but fails REGEN-002 as actions/2, and R-3 gets the coverage event.",
+  "section": "IMPL §3.3.6 (REGEN-002; failed actions; REGEN-001), §3.3.5 steps 2 and 4 (a remove has no content; REC-005 met by a decision)",
+  "response": {
+    "actions": [
+      { "target": "R-1", "action": "drop", "reason": "Its only support was withdrawn." },
+      { "target": "R-2", "action": "drop", "reason": "The decision it relied on was superseded." },
+      {
+        "target": "R-3",
+        "action": "revise",
+        "reason": "The developer says the Workflow section is out of date.",
+        "revision": {
+          "kind": "policy",
+          "operation": "remove",
+          "target": { "kind": "block", "block": "B-6" },
+          "rationale": "The developer decided the Workflow section no longer matches how the team works.",
+          "support": ["D-3"],
+          "references": [],
+          "scope": { "kind": "repository" }
+        }
+      },
+      { "target": "R-4", "action": "keep", "reason": "The change does not touch it." }
+    ],
+    "additions": [],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "actions/2", "stage": "item", "rule": "REGEN-002", "outcome": "rejected" },
+      { "itemKey": "R-3", "stage": "cross_item", "rule": "REGEN-001", "outcome": "rejected" }
+    ],
+    "accepted": { "actions": ["actions/0", "actions/1", "actions/3"], "additions": [], "heldBack": [] }
+  }
+}

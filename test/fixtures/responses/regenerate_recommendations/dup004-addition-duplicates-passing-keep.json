@@ -1,0 +1,31 @@
+{
+  "description": "An addition that restates R-3, which this call keeps and which passes revalidation, is rejected by DUP-004 in favour of the kept recommendation, even with other kind, support and rationale.",
+  "section": "IMPL §3.3.6 (Duplicates: compared with those this call keeps; the existing one is kept), §3.3.5 step 9 (DUP-004)",
+  "response": {
+    "actions": [
+      { "target": "R-1", "action": "drop", "reason": "Its only support was withdrawn." },
+      { "target": "R-2", "action": "drop", "reason": "The decision it relied on was superseded." },
+      { "target": "R-3", "action": "keep", "reason": "The change does not touch it." },
+      { "target": "R-4", "action": "keep", "reason": "The change does not touch it." }
+    ],
+    "additions": [
+      {
+        "key": "r1",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "The HTTP API serves the widget store.",
+        "rationale": "The developer decided the API's scope.",
+        "support": ["D-1"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [{ "itemKey": "r1", "stage": "cross_item", "rule": "DUP-004", "outcome": "rejected" }],
+    "accepted": { "actions": ["actions/0", "actions/1", "actions/2", "actions/3"], "additions": [], "heldBack": [] }
+  }
+}

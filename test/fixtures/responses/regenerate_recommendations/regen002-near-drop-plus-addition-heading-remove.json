@@ -1,0 +1,31 @@
+{
+  "description": "A drop of R-3 plus an addition r1 that removes the Workflow heading B-6, backed by D-3, is accepted with no events: the remove arrives as a new recommendation, not as a revision of an add.",
+  "section": "IMPL §3.3.6 (REGEN-002: a different operation is a drop plus an addition), §3.3.5 steps 2 and 4, §3.8 (a remove of a heading, accepted as one recommendation for its whole section)",
+  "nearMissOf": "regen002-add-revised-as-heading-remove.json",
+  "response": {
+    "actions": [
+      { "target": "R-1", "action": "drop", "reason": "Its only support was withdrawn." },
+      { "target": "R-2", "action": "drop", "reason": "The decision it relied on was superseded." },
+      { "target": "R-3", "action": "drop", "reason": "Replaced by removing the Workflow section." },
+      { "target": "R-4", "action": "keep", "reason": "The change does not touch it." }
+    ],
+    "additions": [
+      {
+        "key": "r1",
+        "kind": "policy",
+        "operation": "remove",
+        "target": { "kind": "block", "block": "B-6" },
+        "rationale": "The developer decided the Workflow section no longer matches how the team works.",
+        "support": ["D-3"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "actions": ["actions/0", "actions/1", "actions/2", "actions/3"], "additions": ["r1"], "heldBack": [] }
+  }
+}

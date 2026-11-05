@@ -338,7 +338,23 @@ describe("artifact revisions (DM §9.4)", () => {
 
   it("assembles re-anchored targets in the active snapshot, and attributes its blocks", () => {
     const f = fixture();
-    const revise = recommend(f, "revise", { kind: "block", ...ref(f, "Guide/paragraph-1") }, "Hi.");
+    // Supported by a decision, which a refresh leaves current, so the revision isn't stale.
+    const decision = f.log.append({
+      type: "decision",
+      statement: "Greet briefly.",
+      scope: { kind: "repository" },
+      exceptions: [],
+      origin: "answered_question",
+      actor: "developer",
+      decidedAt: "2026-11-01T10:20:00.000Z",
+    });
+    const revise = recommend(
+      f,
+      "revise",
+      { kind: "block", ...ref(f, "Guide/paragraph-1") },
+      "Hi.",
+      [{ kind: "decision", decisionId: decision.id }],
+    );
     choose(f, revise);
     // The paragraph moves under a new heading: a new ID, the same hash.
     refresh(f, ["# Guide", "", "## Moved", "", "Intro.", ""].join("\n"));
@@ -360,9 +376,9 @@ describe("artifact revisions (DM §9.4)", () => {
     expect(() => propose(f)).toThrow(/unavailable/);
   });
 
-  it("refuses a selected revision that depends on a decision that isn't current", () => {
+  it("names a selected revision that depends on a decision that isn't current as stale", () => {
     const f = fixture();
-    const decision = f.log.append({
+    const draft = {
       type: "decision",
       statement: "Use pnpm.",
       scope: { kind: "repository" },
@@ -370,15 +386,20 @@ describe("artifact revisions (DM §9.4)", () => {
       origin: "answered_question",
       actor: "developer",
       decidedAt: "2026-11-01T10:20:00.000Z",
-    });
-    choose(
-      f,
-      recommend(f, "add", { kind: "newSection", heading: "A" }, "A.", [
-        { kind: "decision", decisionId: decision.id },
-      ]),
-    );
-    f.log.append({ ...decision, supersedes: [decision.id] } as never);
-    expect(() => propose(f)).toThrow(/regenerate/);
+    } as const;
+    const decision = f.log.append(draft);
+    const stale = recommend(f, "add", { kind: "newSection", heading: "A" }, "A.", [
+      { kind: "decision", decisionId: decision.id },
+    ]);
+    const fine = recommend(f, "add", { kind: "newSection", heading: "B" }, "B.");
+    choose(f, stale);
+    choose(f, fine);
+    f.log.append({ ...draft, statement: "Use npm.", supersedes: [decision.id] });
+    expect(propose(f)).toEqual({ kind: "stale", recommendationIds: [stale.recommendationId] });
+    expect(artifacts(f)).toEqual([]);
+    // Once the developer rejects it, proposing continues with the rest.
+    choose(f, stale, "rejected");
+    expect(created(f).selectedRevisionIds).toEqual([fine.id]);
   });
 });
 

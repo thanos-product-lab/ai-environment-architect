@@ -1,0 +1,24 @@
+{
+  "description": "Extra actions targeting F-6, a finding, and B-2, a block, both in the table, fail ALIAS-003 because an action's target accepts only R aliases; the four valid actions stand.",
+  "section": "IMPL §3.2.1 (ALIAS-003: an alias of a kind its field doesn't accept), §3.3.6 (target \"R-4\")",
+  "response": {
+    "actions": [
+      { "target": "R-1", "action": "drop", "reason": "Its only support was withdrawn." },
+      { "target": "R-2", "action": "drop", "reason": "The decision it relied on was superseded." },
+      { "target": "R-3", "action": "keep", "reason": "The change does not touch it." },
+      { "target": "R-4", "action": "keep", "reason": "The change does not touch it." },
+      { "target": "F-6", "action": "keep", "reason": "The test script is still defined." },
+      { "target": "B-2", "action": "drop", "reason": "The overview paragraph is redundant." }
+    ],
+    "additions": [],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "actions/4", "stage": "item", "rule": "ALIAS-003", "outcome": "rejected" },
+      { "itemKey": "actions/5", "stage": "item", "rule": "ALIAS-003", "outcome": "rejected" }
+    ],
+    "accepted": { "actions": ["actions/0", "actions/1", "actions/2", "actions/3"], "additions": [], "heldBack": [] }
+  }
+}

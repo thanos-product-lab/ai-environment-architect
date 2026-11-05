@@ -1,0 +1,24 @@
+{
+  "description": "A keep reason of exactly 200 code points (190 digits and 10 astral characters, 210 UTF-16 code units) is accepted: the limit counts code points.",
+  "section": "IMPL §3.5 step 3 (LIMIT-001), §3.3.6 (reason ≤ 200)",
+  "nearMissOf": "limit001-keep-reason-too-long.json",
+  "response": {
+    "actions": [
+      { "target": "R-1", "action": "drop", "reason": "Its only support was withdrawn." },
+      { "target": "R-2", "action": "drop", "reason": "The decision it relied on was superseded." },
+      {
+        "target": "R-3",
+        "action": "keep",
+        "reason": "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789𝑥𝑥𝑥𝑥𝑥𝑥𝑥𝑥𝑥𝑥"
+      },
+      { "target": "R-4", "action": "keep", "reason": "The change does not touch it." }
+    ],
+    "additions": [],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "actions": ["actions/0", "actions/1", "actions/2", "actions/3"], "additions": [], "heldBack": [] }
+  }
+}

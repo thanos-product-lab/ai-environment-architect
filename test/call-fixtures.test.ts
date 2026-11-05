@@ -7,13 +7,16 @@ import { validateAnalyseExpansion } from "../src/core/validation/analyse-expansi
 import { validateGenerateQuestions } from "../src/core/validation/generate-questions.js";
 import type { Accepted, ValidationResult } from "../src/core/validation/pipeline.js";
 import { validateRecommend } from "../src/core/validation/recommend.js";
+import { validateRegenerate } from "../src/core/validation/regenerate.js";
 import {
   analyseContext,
   analyseExpansionContext,
   type FixtureContext,
   type FixtureRecommendContext,
+  type FixtureRegenerateContext,
   questionContext,
   recommendContext,
+  regenerateContext,
 } from "./support/call-context.js";
 
 // Adversarial whole-call fixtures (IMPL §3.3.2–§3.3.4, §3.8), written from the spec without
@@ -22,7 +25,13 @@ import {
 // inputs in two orders, and must give the same result.
 
 const ROOT = join(import.meta.dirname, "fixtures", "responses");
-const CALLS = ["analyse", "analyse_expansion", "generate_questions", "recommend"] as const;
+const CALLS = [
+  "analyse",
+  "analyse_expansion",
+  "generate_questions",
+  "recommend",
+  "regenerate_recommendations",
+] as const;
 type Call = (typeof CALLS)[number];
 
 /** A withheld name: AWS's documented example key ID, which the secret scan matches (IMPL §1.7). */
@@ -143,6 +152,13 @@ function observe(call: Call, text: string, fixture: FixtureContext, reversed: bo
     const outcome = validateRecommend(
       text,
       recommendContext(fixture as unknown as FixtureRecommendContext, reversed),
+    );
+    return summary(outcome.result);
+  }
+  if (call === "regenerate_recommendations") {
+    const outcome = validateRegenerate(
+      text,
+      regenerateContext(fixture as unknown as FixtureRegenerateContext, reversed),
     );
     return summary(outcome.result);
   }

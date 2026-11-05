@@ -1,0 +1,22 @@
+{
+  "description": "A held-back entry blocked by the answered Q-3 is dropped by HELD-001; one blocked by the skipped Q-1 in the same response stands.",
+  "section": "IMPL §3.3.6 (heldBack validated as in §3.3.5), §3.3.5 step 10 (HELD-001), §3.8",
+  "response": {
+    "actions": [
+      { "target": "R-1", "action": "drop", "reason": "Its only support was withdrawn." },
+      { "target": "R-2", "action": "drop", "reason": "The decision it relied on was superseded." },
+      { "target": "R-3", "action": "keep", "reason": "The change does not touch it." },
+      { "target": "R-4", "action": "keep", "reason": "The change does not touch it." }
+    ],
+    "additions": [],
+    "heldBack": [
+      { "topic": "Where tests live", "blockedBy": ["Q-3"] },
+      { "topic": "Which port the API listens on", "blockedBy": ["Q-1"] }
+    ]
+  },
+  "expect": {
+    "status": "validated",
+    "events": [{ "itemKey": "heldBack/0", "stage": "cross_item", "rule": "HELD-001", "outcome": "rejected" }],
+    "accepted": { "actions": ["actions/0", "actions/1", "actions/2", "actions/3"], "additions": [], "heldBack": ["heldBack/1"] }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "description": "R-3 revised from a fact into a policy that still rests only on the descriptive finding F-20 fails REC-005, and R-3 gets the coverage event.",
+  "section": "IMPL §3.3.6 (revise fully validated), §3.3.5 step 4 (REC-005), DM §6.4, §3.8 (an observation presented as policy)",
+  "response": {
+    "actions": [
+      { "target": "R-1", "action": "drop", "reason": "Its only support was withdrawn." },
+      { "target": "R-2", "action": "drop", "reason": "The decision it relied on was superseded." },
+      {
+        "target": "R-3",
+        "action": "revise",
+        "reason": "State the API's purpose as a rule.",
+        "revision": {
+          "kind": "policy",
+          "operation": "add",
+          "target": { "kind": "after", "block": "B-2" },
+          "content": "The HTTP API serves the widget store and nothing else.",
+          "rationale": "The README describes the API this way.",
+          "support": ["F-20"],
+          "references": [],
+          "scope": { "kind": "repository" }
+        }
+      },
+      { "target": "R-4", "action": "keep", "reason": "The change does not touch it." }
+    ],
+    "additions": [],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "actions/2", "stage": "item", "rule": "REC-005", "outcome": "rejected" },
+      { "itemKey": "R-3", "stage": "cross_item", "rule": "REGEN-001", "outcome": "rejected" }
+    ],
+    "accepted": { "actions": ["actions/0", "actions/1", "actions/3"], "additions": [], "heldBack": [] }
+  }
+}

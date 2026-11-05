@@ -5,6 +5,7 @@ import { type Clash, currentState } from "./current.js";
 import { activeDestination } from "./exclusion.js";
 import type { SessionLog } from "./log.js";
 import type { RecordOf } from "./records.js";
+import { affectedRecommendations } from "./regeneration.js";
 import { contentRefOf } from "./store.js";
 
 // Artifact revisions and reviews (DM §9.4, §10; IMPL §4.4.2 "Active artifact revision",
@@ -28,6 +29,11 @@ export type ProposeOutcome =
   | { readonly kind: "nothing_accepted" }
   /** Accepted recommendations exclude each other; the developer rejects one (DM §9.2). */
   | { readonly kind: "clash"; readonly clashes: readonly Clash[] }
+  /**
+   * Accepted recommendations whose support is no longer current, left so by a regeneration that
+   * failed or hasn't run (DM §12). The developer rejects them, or regenerates, and proposes again.
+   */
+  | { readonly kind: "stale"; readonly recommendationIds: readonly string[] }
   /** A conflict the developer resolves by rejecting one, or an internal error (DM §9.4). */
   | { readonly kind: "assembly_failed"; readonly failure: AssemblyFailure };
 
@@ -36,8 +42,9 @@ export type ProposeOutcome =
  * already records them. `destinationBytes` are the bytes the caller read for the active
  * snapshot's destination, checked against its hash, or undefined when it isn't present.
  *
- * A selected revision whose target resolves to nothing, or that depends on a decision that isn't
- * current, is a bug in the caller: change propagation invalidates or regenerates it first (DM §12).
+ * An accepted revision whose support is no longer current is refused as `stale`, by name. One
+ * whose target resolves to nothing is a bug in the caller: after a refresh, code invalidates it
+ * as `target_changed` first (DM §12).
  */
 export function proposeArtifact(
   log: SessionLog,
@@ -55,16 +62,14 @@ export function proposeArtifact(
     (r) => state.selections.get(r.recommendationId)?.state === "accepted",
   );
   if (accepted.length === 0) return { kind: "nothing_accepted" };
+  const acceptedIds = new Set(accepted.map((r) => r.recommendationId));
+  const stale = affectedRecommendations(log.records, []).filter((id) => acceptedIds.has(id));
+  if (stale.length > 0) return { kind: "stale", recommendationIds: stale };
   const clashes = state.clashes ?? [];
   if (clashes.length > 0) return { kind: "clash", clashes };
   if (state.activeArtifact !== undefined) return { kind: "active", artifact: state.activeArtifact };
 
   const decisionIds = decisionIdsOf(accepted);
-  for (const id of decisionIds)
-    if (!state.decisions.has(id))
-      throw new Error(
-        `a selected revision depends on ${id}, which isn't current; regenerate it first`,
-      );
 
   const blocks = destination.state === "present" ? parseGuidanceBlocks(bytes) : undefined;
   const input = assemblyRevisionsOf(log.records, accepted, blocks?.blocks ?? []);
