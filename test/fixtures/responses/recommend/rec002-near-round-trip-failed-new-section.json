@@ -1,0 +1,27 @@
+{
+  "description": "When the destination's round trip failed, a newSection without after, appended at the end, is accepted.",
+  "section": "IMPL §3.3.5 steps 2-3 (REC-002, REC-003), §3.8, DM §7, §9.3 step 6",
+  "context": "context-round-trip-failed.json",
+  "nearMissOf": "rec002-round-trip-failed-block-targets.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": { "kind": "newSection", "heading": "Service" },
+        "content": "The API listens on port 8080.",
+        "rationale": "The README states the port.",
+        "support": ["F-2"],
+        "references": [],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1"], "heldBack": [], "noChangeReason": [] }
+  }
+}

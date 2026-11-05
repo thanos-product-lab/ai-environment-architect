@@ -1,0 +1,91 @@
+{
+  "description": "When the destination's round trip failed, its one whole-file block B-1 may not be a target: an add after B-1, a revise of B-1 and a remove of B-1 each fail REC-002.",
+  "section": "IMPL §3.3.5 step 2 (REC-002), §3.8, DM §7",
+  "context": "context-round-trip-failed.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "fact",
+        "operation": "add",
+        "target": {
+          "kind": "after",
+          "block": "B-1"
+        },
+        "content": "The API listens on port 8080.",
+        "rationale": "The README states the port.",
+        "support": [
+          "F-2"
+        ],
+        "references": [],
+        "scope": {
+          "kind": "repository"
+        }
+      },
+      {
+        "key": "r2",
+        "kind": "fact",
+        "operation": "revise",
+        "target": {
+          "kind": "block",
+          "block": "B-1"
+        },
+        "content": "The API listens on port 8080.",
+        "rationale": "The README states the port.",
+        "support": [
+          "F-2"
+        ],
+        "references": [],
+        "scope": {
+          "kind": "repository"
+        }
+      },
+      {
+        "key": "r3",
+        "kind": "fact",
+        "operation": "remove",
+        "target": {
+          "kind": "block",
+          "block": "B-1"
+        },
+        "rationale": "The README states the port.",
+        "support": [
+          "F-2"
+        ],
+        "references": [],
+        "scope": {
+          "kind": "repository"
+        }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      {
+        "itemKey": "r1",
+        "stage": "item",
+        "rule": "REC-002",
+        "outcome": "rejected"
+      },
+      {
+        "itemKey": "r2",
+        "stage": "item",
+        "rule": "REC-002",
+        "outcome": "rejected"
+      },
+      {
+        "itemKey": "r3",
+        "stage": "item",
+        "rule": "REC-002",
+        "outcome": "rejected"
+      }
+    ],
+    "accepted": {
+      "recommendations": [],
+      "heldBack": [],
+      "noChangeReason": []
+    }
+  }
+}

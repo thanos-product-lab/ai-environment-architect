@@ -1,7 +1,7 @@
 # Milestones
 
 **AI Environment Architect · First slice**  
-**Last updated:** 4 November 2026
+**Last updated:** 5 November 2026
 
 This is the build order for the first slice: inspect → clarify → recommend → review → apply, for one repository and its root `CLAUDE.md`. It says *what to build when*. *How it behaves* is in the specs. Each step points to a spec section rather than repeating it.
 
@@ -24,7 +24,7 @@ The order is set by dependencies. Deterministic parts come first and are tested 
 | M2 | Context selection and "What we read" | No | Done |
 | M3 | Validation core | No (recorded responses) | Done |
 | M4 | Sessions and persistence | No | Done |
-| M5 | Recommendations, assembly, review and apply | No (recorded responses) | In progress |
+| M5 | Recommendations, assembly, review and apply | No (recorded responses) | Done |
 | M6 | Claude adapter and model calls | Yes | Not started |
 | M7 | Interactive CLI | Yes | Not started |
 | M8 | Export and first-slice release | Yes | Not started |
@@ -118,7 +118,7 @@ The export (IMPL §4.10) is specified here and built in M8.
 - [x] Tiered freshness. `/implement-spec DM 11.1`
 - [x] Apply and recovery, with the apply-attempt field list (IMPL §4.4.1), apply-attempt references (load check 4) and the apply-approval load check (check 8). `/implement-spec DM 11.2`
 - [x] Change propagation and `regenerate_recommendations` validation: the affected set, `target_changed` invalidation over the target resolution built with selections, the trigger for an empty affected set, and the `actions` failed items. Until the invalidations are written after a refresh, `select` and `currentState` with a destination throw when any accepted recommendation's target doesn't resolve, and `exclusions` when any current one's doesn't; add a test for each that an unrelated unresolved target no longer does. `proposeArtifact` throws, likewise, when an accepted revision's target doesn't resolve or it depends on a decision that isn't current; once propagation invalidates or regenerates such revisions first, add a test that a corrected decision followed by proposing no longer throws. Adversarial fixtures for every `REGEN` rule and regeneration's `DUP-004`. `/implement-spec IMPL 3.3.6`, with DM §12.
-- [ ] Closing audit, with no `/implement-spec` argument: every `REC`, `REF`, `HELD` and `REGEN` rule and `DUP-004` has a rejecting fixture and an accepted near miss, and the IMPL §3.8 selection and assembly cases and the M5 items of IMPL §4.11 pass.
+- [x] Closing audit, with no `/implement-spec` argument: every `REC`, `REF`, `HELD` and `REGEN` rule and `DUP-004` has a rejecting fixture and an accepted near miss, and the IMPL §3.8 selection and assembly cases and the M5 items of IMPL §4.11 pass.
 
 **Done when:** DM §17 passes for assembly, approval, freshness, apply, recovery and no-change, using recorded responses only.
 

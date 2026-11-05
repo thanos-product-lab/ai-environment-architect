@@ -83,7 +83,16 @@ export interface FixtureRecommendContext {
   readonly ignoreRules: IgnoreRules;
   readonly destination:
     | { readonly state: "absent" }
-    | { readonly state: "present"; readonly text: string };
+    | {
+        readonly state: "present";
+        readonly text: string;
+        /**
+         * The default splitter round-trips any text, so a fixture asks for a failed round trip
+         * here: the text is parsed with a splitter that throws, which gives the parser's own
+         * fallback, one whole-file `other` block (DM §7).
+         */
+        readonly roundTrip?: "failed";
+      };
   readonly findings?: readonly (Omit<RecommendFinding, "current" | "evidence"> & {
     readonly alias: string;
     readonly current?: boolean;
@@ -351,7 +360,13 @@ export function recommendContext(
       ? ({ state: "absent" } as const)
       : (() => {
           const bytes = new TextEncoder().encode(fixture.destination.text);
-          return { state: "present" as const, bytes, parsed: parseGuidanceBlocks(bytes) };
+          const parsed =
+            fixture.destination.roundTrip === "failed"
+              ? parseGuidanceBlocks(bytes, () => {
+                  throw new Error("round trip failed by the fixture");
+                })
+              : parseGuidanceBlocks(bytes);
+          return { state: "present" as const, bytes, parsed };
         })();
   const blocks = destination.state === "present" ? destination.parsed.blocks : [];
   return {

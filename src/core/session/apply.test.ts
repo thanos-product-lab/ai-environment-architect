@@ -19,7 +19,7 @@ import {
   temporaryName,
 } from "./apply.js";
 import { proposeArtifact, recordReview } from "./artifacts.js";
-import { currentState } from "./current.js";
+import { currentState, sessionProgress } from "./current.js";
 import type { Rescan } from "./freshness.js";
 import { loadSession } from "./load.js";
 import { SessionLog } from "./log.js";
@@ -77,11 +77,18 @@ interface Fixture {
   readonly files: readonly SnapshotFile[];
 }
 
+interface Recommended {
+  readonly log: SessionLog;
+  readonly revision: RecordOf<"recommendation_revision">;
+  readonly original: Uint8Array | undefined;
+  readonly files: readonly SnapshotFile[];
+}
+
 /**
- * A saved session with one accepted recommendation assembled into an approved artifact revision.
- * `text` is the destination's content, or null when it is absent.
+ * A session with one valid recommendation, not yet selected. `text` is the destination's
+ * content, or null when it is absent.
  */
-async function approved(text: string | null = GUIDE): Promise<Fixture> {
+function recommended(text: string | null = GUIDE): Recommended {
   const log = newLog();
   log.start({
     type: "session_state",
@@ -184,6 +191,15 @@ async function approved(text: string | null = GUIDE): Promise<Fixture> {
     producedBy: call.modelCallId,
     status: "valid",
   });
+  return { log, revision, original, files };
+}
+
+/**
+ * A saved session with one accepted recommendation assembled into an approved artifact revision.
+ * `text` is the destination's content, or null when it is absent.
+ */
+async function approved(text: string | null = GUIDE): Promise<Fixture> {
+  const { log, revision, original, files } = recommended(text);
   log.append({
     type: "selection",
     recommendationId: revision.recommendationId,
@@ -715,3 +731,63 @@ function idsAfter(records: readonly SessionRecord[]) {
   let n = records.length + 1000;
   return { next: (prefix: string) => `${prefix}_${String(n++).padStart(4, "0")}` };
 }
+
+describe('no change (DM §12, §16 E, §17 "no_change performs no write")', () => {
+  // The CLI ends the session (M7): when proposing finds nothing accepted, it appends the
+  // `session_state` with outcome `no_change`, as it appends `applied` after a succeeded attempt.
+  it.each([
+    ["present", GUIDE],
+    ["absent", null],
+  ] as const)(
+    "a session that ends as no_change leaves a %s destination as it was",
+    async (_, text) => {
+      const { log, revision, original } = recommended(text);
+      log.append({
+        type: "selection",
+        recommendationId: revision.recommendationId,
+        revisionId: revision.id,
+        state: "rejected",
+        actor: "developer",
+        selectedAt: "2026-11-01T10:30:00.000Z",
+      });
+      expect(proposeArtifact(log, original)).toEqual({ kind: "nothing_accepted" });
+      log.revise("session_state", "session_state", {
+        stage: "complete",
+        status: "completed",
+        outcome: "no_change",
+      });
+      const store = new MemorySession();
+      const session = new HeldSession(store, HEADER, log);
+      await session.save({ contents: original === undefined ? [] : [original], retained: [] });
+
+      const destination =
+        original === undefined
+          ? new MemoryDestination({ kind: "absent" })
+          : new MemoryDestination({ kind: "file", bytes: original });
+      const outcome = await applyArtifact(session, {
+        destination,
+        rescan: async () => {
+          throw new Error("no rescan without an approval");
+        },
+        content: store,
+        clock: tickingClock(Date.UTC(2026, 10, 1, 11, 0, 0)),
+      });
+
+      expect(outcome).toEqual({ kind: "refused", reason: "no_usable_approval" });
+      expect(destination.writes).toBe(0);
+      expect(destination.temporaries.size).toBe(0);
+      expect(destination.operations).toEqual(["inspect"]);
+      if (original === undefined) expect(destination.node).toEqual({ kind: "absent" });
+      else expect(destination.node).toEqual({ kind: "file", bytes: original });
+
+      const records = await savedRecords(store);
+      expect(attempts(records)).toEqual([]);
+      expect(records.some((r) => r.type === "artifact_revision")).toBe(false);
+      expect(sessionProgress(records)).toEqual({
+        stage: "complete",
+        status: "completed",
+        outcome: "no_change",
+      });
+    },
+  );
+});
