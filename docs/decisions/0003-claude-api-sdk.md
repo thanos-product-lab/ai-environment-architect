@@ -64,7 +64,7 @@ Every fact below was checked on 9 November 2026 against the sources at the end, 
 
 **Alternative.** `messages.stream().finalMessage()`, which the SDK recommends for long requests.
 
-**Why.** The retained response has to be the exact response body (IMPL §4.8). A stream has no such body, and `.withResponse()` consumes it. Non-streaming is allowed at our sizes: the SDK's timeout for a non-streaming request is the larger of 10 minutes and `3600 × max_tokens / 128000` seconds, which for the largest reservation of 16,000 tokens is 450 seconds, so the 10-minute floor applies. Choosing a much larger `reservedOutputTokens` would reopen this.
+**Why.** The retained response has to be the exact response body (IMPL §4.8). A stream has no such body, and `.withResponse()` consumes it. Non-streaming is allowed at our sizes: the SDK's timeout for a non-streaming request is the larger of 10 minutes and `3600 × max_tokens / 128000` seconds, which for the largest reservation of 16,000 tokens is 450 seconds, so the 10-minute floor applies. A limit the developer raises later (IMPL §4.6) can pass it, and the SDK throws when a non-streaming request is expected to take over about 10 minutes, unless `timeout` is set. So the adapter always passes `timeout` itself, using the same formula.
 
 ### Refusal fallbacks: off
 
@@ -93,3 +93,4 @@ Checked on 9 November 2026:
 ## Changes
 
 - **9 November 2026:** first version, accepted.
+- **9 November 2026:** the adapter sets `timeout` itself, because the output limit can now be raised during a session.

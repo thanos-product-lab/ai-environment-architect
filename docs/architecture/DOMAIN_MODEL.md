@@ -14,6 +14,7 @@
 ### Changes from v0.32
 
 1. **Generation config and model calls (§5, §13.1).** `generationConfig` records the model's `effort`. A model call records the API version and the version and date of the price table. A known cost is always `estimated`, because the API reports usage and not cost per request ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) v0.55).
+2. **Invalidation (§9.1, §12).** A recommendation whose content matches the secret scan before regeneration is invalidated as `secret_match`. Any other item whose text matches is left out of later calls, and the export gives such text only as a hash (§14; [`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.7, §4.10).
 
 ### Changes from v0.31
 
@@ -466,7 +467,7 @@ Choosing a suggested option is a confirmation; the option itself was not one. A 
 
 One understandable operation on the target file. Stable `recommendationId`, immutable `revisionId` (the revision's record ID, [`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.4.1).
 
-A revision's `status` is `valid`, `failed_validation`, or `invalidated` with a reason: `revalidation_failed`, `not_reconsidered`, `dropped_by_model` or `target_changed` ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.4.1).
+A revision's `status` is `valid`, `failed_validation`, or `invalidated` with a reason: `revalidation_failed`, `not_reconsidered`, `dropped_by_model`, `secret_match` or `target_changed` ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.4.1).
 
 | Field | Notes |
 |---|---|
@@ -645,7 +646,7 @@ Currency is determined by the versions of dependencies, not by timestamps.
 
 | Change | Consequence |
 |---|---|
-| Decision answered, corrected or superseded | Recommendations whose support includes a changed or superseded decision, a finding that is no longer current, or a finding that the decision's question or conflict covers, are regenerated as new revisions. Their selections no longer count, so they are pending again (§9.2). The active artifact becomes outdated. A new decision that affects no recommendation calls the model only if it unblocks a held-back entry ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.3.6). |
+| Decision answered, corrected or superseded | Recommendations whose support includes a changed, superseded or withheld decision, a finding that is no longer current, or a finding that the decision's question or conflict covers, are regenerated as new revisions, except one whose content matches the secret scan, which is invalidated instead (§9.1). Their selections no longer count, so they are pending again (§9.2). The active artifact becomes outdated. A new decision that affects no recommendation calls the model only if it unblocks a held-back entry ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.3.6). |
 | Recommendation edited | New revision; selection required |
 | Selection changed | New assembly and artifact revision; fresh review required |
 | Blocking freshness failure | New snapshot; affected findings refreshed; recommendations revalidated or regenerated; new review |
@@ -700,9 +701,9 @@ A versioned projection generated from session records. It is never edited direct
 |---|---|
 | Identity | Session ID, timestamps, `productVersion`, `adapter`, `outputScope` |
 | Inputs | Snapshot identity (git metadata as recorded, including `unknown` states and their reasons; file hashes, scope, exclusions), initial destination state and hash, `generationConfig`, prompt and schema versions |
-| Reasoning evidence | Findings (claims, absence claims and gaps), evidence references and excerpts, conflicts, questions with every status, decisions including superseded ones, items that failed validation |
-| Review | All recommendation revisions, including those that failed validation or were invalidated; held-back entries; selection history, rejected selections included; developer edits; reviews |
-| Outputs | Final diff, artifact revisions, applied file list, final configuration hash, unresolved gaps, conflicts and questions |
+| Reasoning evidence | Findings (claims, absence claims and gaps), evidence references and excerpts, conflicts, questions with every status, decisions including superseded ones, items that failed validation; text that matched the secret scan appears only as a hash |
+| Review | All recommendation revisions, including those that failed validation or were invalidated; held-back entries; selection history, rejected selections included; developer edits; reviews; text that matched the secret scan appears only as a hash |
+| Outputs | Final diff, artifact revisions, applied file list, final configuration hash, unresolved gaps, conflicts and questions; a diff or artifact holding text that matched the secret scan is left out, with a note naming its hash |
 | Measurements | Elapsed time, active developer effort and its method, model usage and cost with `costBasis`, explicit reasons for missing values |
 | Outcome | Session `outcome` and `completeness`, mapped to completed, partial or failed; apply attempts and failure details |
 
