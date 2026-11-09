@@ -1,9 +1,20 @@
 # Implementation Specification
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 4 November 2026  
-**Version:** 0.54  
+**Date:** 9 November 2026  
+**Version:** 0.55  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.54
+
+- **Live documentation check for M6 (§1.10, §3.6, §3.7, ADR 0003).** Reconciled with the API version `2026-10-21` and SDK 1.4.0, as checked on 9 November 2026. Sampling parameters are gone, because the API rejects them. Thinking can't be turned off on the default model, so `effort` is always sent and recorded in `generation_config`, `medium` and provisional. Each call records `apiVersion`.
+- **Failures (§3.6, §2.12).** The transient statuses and the backoff are stated, and the other request errors aren't retried. A refusal gets one identical retry with no message. Truncation fails without a retry, and `reservedOutputTokens` is provisional. The SDK's own retries are off, so that every send is a recorded call.
+- **Estimates and cost (§3.6, §4.6).** The budget estimate is defined. The API reports usage but no cost per request, so a known cost is always `estimated`, and each call records its price table's version and date. Domain model v0.33.
+- **Token check (§1.2, §1.10, §1.13, §1.14).** Call 5 is in the call table, has a `reservedOutputTokens` (16,000) and follows the rules of calls 3–4. The input limit comes from the Models API and is an input to selection (§1.3). The complete request is scanned before it is counted, because counting sends it (§1.7). Expansion results are never removed; a call 2 that still doesn't fit is skipped, recorded as `stage_skipped` with `unsentPurpose: analyse_expansion`, and the session continues with call 1's results (§4.4.1, §4.4.2).
+- **Property order (§3.3.2, §3.3.5, §3.7).** The API has the model write required properties first, so optional properties come last in every object, and the generator refuses one before a required property. This is a rule about the schema sent: parsing stays independent of key order. The `analyse`, `recommend` and `regenerate_recommendations` schemas change in the M6 adapter step, with new versions.
+- **Call 5 and the scan (§1.7).** Call 5's excerpts are handled like those of calls 3–4, and the recommendation content it resends is scanned.
+- **Expansion (§1.8).** An expansion item's reason names the request by position, because requests have no key.
+- **Retained exchanges (§4.8, §4.11).** The request and response bodies are kept as exact bytes, and headers, the API key included, are never retained or written to the session file.
 
 ### Changes from v0.53
 
@@ -419,11 +430,12 @@ Section 2, CLI interaction, is new.
 | 2 | `analyse_expansion` *(optional, at most once)* | Initial context, validated results of call 1, expansion results (§1.8) | Additional or revised candidate findings, gaps, conflicts, absence claims |
 | 3 | `generate_questions` | Validated findings, gaps, conflicts; their cited excerpts; directory tree; destination blocks | Candidate questions |
 | 4 | `recommend` | Validated findings, gaps, conflicts; cited excerpts; confirmed decisions; question statuses; directory tree; destination blocks with IDs (code supplies their hashes) | Candidate recommendation revisions |
+| 5 | `regenerate_recommendations` *(optional, when a change affects recommendations, §3.3.6)* | Everything `recommend` receives, the affected recommendations and a code-generated summary of what changed | Keep, revise or drop decisions on the affected recommendations; new recommendations |
 
 Rules:
 
-- Deterministic validation ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.2, §9.1, and §1.11 below) runs after every call. Calls 2–4 receive **only validated material**. Rejected output is recorded on the model call and never passed forward.
-- Calls 3 and 4 do not receive the raw initial context. Their source content is limited to excerpts cited by validated evidence, plus the destination blocks.
+- Deterministic validation ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.2, §9.1, and §1.11 below) runs after every call. Calls 2–5 receive **only validated material**. Rejected output is recorded on the model call and never passed forward.
+- Calls 3, 4 and 5 do not receive the raw initial context. Their source content is limited to excerpts cited by validated evidence, plus the destination blocks.
 - Every call passes through the secret scan (§1.7) and the token check (§1.10) before it is sent.
 - Prompt caching may be used for the repeated initial context in call 2. It does not change what is sent.
 
@@ -432,7 +444,7 @@ Rules:
 Context construction is a pure function:
 
 ```text
-context = select(snapshot, settings, algorithmVersion, modelTokenCount)
+context = select(snapshot, settings, algorithmVersion, modelTokenCount, modelContextLimit)
 ```
 
 It runs in this order:
@@ -447,7 +459,7 @@ It runs in this order:
 
 Determinism requirements:
 
-- **Inputs** are only the snapshot (file list, hashes, live content verified against snapshot hashes), settings, and the token count reported for the selected model. Nothing else: no filesystem enumeration order, modification times, environment, locale, randomness or model output.
+- **Inputs** are only the snapshot (file list, hashes, live content verified against snapshot hashes), settings, and the token count and input limit reported for the selected model. Nothing else: no filesystem enumeration order, modification times, environment, locale, randomness or model output.
 - **Path order** is bytewise ascending order of repository-relative, forward-slash, UTF-8 paths. Every "in order" in this section means this order unless stated otherwise.
 - **Budgets are in bytes** of rendered UTF-8 context. Byte selection is independent of the model. The token check (§1.10) is the only model-dependent step, and it can only remove items, never add them.
 - **Settings are versioned.** `settingsHash` is the SHA-256 of the canonical JSON of the effective settings, `algorithmVersion`, `secretRulesVersion` and `declarationPatternsVersion`.
@@ -730,12 +742,13 @@ A fixed, versioned rule set detects **known secret patterns**:
 
 Unless stated, credential prefixes must not follow a letter or digit. Patterns must scan in time linear in the text's length: a hostile file can't stall the scan. Any change to the rules or their order increases `secretRulesVersion`.
 
-**Scope.** The scan runs on the final rendered source content of **every model call**, immediately before the request is sent:
+**Scope.** The scan runs on the final rendered source content of **every model call**, immediately before the request is sent, and before its token count, which also sends it to the provider (§1.10):
 
 - initial context items (calls 1 and 2);
 - expansion results (call 2);
 - destination blocks (all calls that include them);
-- cited excerpts passed to calls 3 and 4;
+- cited excerpts passed to calls 3, 4 and 5;
+- recommendation content resent to call 5;
 - any developer-edited text that will be sent.
 
 Excerpts and blocks were already scanned when first selected. They are scanned again anyway: the cost is small, and the guarantee then doesn't depend on every earlier path having been correct.
@@ -746,7 +759,8 @@ Excerpts and blocks were already scanned when first selected. They are scanned a
 - The scan also reads the uncut text of every outline label that was cut to 80 code points (§1.6), so a cut can't leave part of a secret behind. A match blocks the file.
 - A path can match a rule, for example a file named after an access key ID. The raw path is scanned, because the item header JSON-encodes it, which can hide a match. Such a file's content is never sent, it is marked `[S]`, and it is recorded as secret-blocked even when no tier selected it. This includes `listed_only` and `ignored` files (§1.4); an `ignored` one is listed under both `ignored` and `excluded` in the manifest (§1.13). Any tree name or link target that matches is written `<withheld>`. A match can span segments (`token=abc/def…`), so every segment it may cover is withheld too: from the last segment whose suffix of the path still matches to the first segment whose prefix matches, or every segment if those don't overlap. Records that leave the selection hold the path's SHA-256 instead of the path: `pathHash` in the manifest, and `relatedPathHashes` in gap findings, so `relatedPaths` only ever holds real paths.
 - Selection gap statements are scanned too. An import outside the repository is scanned before it is cut to 80 code points; if it matches, the statement names only the importing file and says the import is withheld. Any other gap statement that matches is replaced by a fixed statement.
-- For an excerpt in calls 3–4, the excerpt is withheld, and any finding that depends only on it is marked `evidence_withheld` and not passed forward.
+- For an excerpt in calls 3–5, the excerpt is withheld, and any finding that depends only on it is marked `evidence_withheld` and not passed forward.
+- For recommendation content resent to call 5, the call is not sent, and the session stops with an explanation.
 - For the destination, the session stops (§1.5).
 - The manifest records the path (or its `pathHash`) and the rule ID, never the matched text. The tree marks the file `[S]`.
 
@@ -783,9 +797,9 @@ Whether a requested range lies within the file, and the total expansion staying 
 
 - File content is read live, and its hash must match the snapshot. A mismatch fails that request with "changed since snapshot".
 - Search runs over candidate files only, never `ignored` ones, in path order. Matches are ordered by path, then line, and the result is capped.
-- Results are rendered in the same item format, with IDs `E-<sequence>` and reason `expansion:<request-id>`, and pass the secret scan before inclusion.
+- Results are rendered in the same item format, with IDs `E-<sequence>` and reason `expansion:expansionRequests/<index>`, the request's position in the response (§3.5), and pass the secret scan before inclusion.
 
-**One expansion round** in the first slice. Call 2 cannot request further expansion.
+**One expansion round** in the first slice. Call 2 cannot request further expansion. If call 2 doesn't fit in the model's input limit, it isn't sent, and the session continues with call 1's results (§1.10).
 
 ### 1.9 Reserved
 
@@ -796,21 +810,22 @@ Whether a requested range lies within the file, and the total expansion staying 
 Byte budgets do not guarantee that a request fits: the system prompt, instructions, earlier validated results, output schema and the response itself also need room. Before every call:
 
 1. Assemble the **complete request**: system prompt, instructions, rendered context or excerpts, prior validated results, decisions and output schema.
-2. Count its input tokens using the provider's token-counting facility for the selected model. If that is unavailable, use a conservative estimate of 1 token per 3 bytes, and record that the estimate was used.
+2. Run the secret scan on the complete request (§1.7), because counting sends it to the provider. After a reduction that renders it again, scan and count it again. Count its input tokens using the provider's token-counting facility for the selected model, with the same system prompt, messages and `output_config.format` as the request. The provider's count is itself an estimate, and can differ slightly from the input billed; the safety margin covers that. If it is unavailable, use a conservative estimate of 1 token per 3 bytes, and record that the estimate was used.
 3. Require: `inputTokens + reservedOutputTokens(call) + safetyMargin ≤ modelContextLimit`.
-   - `reservedOutputTokens` is a per-call setting (defaults: `analyse` 16,000; `analyse_expansion` 12,000; `generate_questions` 4,000; `recommend` 16,000).
+   - `reservedOutputTokens` is a per-call setting (defaults, provisional, §3.9: `analyse` 16,000; `analyse_expansion` 12,000; `generate_questions` 4,000; `recommend` 16,000; `regenerate_recommendations` 16,000). It is sent as the request's `max_tokens`, so it has to hold the model's thinking as well as its output.
    - `safetyMargin` defaults to 5% of the model's context limit.
+   - `modelContextLimit` is the selected model's `max_input_tokens` from the provider's Models API. A failed lookup is retried as a connection error (§3.6), and the call is not sent without it, because a guessed limit could change what is sent.
 
 If the request does not fit, items are removed in this **deterministic reduction order**, re-checking after each step:
 
 1. tier 5 source files, last selected first (test examples last within tier 5);
 2. tier 2 documentation sections, last selected first;
 3. other tier 1 agent configuration, last selected first;
-4. for calls 3–4: cited excerpts for findings not referenced by any open question or candidate recommendation, then the directory tree depth.
+4. for calls 3–5: cited excerpts for findings not referenced by any open question or candidate recommendation, then the directory tree depth.
 
-The known-facts section (§3.2.5), tier 3 manifests and the destination are never removed. If the request still does not fit, the call is not sent, and the session stops with an explanation (for calls 1–2, this triggers the destination rule in §1.5 if the destination is the cause).
+The known-facts section (§3.2.5), tier 3 manifests, the destination and expansion results (§1.8) are never removed. If the request still does not fit, the call is not sent. For call 2, code appends a `session_state` with the reason `stage_skipped` and `unsentPurpose: analyse_expansion`, so the session is `incomplete` (§4.4.2), and it continues with call 1's results (§2.12). For any other call, the session stops with an explanation; for call 1, this triggers the destination rule in §1.5 if the destination is the cause.
 
-Every reduction is recorded in the manifest, and the tree markers are updated. The token check is the only model-dependent part of construction. Because it can only remove items, the byte selection stays reproducible across models, and the final context is reproducible for a fixed model.
+Every reduction in a call that is sent is recorded in its manifest, and the tree markers are updated. The token check is the only model-dependent part of construction. Because it can only remove items, the byte selection stays reproducible across models, and the final context is reproducible for a fixed model and input limit.
 
 ### 1.11 Coverage-aware validation
 
@@ -939,6 +954,7 @@ Details:
 - `ignoreRules` is the snapshot's record: `{ "state": "applied" }`, or `{ "state": "not_applied", "reason": … }` with the git reason (§1.4). `ignored` lists the snapshot's `ignored` entries in path order: files, and wholly ignored directories as one path each.
 - `excluded` lists the snapshot's excluded entries with their rule, in path order, then secret-blocked files with `secret-scan:<rule ID>`, in path order. Secret-blocked files include files whose path matches, whether or not a tier selected them.
 - A path that matches the secret scan is recorded as `pathHash` instead of `path` (§1.7).
+- `tokenCheck.method` is `provider_count`, or `estimate` when the byte estimate was used (§1.10).
 - `retainedInputRef` is `null` until inputs are retained for a call (§1.12), `tokenCheck` until the token check runs (§1.10), and `expansion` when there was no expansion.
 
 ### 1.14 Settings
@@ -956,8 +972,9 @@ Details:
 | `maxSourceFiles` | 32 |
 | `treeDepth`, `treeCollapseThreshold` | 4, 40 |
 | `maxExpansionRequests`, `expansionBytes`, `expansionEntryBytes` | 5, 60,000, 8,000 |
-| `reservedOutputTokens` per call | 16,000 / 12,000 / 4,000 / 16,000 |
+| `reservedOutputTokens` per call | 16,000 / 12,000 / 4,000 / 16,000 / 16,000, provisional (§3.9) |
 | `safetyMargin` | 5% of context limit |
+| `effort` | `medium`, provisional (§3.7, §3.9) |
 | `retainModelInputs` | `true` |
 | Source extensions, exclusions | Default lists above, plus user additions |
 
@@ -981,14 +998,14 @@ All defaults are starting points. They are calibrated on the product-development
 - Delimiter sequences inside file content are escaped.
 - Line-range expansion returns exactly the requested lines; out-of-range or already-included requests are rejected.
 - A file changed after the snapshot fails expansion with "changed since snapshot".
-- A request that exceeds the token limit is reduced in the specified order, or not sent.
+- A request that exceeds the token limit is reduced in the specified order, or not sent. A call 2 that still doesn't fit is recorded as `stage_skipped`, and the session continues with call 1's results.
 - Gap findings concerning unsent content become `not_inspected`, including gaps on paths under an excluded or wholly ignored directory or through a symbolic link; gaps on unlisted paths are rejected.
 - Absence claims contradicted by the file list are rejected, including by an `ignored`, excluded or `listed_only` entry; a claim that can match only inside uncovered directories is rejected; accepted ones use the code-generated narrow wording, name the uncovered directories the glob could reach, and cannot support broader recommendations.
 - Citations of omitted outline entries, outline labels, `BLOCKS` lines or outline-only items are rejected.
 - A gap stays "missing" when expansion completes a file, and becomes `not_inspected` for an excerpted or outline-only file, a symbolic link, an unreadable directory, or a related path that names an excluded directory explicitly; it stays "missing" when a glob could only reach a default-excluded or ignored directory. The §1.5 deterministic gaps are `not_inspected`.
 - A withheld path neither anchors `SUP-001` nor satisfies `SCOPE-001`, and never appears in an absence-claim rejection or wording; accepted wording counts withheld directories, and says when ignore rules were not applied.
 - Basis follows the file's tier: an imported tier 1 file and expanded `.claude/` configuration are `existing_guidance`, `@package.json` is `code_observation`, and a `listed_only` tier 2 document read by line range is `documentation`.
-- Calls 2–4 receive only validated material, and calls 3–4 no raw initial context.
+- Calls 2–5 receive only validated material, and calls 3–5 no raw initial context.
 - A retained session replays byte-identical requests after repository files change.
 - A prompt-injection fixture inside a repository file does not change output schema, scope or behaviour.
 
@@ -1286,7 +1303,7 @@ DONE · step 5 of 5
 Wrote CLAUDE.md (3,912 bytes, sha256:9f2c…41ab)
 
   5 changes applied · 2 recommendations rejected · 2 items unresolved
-  Model usage: 92,410 input / 11,830 output tokens · cost $0.41 (reported)
+  Model usage: 92,410 input / 11,830 output tokens · cost $0.41 (estimated)
   Your time: about 14 min answering and reviewing   [c] Correct this
 
 The file has not been committed. Review it in your editor and
@@ -1329,6 +1346,9 @@ Repository check: 3 files changed since inspection, none cited.
 | Situation | What the developer sees |
 |---|---|
 | Model call fails (network, rate limit, server error) | Plain explanation, automatic retries (bounded), then `[r] Retry` or `[q] Save and quit`. Progress is kept. |
+| Model output cut off at its output limit | Says the response reached its limit and nothing from it was used, and names `reservedOutputTokens`, which needs a new session to raise for now (§3.9). Not retried automatically (§3.6): `[q] Save and quit`. `resume` shows the same message and doesn't send the call again. |
+| Model declines the request | Says the model declined it, with the category if the API gave one, after the one automatic retry (§3.6). `[r] Retry` or `[q] Save and quit`. |
+| The expansion round doesn't fit in the model's input limit | Says the extra reading couldn't be analysed, that the session continues with the first analysis, and that it will be marked incomplete (§1.10). |
 | Model output fails validation | "Some results couldn't be verified against your repository and were left out," with a count and `[v] Details`. Never shown as findings. |
 | All output from a call fails validation | Retry offered once, then the stage can be skipped (no findings or recommendations from it) or the session saved. |
 | Generation budget reached | What was completed is kept; what remains is listed; the developer can raise the budget and continue, or proceed with what exists. |
@@ -1462,7 +1482,7 @@ type Citation = {
 
 A rejected citation drops only itself (§3.5). A finding whose citations are all rejected is rejected with `CIT-008`, after the events of its citations.
 
-The corrected-citation rate is recorded per call, with the `analyse` and `analyse_expansion` item validation (§3.3.2–§3.3.3): the number of `CIT-R01` events divided by the number of citations that reached the citation check, across all the call's findings. A finding rejected before its citations are checked, by `ALIAS-002` or `LIMIT-001`, contributes none. The citations proposed in the call, across all its findings, are recorded as a separate count, unknown with the reason `schema_failed` when the response failed the schema. A corrected citation counts even if it is later merged as a duplicate or its finding is rejected; a citation whose correction would exceed 40 lines is a `CIT-010` rejection, not a correction. Merged duplicates are counted separately, as the `CIT-009` entry of the call's rejections by rule (§3.5). The rate is not the §3.5 `corrected` count, which counts accepted findings, not citations. Unknown is never zero: if the response failed the schema the rate is unknown with the reason `schema_failed`, and if no citation reached the check it is unknown with the reason `no_citations`. A rising rate is a signal to investigate the prompt or the rendering format.
+The corrected-citation rate is recorded per call, with the `analyse` and `analyse_expansion` item validation (§3.3.2–§3.3.3): the number of `CIT-R01` events divided by the number of citations that reached the citation check, across all the call's findings. A finding rejected before its citations are checked, by `ALIAS-002` or `LIMIT-001`, contributes none. The citations proposed in the call, across all its findings, are recorded as a separate count, unknown with the reason `schema_failed` when the response failed the schema, or the reason given in §3.5 when no response was parsed. A corrected citation counts even if it is later merged as a duplicate or its finding is rejected; a citation whose correction would exceed 40 lines is a `CIT-010` rejection, not a correction. Merged duplicates are counted separately, as the `CIT-009` entry of the call's rejections by rule (§3.5). The rate is not the §3.5 `corrected` count, which counts accepted findings, not citations. Unknown is never zero: if the response failed the schema the rate is unknown with the reason `schema_failed`, if no response was parsed it is unknown with the reason given in §3.5, and if no citation reached the check it is unknown with the reason `no_citations`. A rising rate is a signal to investigate the prompt or the rendering format.
 
 #### 3.2.3 Support checks
 
@@ -1642,8 +1662,8 @@ type ExpansionRequest =
   | {
       kind: "search";
       literal: string;         // ≤ 200; no regular expressions
-      glob?: string;
       reason: string;          // ≤ 200
+      glob?: string;
     };
 ```
 
@@ -1765,7 +1785,6 @@ type RecommendOutput = {
     kind: "fact" | "policy";
     operation: "add" | "revise" | "remove";
     target: Target;
-    content?: string;         // add, revise; ≤ 1,200
     rationale: string;        // ≤ 400
     support: string[];        // 1–10 F or D aliases
     references: Array<{       // 0–20
@@ -1774,6 +1793,7 @@ type RecommendOutput = {
       support: string;        // F alias whose evidence contains the value
     }>;
     scope: { kind: "repository" } | { kind: "paths"; paths: string[] };  // 1–10 paths
+    content?: string;         // add, revise; ≤ 1,200
   }>;
   heldBack: Array<{           // max 10
     topic: string;            // ≤ 200
@@ -1918,7 +1938,7 @@ type ValidationEvent = {
 };
 ```
 
-A schema failure rejects the whole response with one event per issue, in the order the schema reports them: `itemKey` is `$response`, `rule` is `SCHEMA`, and `detail` is the issue's path and code only, never the value received, because the model may have copied source text into it. A path segment that isn't a field name the schema defines, such as a record key, is written `<key>`. The proposed count is then unknown, with the reason `schema_failed`, never zero.
+A schema failure rejects the whole response with one event per issue, in the order the schema reports them: `itemKey` is `$response`, `rule` is `SCHEMA`, and `detail` is the issue's path and code only, never the value received, because the model may have copied source text into it. A path segment that isn't a field name the schema defines, such as a record key, is written `<key>`. The proposed count is then unknown, with the reason `schema_failed`, never zero. When no response was parsed it is unknown with the reason `truncated`, `refusal` or `unexpected_stop` (§3.6), or `no_response` when no response arrived.
 
 No event repeats text from the response. An `itemKey` is a local key or alias only when it is well formed (a local key is one or two lowercase letters and a number, an alias as in §3.2.1); otherwise the item is named by its position, `<collection>/<index>`, and a malformed local key defines nothing. An item with no key of its own, such as an expansion request, a content notice, a revision or a regeneration action, is always named by its position. The exceptions: `noChangeReason`, which is not in a collection and is named `noChangeReason`; and two regeneration events named by an `R` alias (§3.3.6), a `keep`'s revalidation failure and the `REGEN-001` coverage event, which reject no item but count in the call's rejections by rule, since each rejects a recommendation. A detail names only code-made values, such as an alias from the table, never an unknown value the model wrote. A rejected item keeps the events of its sub-items, such as each failed citation. Events are ordered by stage. In the item stage they follow the response's item order, collections in schema order, and within an item the rule order, except that a sub-item's events are in sub-item order, each sub-item's in rule order; `ALIAS-002` is checked first, for each item in turn. In the cross-item stage they follow the order in which the call's cross-item checks run (§3.3.2–§3.3.6), then item order.
 
@@ -1928,12 +1948,20 @@ Each call also records counts: proposed, accepted, corrected and relabelled item
 
 | Failure | Handling |
 |---|---|
-| Network error, server error, timeout | Retry the identical request up to 3 times with exponential backoff. Then fail the call (§2.12). |
-| Rate limit | Honour the provider's retry-after; counts towards the 3 retries. |
-| Schema failure (including output truncated at the token limit, or a refusal) | One retry: the identical request plus a short message listing **schema errors only**. A second failure fails the call. |
+| Connection error, timeout, HTTP 408, 409 or 5xx (529 included) | Retry the identical request up to 3 times with exponential backoff, waiting 1, 2 and then 4 seconds (provisional, §3.9). Then fail the call (§2.12). |
+| Rate limit (HTTP 429) | Wait for the time in the `retry-after` header, or use the backoff above if there is none; counts towards the 3 retries. A wait over 5 minutes (provisional, §3.9) fails the call. |
+| Any other request error (HTTP 400, 401, 403, 404, 413, 422) | No retry. Fail the call with the error's kind (§2.12). |
+| Output truncated at the token limit (`stop_reason: "max_tokens"`) | No retry, because the identical request would truncate again. Fail the call with `error.kind` `truncated` (§2.12). |
+| Refusal (`stop_reason: "refusal"`) | One retry of the identical request, with no message, because there are no schema errors to list. A second refusal fails the call with `error.kind` `refusal`; `error.message` gives only the API's `stop_details.category`, never its explanation (§2.12). |
+| Any other stop reason except `end_turn` | No retry. Fail the call with `error.kind` `unexpected_stop`, and the stop reason as its message. |
+| Schema failure, including a response that isn't exactly one `text` block besides any thinking blocks (reported with the path `content` and the code `not_one_text_block`) | One retry: the identical request plus a short message listing **schema errors only**. A second failure fails the call. |
 | Item-level validation failure | No retry. Item dropped and recorded. |
 | Every item rejected | The call is recorded as completed with zero accepted items. The CLI offers one fresh retry of the identical request (§2.12). |
 | Generation budget would be exceeded | Before each call, the estimated cost is checked against the remaining budget. If it would be exceeded, the call is not sent, and the session stops at that point (§2.12). |
+
+The adapter turns off the SDK's own retries, so every send is a model call with its own record (§4.6, ADR 0003). The stop reason is checked before the response is parsed: a truncated, refused or otherwise stopped response records no validation events, and its proposed count is unknown (§3.5). `error.kind` is one of `connection`, `timeout`, `server`, `rate_limit`, `request`, `truncated`, `refusal`, `unexpected_stop` and `schema`; the §2.12 screens are chosen from it.
+
+**The estimate.** The estimated tokens are the input tokens counted for the request (§1.10) plus its `reservedOutputTokens`. The estimated cost is the same sum priced: input tokens at the model's input price, or its cache-write price when the request sets a cache breakpoint, and `reservedOutputTokens` at its output price. It is an upper bound on the output, because `max_tokens` caps it. A model missing from the price table (§4.6) gives an unknown estimate with a reason.
 
 The schema-retry message lists each issue's path and code, as schema events do (§3.5), never the value received. It never includes semantic validation results. Telling the model which citations failed would teach it to make citations pass rather than be accurate.
 
@@ -1943,11 +1971,11 @@ Truncation is never fixed by raising the output limit automatically. Raising it 
 
 - **Prompts** are files in the repository, `prompts/<call>/<version>.md`, with semantic versions. Each call records `promptVersion` and `promptHash`.
 - **Schemas** are Zod definitions in `src/schemas/<call>.ts`, each exporting a version and its limits, which the prompts quote. Each call records `schemaVersion` and `schemaHash`. Any change to a schema, including a limit only Zod checks or how lengths are counted, increases its version. A test keeps every released version with its `schemaHash` and limits fingerprint, append-only, and fails if the current schema matches no entry or one version appears with two fingerprints.
-- **JSON Schema sent to the API** is generated by our own code from the Zod schema, committed under `src/schemas/json/<call>.json`, and checked by a test that fails when the committed file is out of date. The file and the request keep the schema's property order, because the model writes fields in that order. `schemaHash` is the SHA-256 of the same value's canonical JSON, with keys sorted, so it doesn't depend on serialisation. The adapter sends this schema unchanged as `output_config.format`, not through the SDK's schema helpers, which rewrite schemas in their own way and would make the schema sent differ from the one hashed.
-- **Supported subset.** Structured outputs support (checked 24 October 2026): the basic types; `enum` of scalars; `const`; `anyOf`; `allOf` without `$ref`; `$ref` and `$defs`; `default`; `required`; `additionalProperties: false`, required on every object; ten string formats; simple `pattern`s (anchors, `*`, `+`, `?`, simple `{n,m}`, character classes, groups); and `minItems` of 0 or 1. They don't support recursion, `oneOf`, `minLength`, `maxLength`, `maxItems`, numeric bounds, other `minItems` values, or `additionalProperties` other than `false`. A request may have at most 24 optional parameters and 16 with union types; the generator refuses a schema over either.
-- **What the generator does.** It removes `minLength`, `maxLength`, `maxItems`, numeric bounds and our own code-point limits, lowers `minItems` above 1 to 1 and drops `minItems: 0`, and refuses anything else outside the subset, such as `oneOf`, record types or an unsupported pattern (lookarounds, non-capturing groups, `\b`, backreferences, or a `{n,m}` bound above 64). It also refuses `allOf`, `$ref` and `$defs`, which the subset allows but the call schemas don't need, and any Zod object that isn't strict: Zod writes `additionalProperties: false` even for an object that silently drops unknown fields, so the JSON alone can't show it. Every limit it removes is still checked by Zod after parsing: collection sizes at the schema stage, limits inside an item by `LIMIT-001` (§3.5). Constrained decoding guarantees the rest: types, enums, required fields, patterns and unknown fields.
+- **JSON Schema sent to the API** is generated by our own code from the Zod schema, committed under `src/schemas/json/<call>.json`, and checked by a test that fails when the committed file is out of date. The file and the request keep the schema's property order. The API has the model write required properties first and then optional ones, each group in schema order (checked 9 November 2026), so every object's optional properties come last in its schema, which makes the order declared the order written. This is a rule about the schema sent: parsing doesn't depend on key order, and no validation rule looks at it. `schemaHash` is the SHA-256 of the same value's canonical JSON, with keys sorted, so it doesn't depend on serialisation. The adapter sends this schema unchanged as `output_config.format`, not through the SDK's schema helpers, which rewrite schemas in their own way and would make the schema sent differ from the one hashed. A contract test captures the request through an injected `fetch`, and compares it with the committed file and the retained input ([ADR 0003](../decisions/0003-claude-api-sdk.md)).
+- **Supported subset.** Structured outputs support (checked 24 October and 9 November 2026): the basic types; `enum` of scalars; `const`; `anyOf`; `allOf` without `$ref`; `$ref` and `$defs`; `default`; `required`; `additionalProperties: false`, required on every object; ten string formats; simple `pattern`s (anchors, `*`, `+`, `?`, simple `{n,m}`, character classes, groups); and `minItems` of 0 or 1. They don't support recursion, `oneOf`, `minLength`, `maxLength`, `maxItems`, numeric bounds, other `minItems` values, or `additionalProperties` other than `false`. A request may have at most 24 optional parameters and 16 with union types; the generator refuses a schema over either. The API also refuses a schema over its internal grammar size (a 400, "Schema is too complex for compilation") and allows 180 seconds to compile one. The first request with a new schema is slower; the compiled grammar is cached for 24 hours from its last use.
+- **What the generator does.** It removes `minLength`, `maxLength`, `maxItems`, numeric bounds and our own code-point limits, lowers `minItems` above 1 to 1 and drops `minItems: 0`, and refuses anything else outside the subset, such as `oneOf`, record types or an unsupported pattern (lookarounds, non-capturing groups, `\b`, backreferences, or a `{n,m}` bound above 64). It also refuses `allOf`, `$ref` and `$defs`, which the subset allows but the call schemas don't need, any object with an optional property before a required one, and any Zod object that isn't strict: Zod writes `additionalProperties: false` even for an object that silently drops unknown fields, so the JSON alone can't show it. Every limit it removes is still checked by Zod after parsing: collection sizes at the schema stage, limits inside an item by `LIMIT-001` (§3.5). Constrained decoding guarantees the rest: types, enums, required fields, patterns and unknown fields.
 - **Validator** and **detector** versions are recorded on every call (§3.4, §3.5).
-- **Model settings:** one model for all calls in the first slice, configurable per call later. Use the lowest sampling temperature the API supports with structured outputs. Record requested and returned model identifiers. The product does not claim identical output across runs.
+- **Model settings:** one model for all calls in the first slice, configurable per call later; the default is `claude-opus-5-5`. Sampling parameters are not sent: API version `2026-10-21` rejects `temperature`, `top_p` and `top_k`, so requests use the model's default sampling. Thinking can't be turned off on this model and is left adaptive. `output_config.effort` is always sent, from the `effort` setting (default `medium`, provisional, §3.9), and recorded in `generation_config`. Server-side refusal fallbacks are off, because another model would answer part of a call (ADR 0003). The adapter reads the response's one `text` block and ignores thinking blocks. Record requested and returned model identifiers and `apiVersion`. The product does not claim identical output across runs.
 
 Every prompt must state:
 
@@ -2038,6 +2066,17 @@ A change to any prompt, schema, validator or detector requires the fixture suite
 - a manifest or workspace definition changed after capture makes the snapshot unstable;
 - facts and gaps don't depend on enumeration order.
 
+**Adapter and failures** (§1.10, §3.6, §3.7), with an injected `fetch` and no live model:
+
+- the schema sent equals the committed file, the body's bytes equal the retained input, and no request holds `temperature`, `top_p` or `top_k`, while each holds `effort`;
+- the generator refuses an optional property before a required one, and a response with its keys in another order is accepted;
+- every send makes one model-call record, with the SDK's retries off;
+- each status in the §3.6 table gets its handling: the backoff, `retry-after` honoured, a wait over 5 minutes failing the call, and no retry on the other request errors;
+- a truncated response fails with no retry and the reason `truncated`; a first refusal is retried with no message, and a second fails with the category only; any other stop reason fails with `unexpected_stop`;
+- a response that isn't exactly one `text` block is a schema failure with the path `content` and the code `not_one_text_block`;
+- the budget estimate, a cache breakpoint priced at the cache-write rate, and a model missing from the price table giving an unknown estimate;
+- the request is scanned before it is counted, a failed input-limit lookup sends nothing, and a call 2 that doesn't fit sends nothing, is recorded `stage_skipped` with `unsentPurpose: analyse_expansion`, and the next call still runs.
+
 **Property tests:**
 
 - No citation is ever accepted whose quote is absent from the content sent in that call.
@@ -2046,7 +2085,7 @@ A change to any prompt, schema, validator or detector requires the fixture suite
 - No accepted evidence excerpt contains text that wasn't sent in that call.
 - Reversing the delimiter escape gives back any text (§1.6).
 
-**Live suite:** manual runs against the product-development repositories, recording rejection and correction rates per rule. It is never run against evaluation repositories or materials.
+**Live suite:** manual runs against the product-development repositories, recording rejection and correction rates per rule, under the live-run protocol in [`MILESTONES.md`](../MILESTONES.md) (M6). It is never run against evaluation repositories or materials.
 
 ### 3.9 Open points for this section
 
@@ -2056,10 +2095,14 @@ A change to any prompt, schema, validator or detector requires the fixture suite
 - `CIT-010`'s limit of 40 lines for a cited range (§3.2.2, DM §6.2).
 - `SUP-002`'s spelled-number and quantity word lists, and leaving out *one* (§3.2.3).
 - `knownFactsBytes` of 10,000 for the known-facts section (§3.2.5, §1.14).
+- `reservedOutputTokens` per call (§1.10, §1.14), against the truncation rate per call recorded in the live runs.
+- `effort` of `medium` (§3.7), which the M6 calibration compares with `high` on one development repository.
+- The retry backoff of 1, 2 and 4 seconds, and the 5-minute limit on a `retry-after` wait (§3.6).
 
 **Other open points.**
 
 - Calibrating the directive-language and imperative-verb lists on development repositories, and measuring how often `REC-007` misses. Known misses: a task-list item (`- [ ] Run the tests`, `- [x] Use pnpm`), whose box isn't skipped; and it masks inline code by left pairing (§3.2.3), so a stray backtick can pair with a later span and hide the prose between them (`` Note the ` mark. Run it. ``b`` ``). This follows the shared left-pairing rule, so it is settled with the detector's open point above, for `SUP-001`, the detector and `REC-007` together.
+- How a session raises `reservedOutputTokens` after a truncation. A `generation_config` revision may change only the budget (§4.4.1), so for now a higher limit needs a new session.
 - How to detect absence asserted in free text, without an `absenceClaim` (§1.11). No deterministic check is defined yet.
 - How to detect a claim about the omitted parts of an excerpted file when it cites only sent lines (§1.11). The citation rules catch citations of omitted lines, not claims about them.
 - Minimum quote length: 12 characters may allow unhelpfully generic quotes in code.
@@ -2197,8 +2240,8 @@ The lineage of `session_state` and `generation_config` is the session itself, so
 
 | Record (`type`) | Lineage ID (prefix) | Record ID prefix | How it changes | Current status |
 |---|---|---|---|---|
-| `session_state` | the session | `st_` | A revision per change of stage, status or outcome, with `reason` when it isn't a normal step: `interrupted`, `budget_reached` (with the purpose of the call left unsent), `stage_skipped`. Carries `productVersion` | the latest |
-| `generation_config` | the session | `gc_` | The settings of DM §5 `generationConfig` and §1.14: the context selection settings with their `settingsHash`, the expansion settings (§1.8), which `settingsHash` doesn't cover, the requested model, the generation and question budgets and `retainModelInputs`. Raising a budget (§2.12) appends a revision with a reason | the latest |
+| `session_state` | the session | `st_` | A revision per change of stage, status or outcome, with `reason` when it isn't a normal step: `interrupted`, `budget_reached` (with the purpose of the call left unsent), `stage_skipped`. `unsentPurpose` is set exactly for `budget_reached`, and for a `stage_skipped` written because call 2 didn't fit (§1.10), where it is `analyse_expansion`. Carries `productVersion` | the latest |
+| `generation_config` | the session | `gc_` | The settings of DM §5 `generationConfig` and §1.14: the context selection settings with their `settingsHash`, `reservedOutputTokens` and `safetyMargin` among them because they change what the token check removes, the expansion settings (§1.8), which `settingsHash` doesn't cover, the requested model and `effort`, also outside `settingsHash`, the generation and question budgets and `retainModelInputs`. Raising a budget (§2.12) appends a revision with a reason | the latest |
 | `snapshot` | — | `snap_` | Immutable. A refresh appends a new snapshot (DM §6.1). The destination's bytes are in `content/`; its Guidance Blocks are stored | the latest is active |
 | `content_notice` | — | `cn_` | Immutable. One per valid notice (§3.3.2 step 10), with `snapshotId`, `modelCallId`, the `item` alias, the `path`, `fileHash`, `lineStart` and `lineEnd` code resolves it to, and the `description` | those of the active snapshot |
 | `evidence` | — | `ev_` | Immutable. Created for accepted findings only (§4.4.3); `absence_check` evidence for each accepted absence claim (§4.5) | — |
@@ -2237,7 +2280,7 @@ These are pure functions over the records, in `src/core/session/`. DM §5's "act
 - **Stage, status, outcome:** the latest `session_state`. The outcome is `applied`, `no_change`, `failed` or `cancelled`, or unset while the session is in progress (DM §5).
 - **Completeness:** `complete`, or `incomplete` with every reason that holds, in this order:
   - `budget_reached`: the generation budget stopped a call (§3.6, §2.12) and that call is still unsent. It holds when, after the last `session_state` with reason `budget_reached`, no model call with the purpose it names was started. Raising the budget and sending the call clears it;
-  - `stage_skipped`: a `session_state` has the reason `stage_skipped`, written when the developer skips a stage whose output all failed validation (§2.12);
+  - `stage_skipped`: a `session_state` has the reason `stage_skipped`, written when the developer skips a stage whose output all failed validation (§2.12), or by code when call 2 doesn't fit (§1.10);
   - `questions_unreached`: a current question has status `unreached`, for either reason (DM §8.1). A question about findings that are no longer current, for example after a refresh, doesn't count.
 
   Completeness is separate from the outcome: an `applied` session can be `incomplete`. It is derived, never stored, and can be computed at any point.
@@ -2262,7 +2305,7 @@ The Evaluation Requirements ask to "preserve the complete findings and recommend
 - **Lineage.** Only recommendation revisions keep one: a new `recommendationId` for a new recommendation, the existing one for a regeneration `revise` or a developer edit, so the history of one recommendation stays together. Other failed records have no lineage ID or revision.
 - **Evidence** is created only for accepted findings. Evidence code made while checking a finding that is later rejected, at the item or cross-item stage, is discarded; its citations stay in `proposed`.
 - **Failed citations of an accepted finding** are kept on that finding as `failedCitations`, each the citation as proposed with its `rejectedBy`, merged duplicates (`CIT-009`) included. `droppedCitations` stays their count (DM §6.3).
-- **A response that fails the schema** has no items, so it creates no failed records: only its `SCHEMA` events, with the proposed count unknown (§3.5). Its text is kept only in the retained response, for replay (§4.8).
+- **A response that fails the schema** has no items, so it creates no failed records: only its `SCHEMA` events, with the proposed count unknown (§3.5). A response that wasn't parsed has no events either (§3.6). Its text is kept only in the retained response, for replay (§4.8).
 - **Validation events still hold no response text** (§3.5). The text lives only in the failed records, so it can be controlled in one place.
 - **Quoted source.** A failed item's citations may quote repository content. In the export these quotes follow the excerpt option (§4.10): without `--include-excerpts`, each `quote` is replaced by its `quoteHash`.
 
@@ -2326,6 +2369,8 @@ type ModelCallStarted = {
   purpose: CallPurpose;
   attempt: number; retryOf?: string;
   requestedModel: string;
+  apiVersion: string;                    // the anthropic-version the SDK sends (§3.7)
+  priceTable: { version: string; date: string };  // used for estimatedCost and cost
   promptVersion: string; promptHash: Hash;
   schemaVersion: string; schemaHash: Hash;
   validatorVersion: string; detectorVersion: string;
@@ -2348,7 +2393,7 @@ type ModelCallEnded = Omit<ModelCallStarted, "revision" | "state"> & {
   retainedResponseRef: string | null;    // §4.8
   usage: { input: Known<number>; output: Known<number>;
            cacheRead: Known<number>; cacheWrite: Known<number> };
-  cost: Known<{ amount: number; currency: "USD"; basis: "reported" | "estimated" }>;
+  cost: Known<{ amount: number; currency: "USD"; basis: "estimated" }>;
   validationEvents: ValidationEvent[];   // §3.5
   counts: { proposed: Known<number>; accepted: number; corrected: number;
             relabelled: number; rejectedByRule: Record<string, number> };
@@ -2365,6 +2410,7 @@ type ModelCallEnded = Omit<ModelCallStarted, "revision" | "state"> & {
 - **Budget with unknown costs.** For the §3.6 check, the spend so far is the sum of known costs plus, for each call whose cost is unknown, its `estimatedCost`. That estimate is used for the budget only, and is never reported as the call's cost. If an estimate is unknown too, the check can't be made, and the next call is not sent until the developer raises or confirms the budget (§2.12).
 - **Tokens.** The tokens spent so far are the sum of every call's four usage counts. A call with any usage unknown makes the token check impossible, as an unknown estimate does for cost: there is no token estimate to stand in for it. The check before sending compares the spend plus the call's own estimate, of cost and of tokens, with each ceiling that is set; an unset ceiling is never checked.
 - **Raising or confirming.** Either appends a `generation_config` revision: raising with the new limits and the reason `budget_raised`, confirming with the same limits and the reason `budget_confirmed`. These are the only reasons a `generation_config` revision may give, and it changes nothing but the budget (§4.4.1). It settles every unknown before it: the unknown parts of calls started before it count as their known parts only (`knownPartsSum`), and the next call may be sent with an unknown estimate. A call started after it, with unknown parts, makes the check impossible again.
+- **Cost is always an estimate.** The API reports a call's usage, but no cost per request, so a known cost is computed: the four usage counts priced from the versioned table `src/adapters/claude/prices.ts`. Its basis is `estimated`, and the call records the table's `version` and the `date` its prices were checked.
 - `costBasis: "unknown"` in DM §13.1 is `cost.state: "unknown"` here.
 
 **Effort intervals.** An `open` revision is written when a prompt that waits for the developer is shown, and a `closed` revision with `leftAt` when it is answered (§2.13). An interval still `open` when its session is resumed was interrupted: the process holding the lock closes it with `leftAt` unknown, reason `interrupted`. Read-only commands treat it as they treat calls (above).
@@ -2402,6 +2448,8 @@ As DM §11.2 says, the lock can't stop other editors from changing `CLAUDE.md`; 
 This implements §1.12, which covers responses as well as requests.
 
 - With `retainModelInputs` on (default), the exact request body of every model call is stored as `inputs/sha256-<hex>.json` and referenced by `retainedInputRef` on the call and in its input manifest (§1.13). The exact response body is stored as `responses/sha256-<hex>.json`, referenced by `retainedResponseRef`.
+- Requests are sent non-streaming, so the response has one body, and it is stored as the bytes received, before parsing (ADR 0003). The stored request is the body bytes sent.
+- Only bodies are retained. Request and response headers, and so the API key and any other credential, are never stored in `inputs/`, in `responses/` or in `session.json`.
 - Retained responses are for replay only. Nothing reads them to build records, the export or the review: items that failed validation have their own records (§4.4.3).
 - Retained exchanges are never in an export unless `--include-inputs` is given.
 - `purge-inputs` appends an `inputs_purged` record and saves it, and only then deletes `inputs/` and `responses/`, so a crash in between leaves a session that loads. Load then allows those references to point at missing files. `delete` removes the whole session directory.
@@ -2453,12 +2501,12 @@ inputs/, responses/    only with --include-inputs
 | Key | Evaluation Requirements §4 | Contents, from records |
 |---|---|---|
 | `identity` | Identity | Session ID, `createdAt`, `completedAt`, `productVersion` (creating and last writing), `adapter`, `outputScope` |
-| `inputs` | Inputs | Each snapshot: ID, `capturedAt`, `git` as recorded (unknown states with reasons), scope, exclusions, ignore rules, stability, file list with hashes; initial destination state and hash, with its Guidance Blocks; each `generation_config`; for each call, the requested and returned model, prompt, schema, validator and detector versions and hashes, budget, input manifest (§1.13) and alias table (§3.2.1) |
+| `inputs` | Inputs | Each snapshot: ID, `capturedAt`, `git` as recorded (unknown states with reasons), scope, exclusions, ignore rules, stability, file list with hashes; initial destination state and hash, with its Guidance Blocks; each `generation_config`; for each call, the requested and returned model, `apiVersion`, prompt, schema, validator and detector versions and hashes, budget, input manifest (§1.13) and alias table (§3.2.1) |
 | `reasoningEvidence` | Reasoning evidence | Findings of every kind and status, failed and corrected ones included, with uncertainty, basis, coverage, `droppedCitations` and `failedCitations`; evidence references (excerpts only if included), `absence_check` evidence included; conflicts with every revision; content notices; questions with every revision and status, with `unreachedReason`; decisions including superseded ones and corrections; `failed_item` records; validation events and counts per call |
 | `review` | Review | Every recommendation revision, with its status (`valid`, `failed_validation` with `rejectedBy`, `invalidated` with its reason), developer edits (`producedBy: developer_edit`); held-back entries and no-change reasons; selection history, `rejected` selections included; reviews |
 | `outputs` | Outputs | The final diff, artifact revisions with state, applied file list (the destination path and its hash after apply, or empty), the final configuration hash, and the unresolved gaps, conflicts and questions (open, skipped, unreached) |
-| `measurements` | Measurements | Elapsed time (created to completed, unknown while in progress); generation time, the sum of call durations; active effort with its method (`awaiting_user_intervals`), as a value or a lower bound (§4.6), and the correction; tokens and cost per call and in total, with `costBasis` |
-| `outcome` | Outcome | `evaluationStatus` (below), the session `outcome` and `completeness` with its reasons, final stage and status, apply attempts with every revision, and failure details from `error` fields |
+| `measurements` | Measurements | Elapsed time (created to completed, unknown while in progress); generation time, the sum of call durations; active effort with its method (`awaiting_user_intervals`), as a value or a lower bound (§4.6), and the correction; tokens and cost per call and in total, with `costBasis` and the price table's version and date |
+| `outcome` | Outcome | `evaluationStatus` (below), the session `outcome` and `completeness` with its reasons and, for a skipped call 2, its `unsentPurpose`, final stage and status, apply attempts with every revision, and failure details from `error` fields |
 
 The alias tables and input manifests are what make a failed item's `proposed` readable: its aliases, such as `F-3` or `T5-007`, resolve through its call's table.
 
@@ -2482,6 +2530,8 @@ A `failed` session's failure details come from the `error` fields of its failed 
 - A session interrupted after any write (simulated by stopping before each rename) loads as either the previous or the next state, never a mix, and resume continues from it.
 - Corrupted files are rejected with the check that failed: truncated JSON, an unknown field, a duplicate ID, a gap in `seq`, a revision that doesn't supersede the one before, a dangling record or lineage reference, a reference to a later record, a record superseded twice, a reference to a failed record, a missing or altered content file, a block hash that doesn't match, an outcome that isn't on the last state, an apply attempt without a matching approved review.
 - An older and a newer `schemaVersion` are each refused with their message; nothing is written.
+- A model call records `apiVersion` and its price table, a known cost has only the basis `estimated`, `generation_config` records `effort`, and `unsentPurpose` is refused on any `stage_skipped` except the skipped call 2.
+- Retained requests, retained responses and the session file never contain an authentication header or the API key, checked with a client given a sentinel key, on a successful call and on a failed one.
 - Storage resolution: the override, then an absolute `XDG_DATA_HOME`, a relative one ignored, then the default; a storage directory inside the repository, by each route, is refused before anything is read or written.
 - `notices.json` holds one confirmation per repository root, and a higher notice version shows the notice again.
 - A second process can't open a locked session; a stale lock on this host is reported and removed only after confirmation; the lock is removed on normal exit, `SIGINT` and `SIGTERM`.

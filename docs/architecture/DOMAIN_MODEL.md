@@ -1,8 +1,8 @@
 # Domain Model
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 4 November 2026  
-**Version:** 0.32 — consolidated specification  
+**Date:** 9 November 2026  
+**Version:** 0.33 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,10 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.32
+
+1. **Generation config and model calls (§5, §13.1).** `generationConfig` records the model's `effort`. A model call records the API version and the version and date of the price table. A known cost is always `estimated`, because the API reports usage and not cost per request ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) v0.55).
 
 ### Changes from v0.31
 
@@ -229,7 +233,7 @@ One attempt to configure one repository.
 | `outputScope` | `["root CLAUDE.md"]` in the first slice |
 | `repository` | Identity and resolved local root |
 | `targetPath` | Fixed to root `CLAUDE.md` |
-| `generationConfig` | Requested model, context selection settings and their hash, expansion settings, generation budget (token and/or cost ceiling), question budget, `retainModelInputs`. The prompt and output schema versions are recorded on each model call (§13.1) |
+| `generationConfig` | Requested model and effort, context selection settings and their hash, expansion settings, generation budget (token and/or cost ceiling), question budget, `retainModelInputs`. The prompt and output schema versions are recorded on each model call (§13.1) |
 | `stage` | `inspect`, `clarify`, `recommend`, `review`, `apply`, `complete` |
 | `status` | `ready`, `running`, `awaiting_user`, `blocked`, `failed`, `completed`, `cancelled` |
 | `outcome` | `applied`, `no_change`, `failed`, `cancelled`, or unset while in progress |
@@ -660,16 +664,16 @@ In the first slice, invalidating the whole proposal is acceptable wherever the n
 | `validatorVersion`, `detectorVersion` | Validation rules and reference detector in force ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.4–§3.5) |
 | `validationEvents` | Every rejection, correction and relabelling, with stable rule IDs; no source content |
 | `aliases` | The call's alias table: each alias and the record, item or block it stands for ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.1) |
-| `requestedModel`, `returnedModel?` | |
+| `requestedModel`, `returnedModel?`, `apiVersion` | |
 | `promptVersion`, `schemaVersion`, `schemaHash` | `schemaHash` is the SHA-256 of the JSON Schema sent ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.7) |
 | `inputManifest` | Snapshot ID and hashes of included files and excerpts; excluded files listed; no source content |
 | `state`, `attempt`, `retryOf?` | `started`, `completed`, `failed` or `interrupted`; each retry is its own call, linked to the previous attempt |
 | `retainedInputRef?`, `retainedResponseRef?` | Content-addressed references to the exact request and response bodies, for replay, when `retainModelInputs` is on ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §1.12) |
 | `budget` | Limits applied to this call |
 | `usage` | Input, output and cached tokens where available |
-| `cost?`, `costBasis` | `reported`, `estimated`, or `unknown`. Unknown is never recorded as zero |
+| `cost?`, `costBasis`, `priceTable` | `costBasis` is `estimated` or `unknown`: the provider reports usage but no cost per request, so a known cost is computed from usage and a price table, whose version and date are recorded. Unknown is never recorded as zero |
 | `estimatedCost` | The estimate checked against the budget before sending; used for the budget when the cost is unknown, never reported as cost |
-| `counts` | Proposed (unknown after a schema failure), accepted, corrected, relabelled, and rejections by rule; for `analyse` and `analyse_expansion`, the corrected-citation rate and citations proposed ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.2, §3.5) |
+| `counts` | Proposed (unknown, with a reason, after a schema failure or when no response was parsed), accepted, corrected, relabelled, and rejections by rule; for `analyse` and `analyse_expansion`, the corrected-citation rate and citations proposed ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.2, §3.5) |
 | `startedAt`, `endedAt`, `durationMs` | `endedAt` and `durationMs` are unknown, with a reason, for an interrupted call |
 
 A call still `started` when its session is resumed was interrupted: the process holding the session lock records it so, with its end, usage and cost unknown, never zero ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.6). Every model-produced record carries `producedBy`, linking each finding, question and recommendation revision to the prompt and schema version that created it. Calls stop when the session's generation budget is reached. The session then continues with whatever is validated, and records the reason.
