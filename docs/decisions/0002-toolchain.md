@@ -150,7 +150,7 @@ CI checks the build too: it builds `dist/` and runs the built CLI with `--versio
 ## Not decided here
 
 - **Terminal prompt library:** M7, with the CLI screens.
-- **Claude API SDK:** M6, with the adapter.
+- **Claude API SDK:** decided in [ADR 0003](0003-claude-api-sdk.md).
 - **Vite:** Vitest needs it as a peer dependency. pnpm installs it automatically, and the lockfile pins the version (8.3.2 at the scaffold). It isn't listed in `package.json` because nothing imports it directly.
 - **Coverage tool:** add when a coverage target is set.
 - **Shipping `prompts/`.** Prompts live in `prompts/`, outside `src/`, and the published `files` list leaves them out. M6 adds them to the package and loads them relative to the install location. Schemas were moved into `src/schemas/` in M3, so the build compiles them and `bin` stays at `dist/cli/main.js`.
@@ -190,3 +190,4 @@ Checked on 8 October 2026:
 - **10 October 2026:** at the scaffold. Added `@types/node` 24.19.1 for Node's API types, matching the Node 24 line, and `types: ["node"]` in the tsconfig. `skipLibCheck` is off. The CI locale run also sets `LC_ALL` and checks that it took effect. Building `schemas/` and shipping `prompts/` is recorded as open for M3. pnpm is run through Corepack, because an older global pnpm can't switch itself to pnpm 12. Recorded Vite as a lockfile-pinned peer of Vitest.
 - **10 October 2026:** after M0. Recorded that Corepack is not bundled from Node 25, so the ADR for the move to Node 26 must choose another way to get pnpm.
 - **24 October 2026:** in M3. Schemas live in `src/schemas/`, so `rootDir: src` builds them unchanged. Shipping `prompts/` stays open for M6.
+- **9 November 2026:** the Claude API SDK is decided in ADR 0003.

@@ -1,0 +1,95 @@
+# ADR 0003: Claude API SDK
+
+**AI Environment Architect · AI Product Studio**
+
+**Date:** 9 November 2026  
+**Status:** Accepted (9 November 2026)  
+**Context:** M6 connects the product to the Claude API. [ADR 0002](0002-toolchain.md) left the SDK to this milestone. This record picks the package and pins it, and says how the adapter uses it, because several of the SDK's defaults would break what the specs promise.
+
+## What the choices are judged on
+
+1. **The schema we hash is the schema we send** (IMPL §3.7).
+2. **Every send is recorded.** Each request can cost money, so each is its own model call, written before it is sent (IMPL §4.6).
+3. **Exact exchanges can be retained**, byte for byte, for replay (IMPL §1.12, §4.8).
+4. **Few dependencies, pinned exactly** (ADR 0002).
+
+Every fact below was checked on 9 November 2026 against the sources at the end, not from memory.
+
+## Decisions
+
+| Choice | Decision | Alternative |
+|---|---|---|
+| Package | `@anthropic-ai/sdk` 1.4.0, pinned exactly | Raw `fetch`, with no dependency |
+| API version | `2026-10-21`, which every 1.x release sends | An override back to `2023-06-01` |
+| Structured output | `messages.create` with `output_config.format` set to our committed JSON Schema | `zodOutputFormat`, `jsonSchemaOutputFormat`, `messages.parse` |
+| SDK retries | `maxRetries: 0`; the adapter's own loop implements IMPL §3.6 | The SDK's default of 2 retries |
+| Transport | Non-streaming, read with `.asResponse()` | `messages.stream().finalMessage()` |
+| Refusal fallbacks | Off | `fallbacks: "default"` |
+
+### Package: `@anthropic-ai/sdk` 1.4.0
+
+**Decision.** Version 1.4.0, pinned exactly with no `^` or `~`. It is added to `package.json` in the adapter step, not by this record.
+
+**Alternative.** Calling the HTTP API with `fetch`, which adds no dependency.
+
+**Why.** The SDK gives typed requests and responses, typed errors for each status code, and a `fetch` option that lets tests capture what is sent. The version is 1.4.0, published on 2 November 2026, because it is the newest that passes the 7-day `minimumReleaseAge` of ADR 0002. 1.5.0, 1.6.0 and 1.7.0 are too new today. A later version needs the usual deliberate update: the pin, the lockfile and a line in "Changes" below.
+
+**What it brings.** Three runtime dependencies: `standardwebhooks`, `json-schema-to-ts` and `@opentelemetry/api`. Zod is an optional peer (`^3.25.0 || ^4.0.0`), and we already pin Zod 4.
+
+**What to check at install.** The SDK documents Node 20 or later and TypeScript 5.0 or later. We run Node 24, and TypeScript 7 with `skipLibCheck` off (ADR 0002), so the SDK's own type declarations are compiled under our strict flags. The adapter step must show that they pass. If they don't, stop and raise it here instead of turning the check off.
+
+### API version: `2026-10-21`
+
+**Decision.** Use the version the 1.x SDK sends, with no override.
+
+**Why.** It is the current version, and the first SDK major to use it is 1.0.0. It removes `temperature`, `top_p` and `top_k`: a request that sends any of them gets a 400, even at the default value. So IMPL §3.7 no longer asks for a low temperature. Each model call records `apiVersion` (IMPL §4.6), because the version changes what the API accepts.
+
+### Structured output: our schema, unchanged
+
+**Decision.** The adapter calls `messages.create` with `output_config: { format: { type: "json_schema", schema } }`, where `schema` is the content of `src/schemas/json/<call>.json`. It never uses the SDK's schema helpers.
+
+**Why.** The documentation says raw schemas are sent without transformation. The helpers do transform them: `messages.parse` and `zodOutputFormat` remove unsupported constraints, move them into field descriptions, add `additionalProperties: false` and filter string formats, and `jsonSchemaOutputFormat` does the same unless told `{ transform: false }`. Any of those would make the schema sent differ from the one `schemaHash` covers. Our generator (`src/schemas/api-schema.ts`) already does this work in a form we control and hash.
+
+**How this is checked.** A contract test builds the client with an injected `fetch`, captures the request and asserts that `output_config.format.schema` equals the committed file, and that the body's bytes equal the retained input (IMPL §4.8). No live model is involved.
+
+### SDK retries: off
+
+**Decision.** The client is built with `maxRetries: 0`. The adapter's own loop applies IMPL §3.6.
+
+**Why.** By default the SDK retries connection errors, timeouts, 408, 409, 429 and 5xx twice, without telling the caller. Those sends would have no `started` revision and no `modelCallId`, so the session would under-record what may have been billed (IMPL §4.6). The documentation doesn't say how the SDK treats `retry-after`, so the adapter reads the header from the error itself.
+
+### Transport: non-streaming, with the exact bytes
+
+**Decision.** Requests are non-streaming, and the adapter reads the body with `.asResponse()` and parses it itself.
+
+**Alternative.** `messages.stream().finalMessage()`, which the SDK recommends for long requests.
+
+**Why.** The retained response has to be the exact response body (IMPL §4.8). A stream has no such body, and `.withResponse()` consumes it. Non-streaming is allowed at our sizes: the SDK's timeout for a non-streaming request is the larger of 10 minutes and `3600 × max_tokens / 128000` seconds, which for the largest reservation of 16,000 tokens is 450 seconds, so the 10-minute floor applies. Choosing a much larger `reservedOutputTokens` would reopen this.
+
+### Refusal fallbacks: off
+
+**Decision.** The server-side `fallbacks` parameter is not sent.
+
+**Alternative.** `fallbacks: "default"`, which reruns a declined request on another model inside the same call.
+
+**Why.** The first slice uses one model for all calls (IMPL §3.7), and a call's records are tied to the model that produced them. A refusal instead follows IMPL §3.6.
+
+## Not decided here
+
+- **Which model and effort are best.** IMPL §3.7 sets the defaults, `claude-opus-5-5` at `medium` effort. Effort is provisional and calibrated in M6 (IMPL §3.9).
+- **Other platforms.** Bedrock, Vertex and Foundry need their own packages and aren't in the first slice.
+
+## Sources
+
+Checked on 9 November 2026:
+
+1. npm registry metadata for `@anthropic-ai/sdk`: versions, publication times, dependencies and peer ranges
+2. [Structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
+3. [TypeScript SDK](https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/typescript): requirements, retries, timeouts, long requests and raw responses
+4. [Token counting](https://platform.claude.com/docs/en/build-with-claude/token-counting)
+5. [Migrating to API version 2026-10-21](https://platform.claude.com/docs/en/api/migration-2026-10-21)
+6. [SDK changelog](https://github.com/anthropics/anthropic-sdk-typescript/blob/main/CHANGELOG.md), entries 1.0.0 to 1.7.0
+
+## Changes
+
+- **9 November 2026:** first version, accepted.
