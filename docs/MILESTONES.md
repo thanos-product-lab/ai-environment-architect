@@ -1,7 +1,7 @@
 # Milestones
 
 **AI Environment Architect · First slice**  
-**Last updated:** 5 November 2026
+**Last updated:** 9 November 2026
 
 This is the build order for the first slice: inspect → clarify → recommend → review → apply, for one repository and its root `CLAUDE.md`. It says *what to build when*. *How it behaves* is in the specs. Each step points to a spec section rather than repeating it.
 
@@ -25,7 +25,7 @@ The order is set by dependencies. Deterministic parts come first and are tested 
 | M3 | Validation core | No (recorded responses) | Done |
 | M4 | Sessions and persistence | No | Done |
 | M5 | Recommendations, assembly, review and apply | No (recorded responses) | Done |
-| M6 | Claude adapter and model calls | Yes | Not started |
+| M6 | Claude adapter and model calls | Yes | In progress |
 | M7 | Interactive CLI | Yes | Not started |
 | M8 | Export and first-slice release | Yes | Not started |
 
@@ -126,18 +126,51 @@ The export (IMPL §4.10) is specified here and built in M8.
 
 **Goal:** real model calls, under the controls built in M2–M5.
 
-- [ ] Claude API adapter: structured outputs, usage, cost basis, requested and returned model. The adapter sends the generated JSON Schema (IMPL §3.7) unchanged as `output_config.format`, never through the SDK's schema helpers.
-- [ ] Token check and reduction order. `/implement-spec IMPL 1.10`
+- [x] Decide the Claude API SDK and record it as [ADR 0003](decisions/0003-claude-api-sdk.md): `@anthropic-ai/sdk` 1.4.0, API version `2026-10-21`, our schema sent unchanged, SDK retries off, non-streaming, refusal fallbacks off.
+- [ ] Claude API adapter (ADR 0003, IMPL §3.7): structured outputs, usage, cost basis, requested and returned model, `apiVersion`, `effort`, no sampling parameters. The adapter sends the generated JSON Schema (IMPL §3.7) unchanged as `output_config.format`, never through the SDK's schema helpers. The step also:
+  - shows that the SDK's type declarations pass under TypeScript 7 with `skipLibCheck` off;
+  - adds a contract test, through an injected `fetch`, that the schema sent equals the committed file and that the body's bytes equal the retained input;
+  - adds a test that retained requests, retained responses and the session file never contain an authentication header or the API key (IMPL §4.8, §4.11);
+  - reorders the `analyse`, `recommend` and `regenerate_recommendations` schemas, optional fields last, with version bumps, through `/validation-rule`, and makes the generator refuse an optional field before a required one (IMPL §3.7). Parsing stays independent of key order, and no validation rule looks at it;
+  - brings the records into line with IMPL v0.55: `cost.basis` is only `estimated`, a model call gains `apiVersion` and `priceTable`, `generation_config` gains `effort` with `reservedOutputTokens` and `safetyMargin` in the settings `settingsHash` covers, `unsentPurpose` is also allowed on the `stage_skipped` of a skipped call 2, the unknown reasons for the proposed count and citation counts widen (IMPL §3.2.2, §3.5), and the session format goes to 2 (IMPL §4.4.1, §4.6, §4.9).
+- [ ] Token check and reduction order, including skipping a call 2 that doesn't fit, recorded as `stage_skipped` with `unsentPurpose: analyse_expansion`. `/implement-spec IMPL 1.10`
+- [ ] Generation budget: the estimate and the versioned price table (IMPL §3.6, §4.6), and running `checkBudget`, built in M4, before every send, retries included.
 - [ ] Retry and failure policy. `/implement-spec IMPL 3.6`
+- [ ] Expansion execution: range checks, `expansionBytes` and the per-entry cap, the live hash check, search, `E-` items, the secret scan and the manifest's `expansion` entry. The static checks were built in M3. `/implement-spec IMPL 1.8`
+- [ ] Request assembly and running the calls: render validated records for calls 2–5 (IMPL §3.2.6, which so far is built only for known facts, so specify the rest of the format first), build each complete request, and run calls 1–5 in order through the core API (IMPL §1.2). Settle which known facts calls 2–5 number first, which IMPL §3.9 leaves open until the callers fix the alias order.
 - [ ] Prompts, version 1, for all five calls (IMPL §3.7). The published package includes `prompts/`, and the CLI loads prompts relative to its install location, not the working directory. The `recommend` prompt tells the model to put every command and path in inline code: a plain-text command runs to the end of its clause, so `REF-003` accepts its arguments only from code (IMPL §3.3.5).
-- [ ] Expansion protocol. `/implement-spec IMPL 1.8`
-- [ ] Generation budget enforcement.
-- [ ] Manual live runs on each development repository. Record acceptance, correction and rejection rates by rule, and revise prompts with new versions.
-- [ ] Calibrate everything marked provisional in IMPL §3.9 against real responses from the development repositories.
+- [ ] Live-run tooling: the run script that refuses any root or `HEAD` but a listed one, the fixture export, the contract test that replays the fixtures, and the rates script that writes `docs/LIVE_RUNS.md`. Decide first how `.claude/rules/tests.md` and the Layout section of `CLAUDE.md` treat `test/fixtures/live/`, which holds excerpts of real repositories.
+- [ ] Manual live runs on each development repository, under the protocol below, and revise prompts with new versions.
+- [ ] Calibrate against real responses from the development repositories, citing the run IDs:
+  - everything marked provisional in IMPL §3.9, including `reservedOutputTokens` against the truncation rates;
+  - `effort`: compare `medium` and `high` on one repository;
+  - how often `REF-003` rejects real commands, and how often documentation sits outside the tier 2 locations (IMPL §3.9);
+  - the default caps, with real token counts (IMPL §1.16);
+  - whole-file write performance (IMPL §4.12).
 
 **Done when:** a full session runs end to end on each development repository through the core API, and the live runs' rejection rates are recorded.
 
 Live runs use the development repositories only.
+
+### Live-run protocol
+
+Every run that calls the real API follows these steps.
+
+**Before the run**
+
+1. **Only a development repository.** Use one of the three in [`DEVELOPMENT_REPOSITORIES.md`](DEVELOPMENT_REPOSITORIES.md), at its pinned commit, with a clean working tree. The run script refuses any other root and any other `HEAD`. Evaluation repositories and materials are never used.
+2. **Set the account spending limit first.** Use an API key kept for live runs only, in a workspace of its own. Set a spend limit in the Claude Console before the first run, and write the amount and the date in the run log, never the key. The session's `maxCostUsd` stays below that limit.
+3. **Record the setup.** The product commit, the prompt, schema, validator and detector versions, the model, the effort, `apiVersion`, and the price table's version and date. `retainModelInputs` stays on.
+
+**During the run**
+
+4. **A limit ends the run.** Reaching the spending limit or the session budget stops the run, and that is recorded. A limit is never raised during a run without a line in the run log.
+
+**After the run**
+
+5. **Every real response becomes a recorded fixture.** Each retained request and response goes to `test/fixtures/live/<repo>/<run-id>/<seq>-<call>.request.json` and `.response.json`, with a manifest giving the repository, its commit, the versions above and the call's recorded events and counts. The run's `session.json` goes beside them, with its local root path replaced by the repository's name, because replay needs the alias tables, the snapshot and the current records. A contract test replays each one through the validator and expects the same outcome. When the validator version changes, the expected outcome is updated deliberately, in its own commit. The repositories and their licences are named in [`test/fixtures/live/NOTICE`](../test/fixtures/live/NOTICE), which is updated with any new repository or pin.
+6. **Rates by rule.** A script reads the session file, and the numbers are never counted by hand. For each call it records the items proposed, accepted, corrected, relabelled and rejected, the rejections and corrections by rule ID, and the corrected-citation rate. It also records schema failures, retries, refusals, tokens and cost, and the truncation rate per call. Results are appended to `docs/LIVE_RUNS.md`, under the run ID, the date and the repository. A failed send has no response to keep, but is recorded there too.
+7. **What a run changes.** A prompt revision is a new prompt version; a calibration changes a setting or `algorithmVersion`, or goes through `/validation-rule`. Each change cites the run IDs behind it and is followed by another run on the same repository.
 
 ## M7 · Interactive CLI
 
@@ -196,3 +229,4 @@ Maintenance checks for stale paths and commands; scoped rule files; a local web 
 - **2 November 2026:** M5 started. IMPL §2.7, §2.11, §3.3.5, §3.3.6, §3.4, §3.5, §3.8, §3.9, §4.4, §4.9, §4.11 and §4.12 and DM §7, §9–§12 and §17–§18 were reconciled with M1–M4 (IMPL v0.41, DM v0.25). The M5 steps are reordered by dependency: assembly comes before `recommend` validation, which assembles each recommendation alone, and each rule's fixtures are written in the step that builds it, with a closing audit. M7 gains an explicit "regenerate recommendations" action.
 - **3 November 2026:** M6's prompts step notes that the `recommend` prompt asks for commands and paths in inline code, because `REF-003` fails closed for plain-text commands (IMPL v0.46).
 - **4 November 2026 (IMPL v0.51, DM v0.28):** target resolution (IMPL §4.4.2) moves from the change-propagation step to the selections step, because mutual exclusion compares targets in the active snapshot. Writing the `target_changed` invalidations stays with change propagation. Clashes between accepted selections are derived state that blocks final review (DM §9.2).
+- **9 November 2026:** M6 started. The Claude API SDK is decided (ADR 0003), and IMPL §1.2, §1.8, §1.10, §3.6 and §3.7 were reconciled with M1–M5 and the current API (IMPL v0.55, DM v0.33). The M6 steps are reordered by dependency. New steps cover the budget estimate and price table, and request assembly and running the calls, which no step had. The live-run protocol is added, with `test/fixtures/live/NOTICE`.
