@@ -25,6 +25,7 @@
     "check": "tsc --noEmit && biome ci . && vitest run && tsc -p tsconfig.build.json"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "1.4.0",
     "zod": "4.6.5"
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
 // Core stays pure (CLAUDE.md invariants, IMPL §1.3, §4.11): no filesystem, processes or
@@ -92,5 +92,18 @@ describe("core boundaries (CLAUDE.md invariants, IMPL §4.11)", () => {
       'const id = ids.next("ev");',
     ].join("\n");
     expect(violations("src/core/x.ts", text)).toEqual([]);
+  });
+});
+
+describe("the Claude adapter boundary (CLAUDE.md layout, ADR 0003)", () => {
+  it("only src/adapters/claude/ imports the Claude API SDK", () => {
+    const sdk = /["']@anthropic-ai\/sdk(?:\/[^"']*)?["']/;
+    const adapter = join(ROOT, "src", "adapters", "claude");
+    const found = sources(join(ROOT, "src"))
+      .filter((path) => !path.startsWith(adapter + sep))
+      .filter((path) => sdk.test(readFileSync(path, "utf8")))
+      .map((path) => relative(ROOT, path));
+    expect(found).toEqual([]);
+    expect(sources(adapter).some((path) => sdk.test(readFileSync(path, "utf8")))).toBe(true);
   });
 });

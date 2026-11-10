@@ -127,7 +127,7 @@ The export (IMPL §4.10) is specified here and built in M8.
 **Goal:** real model calls, under the controls built in M2–M5.
 
 - [x] Decide the Claude API SDK and record it as [ADR 0003](decisions/0003-claude-api-sdk.md): `@anthropic-ai/sdk` 1.4.0, API version `2026-10-21`, our schema sent unchanged, SDK retries off, non-streaming, refusal fallbacks off.
-- [ ] Claude API adapter (ADR 0003, IMPL §3.7): structured outputs, usage, cost basis, requested and returned model, `apiVersion`, `effort`, no sampling parameters. The adapter sends the generated JSON Schema (IMPL §3.7) unchanged as `output_config.format`, never through the SDK's schema helpers. The step also:
+- [x] Claude API adapter (ADR 0003, IMPL §3.7): structured outputs, usage, cost basis, requested and returned model, `apiVersion`, `effort`, no sampling parameters. The adapter sends the generated JSON Schema (IMPL §3.7) unchanged as `output_config.format`, never through the SDK's schema helpers. The step also:
   - shows that the SDK's type declarations pass under TypeScript 7 with `skipLibCheck` off;
   - passes `timeout` itself on every request (ADR 0003), so that a raised output limit doesn't hit the SDK's non-streaming check;
   - adds a contract test, through an injected `fetch`, that the schema sent equals the committed file and that the body's bytes equal the retained input;

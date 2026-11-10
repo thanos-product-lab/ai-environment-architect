@@ -60,7 +60,7 @@ Every fact below was checked on 9 November 2026 against the sources at the end, 
 
 ### Transport: non-streaming, with the exact bytes
 
-**Decision.** Requests are non-streaming, and the adapter reads the body with `.asResponse()` and parses it itself.
+**Decision.** Requests are non-streaming. A `fetch` wrapper reads each body whole, as bytes, under the SDK's abort signal, and the adapter parses it itself; `.asResponse()` only waits for the SDK to finish.
 
 **Alternative.** `messages.stream().finalMessage()`, which the SDK recommends for long requests.
 
@@ -75,6 +75,8 @@ Every fact below was checked on 9 November 2026 against the sources at the end, 
 **Why.** The first slice uses one model for all calls (IMPL §3.7), and a call's records are tied to the model that produced them. A refusal instead follows IMPL §3.6.
 
 ## Not decided here
+
+- **Node's own HTTP timeouts.** Node's built-in `fetch` gives up after 300 seconds without response headers, or between body chunks, whatever `timeout` says. A non-streaming call that takes longer fails as a timeout at 5 minutes. Raising those limits needs an HTTP agent from `undici`, a new dependency. The M6 live runs measure how long calls take; if any comes near 5 minutes, it is decided then.
 
 - **Which model and effort are best.** IMPL §3.7 sets the defaults, `claude-opus-5-5` at `medium` effort. Effort is provisional and calibrated in M6 (IMPL §3.9).
 - **Other platforms.** Bedrock, Vertex and Foundry need their own packages and aren't in the first slice.
@@ -94,3 +96,5 @@ Checked on 9 November 2026:
 
 - **9 November 2026:** first version, accepted.
 - **9 November 2026:** the adapter sets `timeout` itself, because the output limit can now be raised during a session.
+- **10 November 2026:** installed in the adapter step. The SDK's type declarations pass under TypeScript 7 with `skipLibCheck` off. Version 1.4.0 sends the API key as an `Authorization: Bearer` header.
+- **10 November 2026:** the SDK reads `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_LOG` and `ANTHROPIC_CUSTOM_HEADERS` from the environment, the last even when a key is given, and custom headers could change `anthropic-version` or add a beta. The adapter passes the key, a null token and the base URL, turns logging off, and wraps `fetch` so that only the SDK's plain headers, `anthropic-version: 2026-10-21` and the key are sent. The wrapper also reads each body, an HTTP error's included, under the SDK's abort signal: the SDK's timer stops when headers arrive, so without it a stalled body would never time out, and an error's body is retained like any response (IMPL §4.8).
