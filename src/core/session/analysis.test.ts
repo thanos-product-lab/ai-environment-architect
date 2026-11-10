@@ -21,7 +21,13 @@ import {
 } from "./analysis.js";
 import { recordFailedRecommendationRevision } from "./failed.js";
 import type { SessionLog } from "./log.js";
-import { SESSION_FORMAT, type SessionFile, type SessionRecord, sessionFile } from "./records.js";
+import {
+  SESSION_FORMAT,
+  SESSION_SCHEMA_VERSION,
+  type SessionFile,
+  type SessionRecord,
+  sessionFile,
+} from "./records.js";
 import { serialiseSession } from "./serialise.js";
 
 // Model output into records (IMPL §4.4.3, §4.5): accepted findings with code-made evidence,
@@ -993,7 +999,7 @@ describe("round trip (IMPL §4.11)", () => {
     expect([...kinds].sort()).toEqual(["absence_check", "entry", "lines"]);
     const file: SessionFile = {
       format: SESSION_FORMAT,
-      schemaVersion: 1 as const,
+      schemaVersion: SESSION_SCHEMA_VERSION,
       writtenBy: "0.1.0",
       session: {
         id: "ses_0001",

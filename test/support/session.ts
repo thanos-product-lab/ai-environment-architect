@@ -1,3 +1,4 @@
+import { DEFAULT_TOKEN_SETTINGS } from "../../src/core/context/token-settings.js";
 import type { Clock, IdSource } from "../../src/core/ports.js";
 import { type Changes, type LineageStart, SessionLog } from "../../src/core/session/log.js";
 
@@ -30,6 +31,25 @@ export function newLog(): SessionLog {
   return new SessionLog({ clock: tickingClock(), ids: countingIds() });
 }
 
+/** Selection settings valid in shape, for records that don't depend on their values. */
+export const TEST_SETTINGS = {
+  snapshot: { maxReadableFileBytes: 1, userExclusions: [], includeIgnored: [] },
+  context: {
+    initialContextBytes: 1,
+    knownFactsBytes: 1,
+    tierCaps: { tier1: 0, tier2: 0, tier3: 0, tier4: 0, tier5: 0 },
+    maxDestinationBytes: 0,
+    perFileCaps: { tier2: 0, tier3: 0, tier5: 0 },
+    testReserveBytes: 0,
+    testExampleBytes: 0,
+    maxSourceFiles: 0,
+    sourceExtensions: [],
+    treeDepth: 0,
+    treeCollapseThreshold: 0,
+  },
+  tokens: DEFAULT_TOKEN_SETTINGS,
+};
+
 export const hashOf = (byte: string) => `sha256:${byte.repeat(64 / byte.length)}` as const;
 
 /** The first revision of a model call, valid in shape, with `overrides` applied. */
@@ -42,6 +62,8 @@ export function callDraft(
     purpose: "analyse",
     attempt: 1,
     requestedModel: "claude-test",
+    apiVersion: "2026-10-21",
+    priceTable: { version: "prices/test", date: "2026-11-09" },
     promptVersion: "1.0.0",
     promptHash: hashOf("1"),
     schemaVersion: "1.0.0",
@@ -94,7 +116,7 @@ export function completedCall(
       cacheRead: { state: "known", value: 0 },
       cacheWrite: { state: "known", value: 0 },
     },
-    cost: { state: "known", value: { amount: 0.25, currency: "USD", basis: "reported" } },
+    cost: { state: "known", value: { amount: 0.25, currency: "USD", basis: "estimated" } },
     validationEvents: [],
     counts: {
       proposed: { state: "known", value: 0 },

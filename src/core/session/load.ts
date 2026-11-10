@@ -3,17 +3,22 @@ import { parseGuidanceBlocks } from "../destination/guidance-blocks.js";
 import { sha256 } from "../hash.js";
 import { comparePaths } from "../paths.js";
 import { assemblyRevisionsOf, decisionIdsOf } from "./artifact-input.js";
-import { isFailed, LINEAGE_FIELDS, lineageOf, type Revised, SELF_SUPERSEDING } from "./log.js";
+import {
+  changeableFields,
+  isFailed,
+  LINEAGE_FIELDS,
+  lineageOf,
+  outputLimitProblem,
+  type Revised,
+  SELF_SUPERSEDING,
+} from "./log.js";
 import {
   CURRENT_STATUSES,
-  INVALIDATION_FIELDS,
   RECORD_KINDS,
   REVISION_BOOKKEEPING,
-  REVISION_FIELDS,
   type RecordKind,
   type RecordOf,
   type RecordTypeName,
-  type RevisableType,
   SESSION_FORMAT,
   SESSION_SCHEMA_VERSION,
   type SessionFile,
@@ -236,11 +241,11 @@ function checkEnvelope(records: readonly SessionRecord[]): void {
  * recommendation revision changes only its status and reason.
  */
 function checkRepeats(base: SessionRecord, revision: SessionRecord): void {
-  const changeable = new Set(
-    revision.type === "recommendation_revision" && revision.status === "invalidated"
-      ? INVALIDATION_FIELDS
-      : REVISION_FIELDS[revision.type as RevisableType],
-  );
+  const changeable = new Set(changeableFields(revision.type, revision as { reason?: unknown }));
+  if (revision.type === "generation_config" && revision.reason === "output_limit_raised") {
+    const problem = outputLimitProblem(base as RecordOf<"generation_config">, revision);
+    if (problem !== undefined) reject(3, problem, revision);
+  }
   const before = base as Record<string, unknown>;
   const after = revision as Record<string, unknown>;
   const fields = [...new Set([...Object.keys(before), ...Object.keys(after)])].sort(comparePaths);
@@ -358,6 +363,14 @@ function referencesOf(r: SessionRecord): { reference: Reference; id: string }[] 
         reference: record("attribution", "recommendation_revision"),
         id: entry.revisionId,
       });
+  // A withheld item is a finding, conflict or question by lineage, or a decision by record ID.
+  if (r.type === "secret_withheld")
+    found.push({
+      reference: r.itemId.startsWith("dec_")
+        ? record("itemId", "decision")
+        : lineage("itemId", "finding", "conflict", "question"),
+      id: r.itemId,
+    });
   if (r.type === "model_call") {
     found.push({
       reference: record("inputManifest.snapshotId", "snapshot"),

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { callDraft, completedCall, hashOf, newLog } from "../../../test/support/session.js";
+import {
+  callDraft,
+  completedCall,
+  hashOf,
+  newLog,
+  TEST_SETTINGS,
+} from "../../../test/support/session.js";
 import { parseGuidanceBlocks } from "../destination/guidance-blocks.js";
 import { sha256 } from "../hash.js";
 import { proposeArtifact, recordReview } from "./artifacts.js";
@@ -27,7 +33,8 @@ const DESTINATION_REF = `content/${DESTINATION_HASH.replace(":", "-")}`;
 
 /**
  * A session with every record type the schema accepts so far, in valid shape, except
- * `inputs_purged` and retained exchanges, which retained.test.ts covers.
+ * `inputs_purged` and retained exchanges, which retained.test.ts covers, and `secret_withheld`,
+ * which the session format 2 tests below add.
  */
 function validLog(): SessionLog {
   const log = newLog();
@@ -65,24 +72,10 @@ function validLog(): SessionLog {
   );
   log.start({
     type: "generation_config",
-    settings: {
-      snapshot: { maxReadableFileBytes: 1, userExclusions: [], includeIgnored: [] },
-      context: {
-        initialContextBytes: 1,
-        knownFactsBytes: 1,
-        tierCaps: { tier1: 0, tier2: 0, tier3: 0, tier4: 0, tier5: 0 },
-        maxDestinationBytes: 0,
-        perFileCaps: { tier2: 0, tier3: 0, tier5: 0 },
-        testReserveBytes: 0,
-        testExampleBytes: 0,
-        maxSourceFiles: 0,
-        sourceExtensions: [],
-        treeDepth: 0,
-        treeCollapseThreshold: 0,
-      },
-    },
+    settings: TEST_SETTINGS,
     settingsHash: hashOf("9"),
     requestedModel: "claude-test",
+    effort: "medium",
     budget: { maxCostUsd: 2 },
     expansion: { maxExpansionRequests: 0, expansionBytes: 0, expansionEntryBytes: 0 },
     questionBudget: 5,
@@ -655,9 +648,10 @@ describe("check 1: format and schema version (IMPL §4.9)", () => {
 
   it("refuses an older format with its message, before v0.1.0", async () => {
     const bytes = corrupted((j) => {
+      j.schemaVersion = 1;
       j.writtenBy = "0.0.3";
     });
-    const found = await failure(bytes, memoryContent(), { readerFormat: 2 });
+    const found = await failure(bytes);
     expect(found).toMatchObject({
       check: 1,
       version: { direction: "older", sessionFormat: 1, writtenBy: "0.0.3", readerFormat: 2 },
@@ -666,7 +660,7 @@ describe("check 1: format and schema version (IMPL §4.9)", () => {
 
   it("refuses a newer format with its message, whatever else the file holds", async () => {
     const bytes = corrupted((j) => {
-      j.schemaVersion = 2;
+      j.schemaVersion = 3;
       j.writtenBy = "0.3.0";
       j.somethingNew = true;
     });
@@ -674,7 +668,7 @@ describe("check 1: format and schema version (IMPL §4.9)", () => {
     const found = await failure(bytes, content);
     expect(found).toMatchObject({
       check: 1,
-      version: { direction: "newer", sessionFormat: 2, writtenBy: "0.3.0", readerFormat: 1 },
+      version: { direction: "newer", sessionFormat: 3, writtenBy: "0.3.0", readerFormat: 2 },
     });
     expect(content.reads).toEqual([]);
   });
@@ -987,15 +981,15 @@ describe("check order and reporting (IMPL §4.9)", () => {
   it("leaves writtenBy unknown when the file doesn't say", async () => {
     const found = await failure(
       corrupted((j) => {
-        j.schemaVersion = 2;
+        j.schemaVersion = 3;
         delete j.writtenBy;
       }),
     );
     expect(found.version).toEqual({
       direction: "newer",
-      sessionFormat: 2,
+      sessionFormat: 3,
       writtenBy: undefined,
-      readerFormat: 1,
+      readerFormat: 2,
     });
   });
 });
@@ -1965,5 +1959,333 @@ describe("the apply-attempt field list (IMPL §4.4.1)", () => {
     expect([...REVISION_FIELDS.apply_attempt].sort()).toEqual(
       ["endedAt", "error", "resultHash", "state"].sort(),
     );
+  });
+});
+
+describe("session format 2 (IMPL §4.4.1, §4.6, §4.9, §4.11)", () => {
+  const loads = async (log: SessionLog) =>
+    (await loadSession(encode(serialiseSession(fileOf(log))), memoryContent())).ok;
+  const edited = (log: SessionLog, edit: (json: Json) => void) => {
+    const json = JSON.parse(serialiseSession(fileOf(log)));
+    edit(json);
+    return encode(JSON.stringify(json));
+  };
+  const call = (json: Json) => json.records.find((r: Json) => r.type === "model_call");
+  const ended = (json: Json) =>
+    json.records.find((r: Json) => r.type === "model_call" && r.state === "completed");
+
+  it("a model call records apiVersion and its price table, and a known cost is only estimated", async () => {
+    expect(await loads(validLog())).toBe(true);
+    for (const edit of [
+      (j: Json) => delete call(j).apiVersion,
+      (j: Json) => delete call(j).priceTable,
+      (j: Json) => {
+        call(j).priceTable.date = "9 November 2026";
+      },
+      (j: Json) => {
+        ended(j).cost.value.basis = "reported";
+      },
+    ])
+      expect(await failure(corrupted(edit))).toMatchObject({ check: 2 });
+  });
+
+  it("generation_config records effort, outside settingsHash", async () => {
+    for (const edit of [
+      (j: Json) => delete byId(j, "gc_0001").effort,
+      (j: Json) => {
+        byId(j, "gc_0001").effort = "extreme";
+      },
+    ])
+      expect(await failure(corrupted(edit))).toMatchObject({ check: 2 });
+  });
+
+  it("generation_config holds reservedOutputTokens and safetyMargin in the settings settingsHash covers", async () => {
+    for (const edit of [
+      (j: Json) => delete byId(j, "gc_0001").settings.tokens,
+      (j: Json) => delete byId(j, "gc_0001").settings.tokens.reservedOutputTokens.analyse,
+      (j: Json) => {
+        byId(j, "gc_0001").settings.tokens.safetyMargin = 1;
+      },
+    ])
+      expect(await failure(corrupted(edit))).toMatchObject({ check: 2 });
+  });
+
+  it("unsentPurpose is refused on any stage_skipped except the skipped call 2", async () => {
+    const log = validLog();
+    log.revise("session_state", "session_state", {
+      status: "running",
+      reason: "stage_skipped",
+      unsentPurpose: "analyse_expansion",
+    });
+    expect(await loads(log)).toBe(true);
+    expect(() =>
+      validLog().revise("session_state", "session_state", {
+        reason: "stage_skipped",
+        unsentPurpose: "recommend",
+      }),
+    ).toThrow(/unsentPurpose/);
+    expect(() =>
+      validLog().revise("session_state", "session_state", {
+        reason: "interrupted",
+        unsentPurpose: "analyse_expansion",
+      }),
+    ).toThrow(/unsentPurpose/);
+    // A stage the developer skipped names no purpose.
+    const skipped = validLog();
+    skipped.revise("session_state", "session_state", { reason: "stage_skipped" });
+    expect(await loads(skipped)).toBe(true);
+    const bytes = edited(log, (j) => {
+      j.records.findLast((r: Json) => r.type === "session_state").unsentPurpose = "recommend";
+    });
+    expect(await failure(bytes)).toMatchObject({ check: 2 });
+  });
+
+  /** The valid session with the output limit of `analyse` raised to `to`. */
+  function raised(to = 20_000): SessionLog {
+    const log = validLog();
+    const tokens = TEST_SETTINGS.tokens;
+    log.revise("generation_config", "generation_config", {
+      reason: "output_limit_raised",
+      settings: {
+        ...TEST_SETTINGS,
+        tokens: {
+          ...tokens,
+          reservedOutputTokens: { ...tokens.reservedOutputTokens, analyse: to },
+        },
+      },
+      settingsHash: hashOf("8"),
+    });
+    return log;
+  }
+  const raise = (json: Json) => json.records.findLast((r: Json) => r.type === "generation_config");
+
+  it("loads an output_limit_raised revision that raises a limit and changes only the limits and settingsHash", async () => {
+    expect(await loads(raised())).toBe(true);
+  });
+
+  it("check 3 refuses an output_limit_raised revision that changes anything else, or lowers a limit", async () => {
+    const cases: [string, (json: Json) => void][] = [
+      [
+        "the budget",
+        (j) => {
+          raise(j).budget = { maxCostUsd: 9 };
+        },
+      ],
+      [
+        "another setting",
+        (j) => {
+          raise(j).settings.context.treeDepth = 7;
+        },
+      ],
+      [
+        "the safety margin",
+        (j) => {
+          raise(j).settings.tokens.safetyMargin = 0.1;
+        },
+      ],
+      [
+        "a lowered limit",
+        (j) => {
+          raise(j).settings.tokens.reservedOutputTokens.recommend = 8_000;
+        },
+      ],
+      [
+        "the model",
+        (j) => {
+          raise(j).requestedModel = "claude-other";
+        },
+      ],
+    ];
+    for (const [what, edit] of cases)
+      expect(await failure(edited(raised(), edit)), what).toMatchObject({ check: 3 });
+    // Raising nothing isn't a raise. The log refuses to append one, so the file is edited.
+    expect(() => raised(16_000)).toThrow(/raises one/);
+    const unchanged = edited(raised(), (j) => {
+      raise(j).settings.tokens.reservedOutputTokens.analyse = 16_000;
+    });
+    expect(await failure(unchanged)).toMatchObject({ check: 3 });
+  });
+
+  it("a raise changes settingsHash, which covers the limits", async () => {
+    expect(() =>
+      validLog().revise("generation_config", "generation_config", {
+        reason: "output_limit_raised",
+        settings: {
+          ...TEST_SETTINGS,
+          tokens: {
+            ...TEST_SETTINGS.tokens,
+            reservedOutputTokens: { ...TEST_SETTINGS.tokens.reservedOutputTokens, analyse: 20_000 },
+          },
+        },
+      }),
+    ).toThrow(/changes settingsHash/);
+    const bytes = edited(raised(), (j) => {
+      raise(j).settingsHash = byId(j, "gc_0001").settingsHash;
+    });
+    expect(await failure(bytes)).toMatchObject({ check: 3 });
+  });
+
+  it("round-trips a session with a secret_withheld and a secret_match invalidation, byte for byte", async () => {
+    const log = invalidated("secret_match", "aws-access-key-id");
+    log.append({ type: "secret_withheld", itemId: "fnd_0001", secretRuleId: "github-token" });
+    const bytes = encode(serialiseSession(fileOf(log)));
+    const result = await loadSession(bytes, memoryContent());
+    if (!result.ok) throw new Error(result.failure.detail);
+    expect(encode(serialiseSession(result.file))).toEqual(bytes);
+  });
+
+  it("check 3 refuses a budget revision that changes the settings", async () => {
+    const bytes = corrupted((j) => {
+      byId(j, "gc_0002").settings.tokens.reservedOutputTokens.analyse = 20_000;
+      byId(j, "gc_0002").settingsHash = hashOf("8");
+    });
+    expect(await failure(bytes)).toMatchObject({ check: 3 });
+  });
+
+  it("the log refuses a generation_config revision that changes what its reason doesn't allow", () => {
+    expect(() =>
+      validLog().revise("generation_config", "generation_config", {
+        reason: "budget_raised",
+        settingsHash: hashOf("8"),
+      }),
+    ).toThrow(/can't change settingsHash/);
+    expect(() =>
+      validLog().revise("generation_config", "generation_config", {
+        reason: "output_limit_raised",
+        budget: { maxCostUsd: 9 },
+      }),
+    ).toThrow(/can't change budget/);
+  });
+
+  function invalidated(reason: "secret_match" | "dropped_by_model", secretRuleId?: string) {
+    const log = recommendLog();
+    const revision = log.records.find((r) => r.type === "recommendation_revision") as {
+      recommendationId: string;
+    };
+    log.revise("recommendation_revision", revision.recommendationId, {
+      status: "invalidated",
+      invalidatedReason: reason,
+      ...(secretRuleId === undefined ? {} : { secretRuleId }),
+    });
+    return log;
+  }
+
+  it("a secret_match invalidation records the rule in secretRuleId, and only it does", async () => {
+    expect(await loads(invalidated("secret_match", "aws-access-key-id"))).toBe(true);
+    expect(() => invalidated("secret_match")).toThrow(/secretRuleId/);
+    expect(() => invalidated("dropped_by_model", "aws-access-key-id")).toThrow(/secretRuleId/);
+    const bytes = edited(invalidated("secret_match", "aws-access-key-id"), (j) => {
+      const r = j.records.findLast((x: Json) => x.type === "recommendation_revision");
+      delete r.secretRuleId;
+    });
+    expect(await failure(bytes)).toMatchObject({ check: 2 });
+  });
+
+  it("check 3 refuses secretRuleId on a revision that isn't its invalidation", async () => {
+    const bytes = edited(invalidated("secret_match", "aws-access-key-id"), (j) => {
+      const r = j.records.findLast((x: Json) => x.type === "recommendation_revision");
+      r.rationale = "Changed on invalidation.";
+    });
+    expect(await failure(bytes)).toMatchObject({ check: 3 });
+  });
+
+  const withheld = (itemId: string) => {
+    const log = validLog();
+    log.append({ type: "secret_withheld", itemId, secretRuleId: "github-token" });
+    return log;
+  };
+
+  it("loads a secret_withheld naming a finding, a conflict, a question or a decision", async () => {
+    for (const itemId of ["fnd_0001", "conf_0001", "q_0001", "dec_0001"])
+      expect(await loads(withheld(itemId)), itemId).toBe(true);
+  });
+
+  it("check 4 rejects a secret_withheld naming anything else", async () => {
+    for (const itemId of ["fnd_9999", "conf_9999", "q_9999", "dec_9999"])
+      expect(
+        await failure(
+          edited(withheld("fnd_0001"), (j) => {
+            j.records.at(-1).itemId = itemId;
+          }),
+        ),
+        itemId,
+      ).toMatchObject({ check: 4 });
+    // A finding's record ID, or a recommendation, isn't an item it can name.
+    for (const itemId of ["fndr_0001", "rec_0001", "call_0001"])
+      expect(
+        await failure(
+          edited(withheld("fnd_0001"), (j) => {
+            j.records.at(-1).itemId = itemId;
+          }),
+        ),
+        itemId,
+      ).toMatchObject({ check: 2 });
+  });
+
+  it("check 4 rejects a secret_withheld before the item it names", async () => {
+    const bytes = edited(withheld("dec_0001"), (j) => {
+      const sw = j.records.pop();
+      j.records.splice(1, 0, sw);
+      renumber(j);
+    });
+    expect(await failure(bytes)).toMatchObject({ check: 4 });
+  });
+
+  it("a secret_withheld is never superseded", async () => {
+    const bytes = edited(withheld("fnd_0001"), (j) => {
+      const sw = j.records.at(-1);
+      j.records.push({ ...sw, id: "sw_0002", seq: sw.seq + 1, supersedes: [sw.id] });
+    });
+    expect(await failure(bytes)).toMatchObject({ check: 2 });
+  });
+
+  it("citation counts may be unknown because no response was parsed", async () => {
+    for (const reason of ["truncated", "refusal", "unexpected_stop", "no_response"]) {
+      const log = validLog();
+      const started = log.start(callDraft());
+      log.revise(
+        "model_call",
+        started.modelCallId,
+        completedCall({
+          state: "failed",
+          citationsProposed: { state: "unknown", reason },
+          correctedCitationRate: { state: "unknown", reason },
+          counts: {
+            proposed: { state: "unknown", reason },
+            accepted: 0,
+            corrected: 0,
+            relabelled: 0,
+            rejectedByRule: {},
+          },
+        } as never),
+      );
+      expect(await loads(log), reason).toBe(true);
+    }
+    expect(() => {
+      const log = validLog();
+      const started = log.start(callDraft());
+      log.revise(
+        "model_call",
+        started.modelCallId,
+        completedCall({ citationsProposed: { state: "unknown", reason: "bored" } } as never),
+      );
+    }).toThrow(/invalid model_call/);
+    expect(() => {
+      const log = validLog();
+      const started = log.start(callDraft());
+      log.revise(
+        "model_call",
+        started.modelCallId,
+        completedCall({
+          counts: {
+            proposed: { state: "unknown", reason: "bored" },
+            accepted: 0,
+            corrected: 0,
+            relabelled: 0,
+            rejectedByRule: {},
+          },
+        } as never),
+      );
+    }).toThrow(/invalid model_call/);
   });
 });

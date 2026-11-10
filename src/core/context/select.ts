@@ -24,6 +24,7 @@ import {
   selectTiers,
   type TierMembership,
 } from "./tiers.js";
+import type { TokenSettings } from "./token-settings.js";
 import { type ContentMark, type RenderedTree, renderTree } from "./tree.js";
 
 // The selection pipeline (IMPL §1.3) and the input manifest (IMPL §1.13).
@@ -35,10 +36,14 @@ import { type ContentMark, type RenderedTree, renderTree } from "./tree.js";
 
 export const MANIFEST_VERSION = 2;
 
-/** The effective settings. Their canonical JSON, with the versions, gives `settingsHash`. */
+/**
+ * The effective settings. Their canonical JSON, with the versions, gives `settingsHash`. `tokens`
+ * is among them because it changes what the token check removes (IMPL §1.10, §4.4.1).
+ */
 export interface ContextSelectionSettings {
   readonly snapshot: SnapshotSettings;
   readonly context: ContextSettings;
+  readonly tokens: TokenSettings;
 }
 
 export interface RenderedContext {

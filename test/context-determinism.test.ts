@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { openRepositoryFs } from "../src/adapters/fs/node-repository-fs.js";
 import { selectContext } from "../src/core/context/select.js";
 import { DEFAULT_CONTEXT_SETTINGS } from "../src/core/context/tiers.js";
+import { DEFAULT_TOKEN_SETTINGS } from "../src/core/context/token-settings.js";
 import { captureSnapshot, DEFAULT_SNAPSHOT_SETTINGS } from "../src/core/snapshot/snapshot.js";
 import { fixedClock, fixedIds } from "./support/memory-fs.js";
 
@@ -20,7 +21,11 @@ afterEach(() => {
 
 async function contextHash(root: string): Promise<string> {
   const fs = await openRepositoryFs(root);
-  const settings = { snapshot: DEFAULT_SNAPSHOT_SETTINGS, context: DEFAULT_CONTEXT_SETTINGS };
+  const settings = {
+    snapshot: DEFAULT_SNAPSHOT_SETTINGS,
+    context: DEFAULT_CONTEXT_SETTINGS,
+    tokens: DEFAULT_TOKEN_SETTINGS,
+  };
   const snapshot = await captureSnapshot(
     { fs, clock: fixedClock, ids: fixedIds },
     settings.snapshot,

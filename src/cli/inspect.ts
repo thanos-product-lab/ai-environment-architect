@@ -8,6 +8,7 @@ import {
 } from "../core/context/select.js";
 import type { DestinationStop } from "../core/context/tiers.js";
 import { DEFAULT_CONTEXT_SETTINGS } from "../core/context/tiers.js";
+import { DEFAULT_TOKEN_SETTINGS } from "../core/context/token-settings.js";
 import type { ExclusionGroup } from "../core/snapshot/exclusions.js";
 import type { GitUnknownReason } from "../core/snapshot/git.js";
 import {
@@ -42,6 +43,7 @@ export async function inspect(
   settings: ContextSelectionSettings = {
     snapshot: DEFAULT_SNAPSHOT_SETTINGS,
     context: DEFAULT_CONTEXT_SETTINGS,
+    tokens: DEFAULT_TOKEN_SETTINGS,
   },
 ): Promise<InspectResult> {
   const snapshot = await captureSnapshot(deps, settings.snapshot);

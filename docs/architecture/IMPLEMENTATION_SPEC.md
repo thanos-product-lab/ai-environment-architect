@@ -1,9 +1,15 @@
 # Implementation Specification
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 9 November 2026  
-**Version:** 0.55  
+**Date:** 10 November 2026  
+**Version:** 0.56  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.55
+
+- **Session format 2 (§4.3, §4.9).** The records of v0.55 are the session format 2, so `schemaVersion` is 2 and the example messages follow it. Format 1 sessions are refused, as before v0.1.0.
+- **Withheld corrections (§4.5).** A correcting decision withheld for a secret match still corrects its finding, so the finding the developer marked wrong is never sent again.
+- **Interrupted counts (§3.5, §4.6).** An interrupted call's proposed count is unknown with the reason `interrupted`, as recovery already wrote it; the reasons are now a closed list.
 
 ### Changes from v0.54
 
@@ -1942,7 +1948,7 @@ type ValidationEvent = {
 };
 ```
 
-A schema failure rejects the whole response with one event per issue, in the order the schema reports them: `itemKey` is `$response`, `rule` is `SCHEMA`, and `detail` is the issue's path and code only, never the value received, because the model may have copied source text into it. A path segment that isn't a field name the schema defines, such as a record key, is written `<key>`. The proposed count is then unknown, with the reason `schema_failed`, never zero. When no response was parsed it is unknown with the reason `truncated`, `refusal` or `unexpected_stop` (§3.6), or `no_response` when no response arrived.
+A schema failure rejects the whole response with one event per issue, in the order the schema reports them: `itemKey` is `$response`, `rule` is `SCHEMA`, and `detail` is the issue's path and code only, never the value received, because the model may have copied source text into it. A path segment that isn't a field name the schema defines, such as a record key, is written `<key>`. The proposed count is then unknown, with the reason `schema_failed`, never zero. When no response was parsed it is unknown with the reason `truncated`, `refusal` or `unexpected_stop` (§3.6), `no_response` when no response arrived, or `interrupted` for a call resume finds still `started` (§4.6).
 
 No event repeats text from the response. An `itemKey` is a local key or alias only when it is well formed (a local key is one or two lowercase letters and a number, an alias as in §3.2.1); otherwise the item is named by its position, `<collection>/<index>`, and a malformed local key defines nothing. An item with no key of its own, such as an expansion request, a content notice, a revision or a regeneration action, is always named by its position. The exceptions: `noChangeReason`, which is not in a collection and is named `noChangeReason`; and two regeneration events named by an `R` alias (§3.3.6), a `keep`'s revalidation failure and the `REGEN-001` coverage event, which reject no item but count in the call's rejections by rule, since each rejects a recommendation. A detail names only code-made values, such as an alias from the table, never an unknown value the model wrote. A rejected item keeps the events of its sub-items, such as each failed citation. Events are ordered by stage. In the item stage they follow the response's item order, collections in schema order, and within an item the rule order, except that a sub-item's events are in sub-item order, each sub-item's in rule order; `ALIAS-002` is checked first, for each item in turn. In the cross-item stage they follow the order in which the call's cross-item checks run (§3.3.2–§3.3.6), then item order.
 
@@ -2182,7 +2188,7 @@ There is no index of sessions. `sessions`, and `resume` without an ID, load each
     { "createdAt": "2026-11-01T10:15:00.000Z", "id": "gc_01J…", "revision": 1, "seq": 2, "type": "generation_config" },
     { "createdAt": "2026-11-01T10:15:02.000Z", "id": "snap_01J…", "seq": 3, "type": "snapshot" }
   ],
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "session": {
     "adapter": "claude-code",
     "createdAt": "2026-11-01T10:15:00.000Z",
@@ -2337,7 +2343,7 @@ Findings follow the same pattern. A `withdraw` revision of an `F` target appends
 - the findings view still shows it, marked "corrected by you" (§2.5);
 - a recommendation whose support includes it is in the regeneration affected set (§3.3.6).
 
-If the correcting decision is superseded by one that no longer names the finding, the finding is current again, and the change propagates as any decision change does (DM §12).
+If the correcting decision is superseded by one that no longer names the finding, the finding is current again, and the change propagates as any decision change does (DM §12). A correcting decision that a `secret_withheld` record names (§1.7) still corrects its finding: the decision is left out of later calls, and so is the finding.
 
 **Absence claims** are stored as findings with `kind: "absence"` and the code-generated statement (§1.11). Every finding that isn't a gap has evidence, so an accepted absence claim has one evidence record of kind `absence_check`, created by code:
 
@@ -2414,7 +2420,7 @@ type ModelCallEnded = Omit<ModelCallStarted, "revision" | "state"> & {
 };
 ```
 
-- **Interrupted.** A call still `started` when its session is resumed was interrupted. The process that holds the lock (§4.7) appends an `interrupted` revision, with `endedAt`, `durationMs`, `usage` and `cost` unknown for the reason `interrupted`. It may have been billed, so it is never counted as zero. Read-only commands, which take no lock, show such a call as in progress if the session is locked by a live process, and as interrupted otherwise, without writing anything.
+- **Interrupted.** A call still `started` when its session is resumed was interrupted. The process that holds the lock (§4.7) appends an `interrupted` revision, with `endedAt`, `durationMs`, `usage`, `cost` and the proposed count unknown for the reason `interrupted`. It may have been billed, so it is never counted as zero. Read-only commands, which take no lock, show such a call as in progress if the session is locked by a live process, and as interrupted otherwise, without writing anything.
 - **Budget with unknown costs.** For the §3.6 check, the spend so far is the sum of known costs plus, for each call whose cost is unknown, its `estimatedCost`. That estimate is used for the budget only, and is never reported as the call's cost. If an estimate is unknown too, the check can't be made, and the next call is not sent until the developer raises or confirms the budget (§2.12).
 - **Tokens.** The tokens spent so far are the sum of every call's four usage counts. A call with any usage unknown makes the token check impossible, as an unknown estimate does for cost: there is no token estimate to stand in for it. The check before sending compares the spend plus the call's own estimate, of cost and of tokens, with each ceiling that is set; an unset ceiling is never checked.
 - **Raising or confirming.** Either appends a `generation_config` revision: raising with the new limits and the reason `budget_raised`, confirming with the same limits and the reason `budget_confirmed`. Apart from `output_limit_raised` (below), these are the only reasons a `generation_config` revision may give, and it changes nothing but the budget (§4.4.1). It settles every unknown before it: the unknown parts of calls started before it count as their known parts only (`knownPartsSum`), and the next call may be sent with an unknown estimate. A call started after it, with unknown parts, makes the check impossible again.
@@ -2466,10 +2472,10 @@ This implements §1.12, which covers responses as well as requests.
 
 ### 4.9 Schema versions and load validation
 
-**Versions.** `schemaVersion` is an integer, 1 for now. Any change to a record type, field or derived rule that an older reader would misread increases it.
+**Versions.** `schemaVersion` is an integer, 2 since the records of v0.55. Any change to a record type, field or derived rule that an older reader would misread increases it.
 
 - **Until v0.1.0 there are no migrations.** A session saved with an **older** format is refused: "This session was saved in session format 1 by version 0.0.3. This version reads only format 2, and doesn't convert older sessions before v0.1.0. Start a new session with `<cli> init`." Nothing is written, and the old session stays on disk until the developer deletes it. From v0.1.0 on, each format change needs a migration, specified with the change.
-- A session saved with a **newer** format is refused too: "This session was saved in session format 2 by version 0.3.0. This CLI reads format 1. Update to 0.3.0 or later." (§2.12). If the file doesn't say which version wrote it, either message names "an unknown version" instead, and the newer-format one ends "Update to the latest version."
+- A session saved with a **newer** format is refused too: "This session was saved in session format 3 by version 0.3.0. This CLI reads format 2. Update to 0.3.0 or later." (§2.12). If the file doesn't say which version wrote it, either message names "an unknown version" instead, and the newer-format one ends "Update to the latest version."
 
 **Load checks**, in order. The first failure rejects the session with a message naming the check and the record, and the file is left untouched:
 

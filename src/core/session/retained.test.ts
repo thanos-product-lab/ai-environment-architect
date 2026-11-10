@@ -2,7 +2,13 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MemorySession } from "../../../test/support/memory-store.js";
-import { callDraft, completedCall, hashOf, newLog } from "../../../test/support/session.js";
+import {
+  callDraft,
+  completedCall,
+  hashOf,
+  newLog,
+  TEST_SETTINGS,
+} from "../../../test/support/session.js";
 import { sha256 } from "../hash.js";
 import { type LoadFailure, loadSession } from "./load.js";
 import type { SessionLog } from "./log.js";
@@ -67,24 +73,10 @@ function baseLog(retainModelInputs: boolean): SessionLog {
   );
   log.start({
     type: "generation_config",
-    settings: {
-      snapshot: { maxReadableFileBytes: 1, userExclusions: [], includeIgnored: [] },
-      context: {
-        initialContextBytes: 1,
-        knownFactsBytes: 1,
-        tierCaps: { tier1: 0, tier2: 0, tier3: 0, tier4: 0, tier5: 0 },
-        maxDestinationBytes: 0,
-        perFileCaps: { tier2: 0, tier3: 0, tier5: 0 },
-        testReserveBytes: 0,
-        testExampleBytes: 0,
-        maxSourceFiles: 0,
-        sourceExtensions: [],
-        treeDepth: 0,
-        treeCollapseThreshold: 0,
-      },
-    },
+    settings: TEST_SETTINGS,
     settingsHash: hashOf("9"),
     requestedModel: "claude-test",
+    effort: "medium",
     budget: {},
     expansion: { maxExpansionRequests: 0, expansionBytes: 0, expansionEntryBytes: 0 },
     questionBudget: 5,

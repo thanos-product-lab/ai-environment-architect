@@ -11,7 +11,9 @@ import { CURRENT_STATUSES, type RecordOf, type SessionRecord } from "./records.j
 // - a finding must be of the active snapshot and not corrected by a current decision;
 // - a conflict must be of the active snapshot, with every member finding current;
 // - a question needs at least one finding, gap or conflict it resolves to be current.
-// Records with status `failed_validation`, and `failed_item` records, are never current.
+// Records with status `failed_validation`, and `failed_item` records, are never current, and nor
+// is any revision of an item a `secret_withheld` record names (§4.4.2), though it stays in the
+// developer's own view.
 
 type Decision = RecordOf<"decision">;
 
@@ -37,6 +39,12 @@ export interface CurrentState {
   readonly questions: ReadonlyMap<string, Revised<"question">>;
   /** By record ID: decisions have no lineage (§4.4.1). */
   readonly decisions: ReadonlyMap<string, Decision>;
+  /**
+   * By the item's lineage ID, or a decision's record ID: items whose text matched the secret
+   * scan (§1.7). Every revision is left out of the sets above, never aliased or sent; the
+   * developer's own view still shows them.
+   */
+  readonly withheld: ReadonlyMap<string, RecordOf<"secret_withheld">>;
   /** By `recommendationId`. */
   readonly recommendations: ReadonlyMap<string, Revised<"recommendation_revision">>;
   /** Those of the active snapshot. */
@@ -106,12 +114,19 @@ export function currentState(
 
   const activeSnapshotId = ofType("snapshot").at(-1)?.id;
 
+  const withheld = new Map<string, RecordOf<"secret_withheld">>();
+  for (const record of ofType("secret_withheld"))
+    if (!withheld.has(record.itemId)) withheld.set(record.itemId, record);
+  /** Named by a `secret_withheld`, by lineage ID or, for a decision, record ID. */
+  const isWithheld = (record: SessionRecord): boolean =>
+    withheld.has(lineageOf(record) ?? record.id);
+
   const decisions = new Map<string, Decision>();
   const corrections = new Map<string, Decision>();
   for (const decision of ofType("decision").filter(live)) {
-    decisions.set(decision.id, decision);
-    // Any current correction makes the finding corrected; the latest is the one shown.
+    // A withheld correction still corrects its finding: the finding is then never sent either.
     if (decision.findingId !== undefined) corrections.set(decision.findingId, decision);
+    if (!isWithheld(decision)) decisions.set(decision.id, decision);
   }
 
   const findings = new Map<string, Revised<"finding">>();
@@ -120,14 +135,15 @@ export function currentState(
     const finding = record as Revised<"finding">;
     if (finding.snapshotId !== activeSnapshotId) continue;
     const decision = corrections.get(finding.findingId);
-    if (decision === undefined) findings.set(finding.findingId, finding);
-    else correctedFindings.set(finding.findingId, { finding, decision });
+    // Still shown as corrected when withheld too: both are the developer's own view.
+    if (decision !== undefined) correctedFindings.set(finding.findingId, { finding, decision });
+    else if (!isWithheld(finding)) findings.set(finding.findingId, finding);
   }
 
   const conflicts = new Map<string, Revised<"conflict">>();
   for (const record of ofType("conflict").filter(live)) {
     const conflict = record as Revised<"conflict">;
-    if (conflict.snapshotId !== activeSnapshotId) continue;
+    if (conflict.snapshotId !== activeSnapshotId || isWithheld(conflict)) continue;
     if (conflict.findingIds.every((id) => findings.has(id)))
       conflicts.set(conflict.conflictId, conflict);
   }
@@ -135,6 +151,7 @@ export function currentState(
   const questions = new Map<string, Revised<"question">>();
   for (const record of ofType("question").filter(live)) {
     const question = record as Revised<"question">;
+    if (isWithheld(question)) continue;
     const resolvesCurrent =
       question.findingIds.some((id) => findings.has(id)) ||
       question.gapIds.some((id) => findings.has(id)) ||
@@ -246,6 +263,7 @@ export function currentState(
     conflicts,
     questions,
     decisions,
+    withheld,
     recommendations,
     contentNotices: ofType("content_notice").filter((n) => n.snapshotId === activeSnapshotId),
     heldBack,

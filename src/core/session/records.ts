@@ -11,7 +11,7 @@ import type { Hash } from "../hash.js";
 // (DM §11.2).
 
 export const SESSION_FORMAT = "ai-environment-architect/session";
-export const SESSION_SCHEMA_VERSION = 1;
+export const SESSION_SCHEMA_VERSION = 2;
 
 /** One row of the §4.4.1 table: the record ID prefix, and the lineage field and prefix if any. */
 export interface RecordKind {
@@ -49,6 +49,7 @@ export const RECORD_KINDS = {
   effort_correction: { record: "effc" },
   failed_item: { record: "fail" },
   inputs_purged: { record: "pur" },
+  secret_withheld: { record: "sw" },
 } as const satisfies Record<string, RecordKind>;
 
 export type RecordTypeName = keyof typeof RECORD_KINDS;
@@ -84,8 +85,9 @@ export type RevisableType =
  */
 export const REVISION_FIELDS: Readonly<Record<RevisableType, readonly string[]>> = {
   session_state: ["productVersion", "stage", "status", "outcome", "reason", "unsentPurpose"],
-  // Raising or confirming the budget (§2.12, §4.6).
-  generation_config: ["budget", "reason"],
+  // Raising or confirming the budget, or raising the output limit (§2.12, §4.6). Which of these
+  // a revision may change depends on its reason: `GENERATION_CONFIG_CHANGES`.
+  generation_config: ["budget", "reason", "settings", "settingsHash"],
   finding: ["status", "withdrawnReason"],
   conflict: ["findingIds", "status", "withdrawnReason", "resolvingDecisionId"],
   question: ["status", "unreachedReason"],
@@ -102,6 +104,7 @@ export const REVISION_FIELDS: Readonly<Record<RevisableType, readonly string[]>>
     "validationEvents",
     "status",
     "invalidatedReason",
+    "secretRuleId",
   ],
   apply_attempt: ["state", "error", "resultHash", "endedAt"],
   // What the end adds to the `started` revision (§4.6).
@@ -123,8 +126,36 @@ export const REVISION_FIELDS: Readonly<Record<RevisableType, readonly string[]>>
   effort_interval: ["state", "leftAt"],
 };
 
-/** What an invalidation of a recommendation revision changes (§4.4.1, §4.9 check 3). */
-export const INVALIDATION_FIELDS: readonly string[] = ["status", "invalidatedReason"];
+/**
+ * What an invalidation of a recommendation revision changes (§4.4.1, §4.9 check 3):
+ * `secretRuleId` only with the reason `secret_match`, which the record schema enforces.
+ */
+export const INVALIDATION_FIELDS: readonly string[] = [
+  "status",
+  "invalidatedReason",
+  "secretRuleId",
+];
+
+/** The reasons a `generation_config` revision may give (§4.6). */
+export const GENERATION_CONFIG_REASONS = [
+  "budget_raised",
+  "budget_confirmed",
+  "output_limit_raised",
+] as const;
+export type GenerationConfigReason = (typeof GENERATION_CONFIG_REASONS)[number];
+
+/**
+ * What a `generation_config` revision may change, by its reason (§4.4.1, §4.9 check 3). Raising
+ * the output limit changes `settings` only at `tokens.reservedOutputTokens`, which load and the
+ * log check separately.
+ */
+export const GENERATION_CONFIG_CHANGES: Readonly<
+  Record<GenerationConfigReason, readonly string[]>
+> = {
+  budget_raised: ["budget", "reason"],
+  budget_confirmed: ["budget", "reason"],
+  output_limit_raised: ["settings", "settingsHash", "reason"],
+};
 
 /** Never compared between revisions: the envelope, and what says how one follows another. */
 export const REVISION_BOOKKEEPING: ReadonlySet<string> = new Set([
@@ -242,13 +273,27 @@ export const sessionStateRecord = z
     outcome: outcome.optional(),
     /** Set when the change isn't a normal step. */
     reason: z.enum(["interrupted", "budget_reached", "stage_skipped"]).optional(),
-    /** With `budget_reached`: the purpose of the call the budget left unsent. */
+    /**
+     * With `budget_reached`, the purpose of the call the budget left unsent; with a
+     * `stage_skipped` written because call 2 didn't fit (§1.10), `analyse_expansion`.
+     */
     unsentPurpose: callPurpose.optional(),
   })
-  .refine((r) => (r.reason === "budget_reached") === (r.unsentPurpose !== undefined), {
-    message: "unsentPurpose is set exactly when the reason is budget_reached",
+  .refine((r) => r.reason !== "budget_reached" || r.unsentPurpose !== undefined, {
+    message: "budget_reached names the purpose it left unsent",
     path: ["unsentPurpose"],
-  });
+  })
+  .refine(
+    (r) =>
+      r.unsentPurpose === undefined ||
+      r.reason === "budget_reached" ||
+      (r.reason === "stage_skipped" && r.unsentPurpose === "analyse_expansion"),
+    {
+      message:
+        "unsentPurpose is set only for budget_reached, or as analyse_expansion for stage_skipped",
+      path: ["unsentPurpose"],
+    },
+  );
 
 const snapshotSettings = z.strictObject({
   maxReadableFileBytes: z.int().min(1),
@@ -277,21 +322,46 @@ const contextSettings = z.strictObject({
   treeCollapseThreshold: count,
 });
 
+const outputTokens = z.int().min(1);
+
+/** The token check's settings (§1.10), which change what it removes. */
+const tokenSettings = z.strictObject({
+  /** Per call, sent as `max_tokens`. */
+  reservedOutputTokens: z.strictObject({
+    analyse: outputTokens,
+    analyse_expansion: outputTokens,
+    generate_questions: outputTokens,
+    recommend: outputTokens,
+    regenerate_recommendations: outputTokens,
+  }),
+  /** A fraction of the model's input limit. */
+  safetyMargin: z.number().min(0).lt(1),
+});
+
 /** The effective selection settings, whose canonical JSON gives `settingsHash` (IMPL §1.3). */
 export const selectionSettings = z.strictObject({
   snapshot: snapshotSettings,
   context: contextSettings,
+  tokens: tokenSettings,
 });
+
+/** `output_config.effort` (IMPL §3.7). */
+export const effort = z.enum(["low", "medium", "high", "xhigh", "max"]);
 
 export const generationConfigRecord = z
   .strictObject({
     ...envelope("generation_config"),
     ...revisioned,
-    /** Why a revision after the first was appended: raising or confirming the budget (§4.6). */
-    reason: z.enum(["budget_raised", "budget_confirmed"]).optional(),
+    /**
+     * Why a revision after the first was appended: raising or confirming the budget, or raising
+     * the output limit (§4.6).
+     */
+    reason: z.enum(GENERATION_CONFIG_REASONS).optional(),
     settings: selectionSettings,
     settingsHash: hash,
     requestedModel: nonEmpty,
+    /** Sent on every call; outside `settingsHash`, like the model (§3.7). */
+    effort,
     /** The generation budget: a token ceiling, a cost ceiling in USD, both or neither. */
     budget: z.strictObject({
       maxTokens: z.int().min(1).optional(),
@@ -797,8 +867,12 @@ export const invalidatedReason = z.enum([
   "revalidation_failed",
   "not_reconsidered",
   "dropped_by_model",
+  "secret_match",
   "target_changed",
 ]);
+
+/** A secret-scan rule ID (§1.7). Never the matched text. */
+const secretRuleId = nonEmpty;
 
 /** A model-produced revision's events are on its model call (DM §9.1). */
 function onlyEditsHoldEvents(r: { validationEvents?: unknown; producedBy: string }): boolean {
@@ -826,9 +900,15 @@ const recommendationRevision = z
     validationEvents: z.array(z.lazy(() => validationEvent)).optional(),
     status: z.enum(["valid", "invalidated"]),
     invalidatedReason: invalidatedReason.optional(),
+    /** The rule a `secret_match` invalidation matched (§1.7). */
+    secretRuleId: secretRuleId.optional(),
   })
   .refine((r) => (r.status === "invalidated") === (r.invalidatedReason !== undefined), {
     message: "invalidatedReason is set exactly when invalidated",
+  })
+  .refine((r) => (r.invalidatedReason === "secret_match") === (r.secretRuleId !== undefined), {
+    message: "secretRuleId is set exactly when the reason is secret_match",
+    path: ["secretRuleId"],
   })
   .refine((r) => r.revisedBy === undefined || r.status === "invalidated", {
     message: "only an invalidation sets revisedBy",
@@ -1221,6 +1301,10 @@ const modelCallStartedFields = {
   /** The previous attempt's `modelCallId`. */
   retryOf: modelCallId.optional(),
   requestedModel: nonEmpty,
+  /** The `anthropic-version` the SDK sends (§3.7). */
+  apiVersion: nonEmpty,
+  /** The price table used for `estimatedCost` and `cost` (§4.6). */
+  priceTable: z.strictObject({ version: nonEmpty, date: z.iso.date() }),
   promptVersion: nonEmpty,
   promptHash: hash,
   schemaVersion: nonEmpty,
@@ -1236,6 +1320,9 @@ const modelCallStartedFields = {
   startedAt: timestamp,
 };
 
+/** Why no response was parsed (§3.5, §3.6). */
+const unparsedReason = z.enum(["truncated", "refusal", "unexpected_stop", "no_response"]);
+
 const correctedCitationRate = z.union([
   z.strictObject({
     state: z.literal("known"),
@@ -1245,13 +1332,16 @@ const correctedCitationRate = z.union([
   }),
   z.strictObject({
     state: z.literal("unknown"),
-    reason: z.enum(["schema_failed", "no_citations"]),
+    reason: z.union([z.enum(["schema_failed", "no_citations"]), unparsedReason]),
   }),
 ]);
 
 const citationsProposed = z.union([
   z.strictObject({ state: z.literal("known"), count }),
-  z.strictObject({ state: z.literal("unknown"), reason: z.literal("schema_failed") }),
+  z.strictObject({
+    state: z.literal("unknown"),
+    reason: z.union([z.literal("schema_failed"), unparsedReason]),
+  }),
 ]);
 
 const modelCallStarted = z.strictObject({
@@ -1277,12 +1367,20 @@ const modelCallEnded = z.strictObject({
     z.strictObject({
       amount: z.number().min(0),
       currency: z.literal("USD"),
-      basis: z.enum(["reported", "estimated"]),
+      /** The API reports usage, not cost, so a known cost is always priced from the table. */
+      basis: z.literal("estimated"),
     }),
   ),
   validationEvents: z.array(validationEvent),
   counts: z.strictObject({
-    proposed: known(count),
+    /** Unknown when the response failed the schema or wasn't parsed (§3.5). */
+    proposed: z.union([
+      z.strictObject({ state: z.literal("known"), value: count }),
+      z.strictObject({
+        state: z.literal("unknown"),
+        reason: z.union([z.enum(["schema_failed", "interrupted"]), unparsedReason]),
+      }),
+    ]),
     accepted: count,
     corrected: count,
     relabelled: count,
@@ -1377,6 +1475,17 @@ export const effortCorrectionRecord = z.strictObject({
  */
 export const inputsPurgedRecord = z.strictObject({ ...envelope("inputs_purged") });
 
+/**
+ * An item whose text matched the secret scan (§1.7, §4.4.1): every revision of it, earlier or
+ * later, is left out of current state and later calls. Never the matched text.
+ */
+export const secretWithheldRecord = z.strictObject({
+  ...envelope("secret_withheld"),
+  /** A finding, conflict or question lineage ID, or a decision's record ID. */
+  itemId: z.string().regex(/^(fnd|conf|q|dec)_[0-9A-Za-z-]+$/),
+  secretRuleId,
+});
+
 // --- The file (§4.3) -------------------------------------------------------------------------
 
 // A plain union: the finding, conflict, question and evidence variants are unions themselves.
@@ -1402,6 +1511,7 @@ export const sessionRecord = z.union([
   effortIntervalRecord,
   effortCorrectionRecord,
   inputsPurgedRecord,
+  secretWithheldRecord,
 ]);
 
 export const sessionHeader = z.strictObject({

@@ -6,6 +6,7 @@ import {
   countingIds,
   hashOf,
   newLog,
+  TEST_SETTINGS,
   tickingClock,
 } from "../../../test/support/session.js";
 import type { InputManifest } from "../context/select.js";
@@ -34,24 +35,10 @@ function withConfig(
   });
   log.start({
     type: "generation_config",
-    settings: {
-      snapshot: { maxReadableFileBytes: 1, userExclusions: [], includeIgnored: [] },
-      context: {
-        initialContextBytes: 1,
-        knownFactsBytes: 1,
-        tierCaps: { tier1: 0, tier2: 0, tier3: 0, tier4: 0, tier5: 0 },
-        maxDestinationBytes: 0,
-        perFileCaps: { tier2: 0, tier3: 0, tier5: 0 },
-        testReserveBytes: 0,
-        testExampleBytes: 0,
-        maxSourceFiles: 0,
-        sourceExtensions: [],
-        treeDepth: 0,
-        treeCollapseThreshold: 0,
-      },
-    },
+    settings: TEST_SETTINGS,
     settingsHash: hashOf("9"),
     requestedModel: "claude-test",
+    effort: "medium",
     budget,
     expansion: { maxExpansionRequests: 0, expansionBytes: 0, expansionEntryBytes: 0 },
     questionBudget: 5,
@@ -381,6 +368,26 @@ describe("the budget with unknown costs (IMPL §4.6, §3.6)", () => {
       result: "send",
       budget: { maxCostUsd: 5 },
     });
+  });
+
+  it("raising the output limit leaves the budget alone and settles no unknown (IMPL §4.6)", () => {
+    const log = withConfig({ maxCostUsd: 10 });
+    log.start(callDraft({ estimatedCost: unknown("no_price") }));
+    recoverInterruptedWork(log);
+    const tokens = TEST_SETTINGS.tokens;
+    const raised = log.revise("generation_config", "generation_config", {
+      reason: "output_limit_raised",
+      settings: {
+        ...TEST_SETTINGS,
+        tokens: {
+          ...tokens,
+          reservedOutputTokens: { ...tokens.reservedOutputTokens, analyse: 20_000 },
+        },
+      },
+      settingsHash: hashOf("8"),
+    });
+    expect(raised).toMatchObject({ budget: { maxCostUsd: 10 } });
+    expect(checkBudget(log.records, estimate)).toMatchObject({ result: "cannot_check" });
   });
 
   it("a call started after the confirmation makes the check impossible again", () => {

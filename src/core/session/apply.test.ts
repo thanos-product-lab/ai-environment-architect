@@ -6,6 +6,7 @@ import {
   completedCall,
   hashOf,
   newLog,
+  TEST_SETTINGS,
   tickingClock,
 } from "../../../test/support/session.js";
 import { parseGuidanceBlocks } from "../destination/guidance-blocks.js";
@@ -98,24 +99,10 @@ function recommended(text: string | null = GUIDE): Recommended {
   });
   log.start({
     type: "generation_config",
-    settings: {
-      snapshot: { maxReadableFileBytes: 1, userExclusions: [], includeIgnored: [] },
-      context: {
-        initialContextBytes: 1,
-        knownFactsBytes: 1,
-        tierCaps: { tier1: 0, tier2: 0, tier3: 0, tier4: 0, tier5: 0 },
-        maxDestinationBytes: 0,
-        perFileCaps: { tier2: 0, tier3: 0, tier5: 0 },
-        testReserveBytes: 0,
-        testExampleBytes: 0,
-        maxSourceFiles: 0,
-        sourceExtensions: [],
-        treeDepth: 0,
-        treeCollapseThreshold: 0,
-      },
-    },
+    settings: TEST_SETTINGS,
     settingsHash: hashOf("9"),
     requestedModel: "claude-test",
+    effort: "medium",
     budget: { maxCostUsd: 2 },
     expansion: { maxExpansionRequests: 0, expansionBytes: 0, expansionEntryBytes: 0 },
     questionBudget: 5,

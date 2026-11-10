@@ -9,6 +9,7 @@ import {
 } from "../../../test/support/session.js";
 import { settingsHash } from "../context/select.js";
 import { DEFAULT_CONTEXT_SETTINGS } from "../context/tiers.js";
+import { DEFAULT_TOKEN_SETTINGS } from "../context/token-settings.js";
 import { DEFAULT_SNAPSHOT_SETTINGS } from "../snapshot/snapshot.js";
 import { DEFAULT_EXPANSION_SETTINGS } from "../validation/expansion.js";
 import { recordFailedRecommendationRevision } from "./failed.js";
@@ -86,7 +87,7 @@ describe("envelope (IMPL §4.3)", () => {
   });
 
   it("has a record prefix for every type in the §4.4.1 table, and lineage prefixes", () => {
-    expect(Object.keys(RECORD_KINDS)).toHaveLength(21);
+    expect(Object.keys(RECORD_KINDS)).toHaveLength(22);
     expect(RECORD_KINDS.finding).toEqual({
       record: "fndr",
       lineage: { field: "findingId", prefix: "fnd" },
@@ -386,13 +387,18 @@ describe("record schemas (IMPL §4.4.1, §4.4.3)", () => {
 
 describe("generation_config (IMPL §4.4.1)", () => {
   it("holds the selection settings with their settingsHash; raising the budget appends a revision with a reason", () => {
-    const settings = { snapshot: DEFAULT_SNAPSHOT_SETTINGS, context: DEFAULT_CONTEXT_SETTINGS };
+    const settings = {
+      snapshot: DEFAULT_SNAPSHOT_SETTINGS,
+      context: DEFAULT_CONTEXT_SETTINGS,
+      tokens: DEFAULT_TOKEN_SETTINGS,
+    };
     const log = newLog();
     const first = log.start({
       type: "generation_config",
       settings,
       settingsHash: settingsHash(settings),
       requestedModel: "claude-opus-5-5",
+      effort: "medium",
       budget: { maxCostUsd: 2 },
       expansion: DEFAULT_EXPANSION_SETTINGS,
       questionBudget: 5,
@@ -716,13 +722,18 @@ describe("refusals (IMPL §4.4.1, §4.4.3, §4.5)", () => {
   });
 
   it("a generation_config revision after the first gives its reason", () => {
-    const settings = { snapshot: DEFAULT_SNAPSHOT_SETTINGS, context: DEFAULT_CONTEXT_SETTINGS };
+    const settings = {
+      snapshot: DEFAULT_SNAPSHOT_SETTINGS,
+      context: DEFAULT_CONTEXT_SETTINGS,
+      tokens: DEFAULT_TOKEN_SETTINGS,
+    };
     const log = newLog();
     log.start({
       type: "generation_config",
       settings,
       settingsHash: settingsHash(settings),
       requestedModel: "claude-opus-5-5",
+      effort: "medium",
       budget: { maxCostUsd: 2 },
       expansion: DEFAULT_EXPANSION_SETTINGS,
       questionBudget: 5,

@@ -1,6 +1,9 @@
+import { canonicalJson } from "../context/select.js";
 import type { Clock, IdSource } from "../ports.js";
 import {
   CURRENT_STATUSES,
+  GENERATION_CONFIG_CHANGES,
+  type GenerationConfigReason,
   INVALIDATION_FIELDS,
   RECORD_KINDS,
   REVISION_FIELDS,
@@ -92,6 +95,47 @@ export type Revised<T extends Type> = Exclude<
 export interface LogPorts {
   readonly clock: Clock;
   readonly ids: IdSource;
+}
+
+/**
+ * The fields a revision of `type` may change. A `generation_config` revision's depend on its
+ * reason (§4.4.1); an invalidation of a recommendation revision changes only
+ * `INVALIDATION_FIELDS`.
+ */
+export function changeableFields(
+  type: Type,
+  revision: { readonly reason?: unknown; readonly status?: unknown },
+): readonly string[] {
+  if (type === "generation_config" && typeof revision.reason === "string")
+    return (
+      GENERATION_CONFIG_CHANGES[revision.reason as GenerationConfigReason] ??
+      REVISION_FIELDS.generation_config
+    );
+  if (type === "recommendation_revision" && revision.status === "invalidated")
+    return INVALIDATION_FIELDS;
+  return REVISION_FIELDS[type as RevisableType];
+}
+
+type Config = RecordOf<"generation_config">;
+
+/**
+ * Why an `output_limit_raised` revision of `before` isn't one (§4.6, §4.9 check 3), or undefined
+ * if it is: its settings may differ only in `reservedOutputTokens`, raising at least one limit
+ * and lowering none.
+ */
+export function outputLimitProblem(before: Config, after: Config): string | undefined {
+  const { reservedOutputTokens: was, ...restBefore } = before.settings.tokens;
+  const { reservedOutputTokens: now, ...restAfter } = after.settings.tokens;
+  const others = (c: Config, tokens: object) => canonicalJson({ ...c.settings, tokens });
+  if (others(before, restBefore) !== others(after, restAfter))
+    return "raising the output limit changes only reservedOutputTokens";
+  const purposes = Object.keys(was) as (keyof typeof was)[];
+  if (purposes.some((p) => now[p] < was[p])) return "raising the output limit lowers none";
+  if (!purposes.some((p) => now[p] > was[p])) return "raising the output limit raises one";
+  // The settings changed, so the hash that covers them must too; code computes it (§1.3).
+  if (after.settingsHash === before.settingsHash)
+    return "raising the output limit changes settingsHash";
+  return undefined;
 }
 
 export function isFailed(record: SessionRecord): boolean {
@@ -218,7 +262,10 @@ export class SessionLog {
     const last = all.at(-1);
     if (base === undefined || last === undefined)
       throw new Error(`no ${type} revision to revise in ${lineage}`);
-    const changeable = REVISION_FIELDS[type as RevisableType];
+    const changeable = changeableFields(type, {
+      ...(base as { reason?: unknown; status?: unknown }),
+      ...(changes as { reason?: unknown; status?: unknown }),
+    });
     if (
       type === "recommendation_revision" &&
       (changes as { status?: string }).status === "invalidated"
@@ -240,12 +287,17 @@ export class SessionLog {
       revisedBy: _revisedBy,
       ...fields
     } = base as unknown as Record<string, unknown>;
-    return this.append({
+    const next = {
       ...fields,
       ...changes,
       revision: (last as { revision: number }).revision + 1,
       supersedes: [base.id],
-    } as unknown as Draft<Type>) as Revised<T>;
+    };
+    if (type === "generation_config" && next["reason"] === "output_limit_raised") {
+      const problem = outputLimitProblem(base as Config, next as unknown as Config);
+      if (problem !== undefined) throw new Error(problem);
+    }
+    return this.append(next as unknown as Draft<Type>) as Revised<T>;
   }
 
   #checkSupersedable(type: Type, id: string): void {

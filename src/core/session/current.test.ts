@@ -662,3 +662,85 @@ describe("derived state is never stored (IMPL §4.4.2, §4.11)", () => {
     }
   });
 });
+
+describe("items withheld for a secret match (IMPL §1.7, §4.4.1, §4.4.2)", () => {
+  const withhold = (log: SessionLog, itemId: string) =>
+    log.append({ type: "secret_withheld", itemId, secretRuleId: "github-token" });
+
+  it("leaves a finding out of current state, and with it the conflicts and questions that need it", () => {
+    const log = newLog();
+    const snap = snapshot(log);
+    const kept = claim(log, snap.id, "The guide asks for Y.");
+    const hidden = claim(log, snap.id);
+    const c = conflict(log, snap.id, [kept.findingId, hidden.findingId]);
+    const q = question(log, { findingIds: [hidden.findingId] });
+    withhold(log, hidden.findingId);
+    const current = currentState(log.records);
+    expect([...current.findings.keys()]).toEqual([kept.findingId]);
+    expect(current.conflicts.has(c.conflictId)).toBe(false);
+    expect(current.questions.has(q.questionId)).toBe(false);
+    // It stays in the developer's own view.
+    expect(current.withheld.get(hidden.findingId)).toMatchObject({ secretRuleId: "github-token" });
+  });
+
+  it("covers every revision of the item, earlier or later", () => {
+    const log = newLog();
+    const snap = snapshot(log);
+    const f = claim(log, snap.id);
+    const c = conflict(log, snap.id, [f.findingId, claim(log, snap.id, "Y.").findingId]);
+    withhold(log, c.conflictId);
+    log.revise("conflict", c.conflictId, { status: "unresolved", findingIds: c.findingIds });
+    expect(currentState(log.records).conflicts.has(c.conflictId)).toBe(false);
+  });
+
+  it("leaves a conflict and a question out", () => {
+    const log = newLog();
+    const snap = snapshot(log);
+    const a = claim(log, snap.id);
+    const b = claim(log, snap.id, "Y.");
+    const c = conflict(log, snap.id, [a.findingId, b.findingId]);
+    const onConflict = question(log, { conflictIds: [c.conflictId] });
+    const other = question(log, { findingIds: [a.findingId] });
+    withhold(log, c.conflictId);
+    withhold(log, other.questionId);
+    const current = currentState(log.records);
+    expect(current.conflicts.size).toBe(0);
+    expect(current.questions.has(onConflict.questionId)).toBe(false);
+    expect(current.questions.has(other.questionId)).toBe(false);
+    expect([...current.withheld.keys()]).toEqual([c.conflictId, other.questionId]);
+  });
+
+  it("leaves a decision out, while a decision that corrects it is current", () => {
+    const log = newLog();
+    const snap = snapshot(log);
+    const f = claim(log, snap.id);
+    const first = correction(log, f.findingId);
+    withhold(log, first.id);
+    expect(currentState(log.records).decisions.has(first.id)).toBe(false);
+    const corrected = correction(log, f.findingId, first.id);
+    expect([...currentState(log.records).decisions.keys()]).toEqual([corrected.id]);
+  });
+
+  it("a withheld correction still keeps its finding corrected, so it is never sent", () => {
+    const log = newLog();
+    const snap = snapshot(log);
+    const f = claim(log, snap.id);
+    const decision = correction(log, f.findingId);
+    withhold(log, decision.id);
+    const current = currentState(log.records);
+    expect(current.findings.has(f.findingId)).toBe(false);
+    expect(current.correctedFindings.has(f.findingId)).toBe(true);
+  });
+
+  it("a corrected finding that is withheld is still shown as corrected", () => {
+    const log = newLog();
+    const snap = snapshot(log);
+    const f = claim(log, snap.id);
+    correction(log, f.findingId);
+    withhold(log, f.findingId);
+    const current = currentState(log.records);
+    expect(current.findings.has(f.findingId)).toBe(false);
+    expect(current.correctedFindings.has(f.findingId)).toBe(true);
+    expect(current.withheld.has(f.findingId)).toBe(true);
+  });
+});

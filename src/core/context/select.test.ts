@@ -28,6 +28,7 @@ import {
   DEFAULT_CONTEXT_SETTINGS,
   selectTiers,
 } from "./tiers.js";
+import { DEFAULT_TOKEN_SETTINGS } from "./token-settings.js";
 
 // The selection pipeline (IMPL §1.3) and the input manifest (IMPL §1.13).
 
@@ -38,6 +39,7 @@ const awsKey = join("AKIA", "IOSFODNN7EXAMPLE");
 const SETTINGS: ContextSelectionSettings = {
   snapshot: DEFAULT_SNAPSHOT_SETTINGS,
   context: DEFAULT_CONTEXT_SETTINGS,
+  tokens: DEFAULT_TOKEN_SETTINGS,
 };
 
 async function run(
@@ -53,6 +55,7 @@ async function run(
   const settings: ContextSelectionSettings = {
     snapshot: { ...DEFAULT_SNAPSHOT_SETTINGS, ...options.snapshot },
     context: { ...DEFAULT_CONTEXT_SETTINGS, ...options.context },
+    tokens: DEFAULT_TOKEN_SETTINGS,
   };
   const fs = new MemoryFs(nodes, options.order === undefined ? {} : { order: options.order });
   const deps = { fs, clock: fixedClock, ids: fixedIds };
@@ -434,9 +437,22 @@ describe("settingsHash (IMPL §1.3)", () => {
     expect(
       settingsHash({ ...SETTINGS, snapshot: { ...SETTINGS.snapshot, userExclusions: ["tmp/"] } }),
     ).not.toBe(base);
+    expect(
+      settingsHash({
+        ...SETTINGS,
+        tokens: {
+          ...SETTINGS.tokens,
+          reservedOutputTokens: { ...SETTINGS.tokens.reservedOutputTokens, analyse: 20_000 },
+        },
+      }),
+    ).not.toBe(base);
+    expect(
+      settingsHash({ ...SETTINGS, tokens: { ...SETTINGS.tokens, safetyMargin: 0.1 } }),
+    ).not.toBe(base);
     const reordered = {
       context: Object.fromEntries(Object.entries(SETTINGS.context).reverse()),
       snapshot: SETTINGS.snapshot,
+      tokens: SETTINGS.tokens,
     } as unknown as ContextSelectionSettings;
     expect(settingsHash(reordered)).toBe(base);
   });
