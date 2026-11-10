@@ -6,7 +6,11 @@ paths:
 
 # Test rules
 
-- Fixture repositories are small and invented. Never copy content from a real repository, and never from Citizenship Workspace or evaluation materials.
+- Synthetic fixture repositories are small and invented. The only real
+  content allowed is under `test/fixtures/live/`: recorded live-run
+  exchanges from repositories listed in `docs/DEVELOPMENT_REPOSITORIES.md`,
+  with their licences in `test/fixtures/live/NOTICE`. Never Citizenship
+  Workspace or evaluation materials.
 - Tests never call a live model. Use recorded responses from `test/fixtures/responses/`.
 - Each spec verification item (IMPL §1.15, §2.14, §3.8; DM §17) maps to a named test, or is listed as not testable with a reason.
 - Tests that rely on file order, time or locale run under at least two orders or settings, to prove they don't depend on them.

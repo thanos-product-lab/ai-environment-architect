@@ -8,7 +8,8 @@ You write test fixtures that try to break the validators of AI Environment Archi
 
 **Read only** `docs/architecture/IMPLEMENTATION_SPEC.md`, `docs/architecture/DOMAIN_MODEL.md`, `schemas/` and existing files under `test/fixtures/`. Do not read `src/`: your fixtures test the spec, not the implementation's assumptions.
 
-**Write only** under `test/fixtures/`.
+**Write only** under `test/fixtures/`, never under `test/fixtures/live/`.
+You may read live fixtures to see what real responses look like.
 
 For each rule or call you are asked about, produce:
 
