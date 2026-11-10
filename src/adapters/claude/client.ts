@@ -4,6 +4,7 @@ import Anthropic, {
   APIError,
 } from "@anthropic-ai/sdk";
 import type { MessageCreateParamsNonStreaming } from "@anthropic-ai/sdk/resources/messages";
+import { Agent, fetch as undiciFetch } from "undici";
 import { z } from "zod";
 import type { Known } from "../../core/session/records.js";
 import type { JsonSchema } from "../../schemas/api-schema.js";
@@ -23,6 +24,9 @@ import type { JsonSchema } from "../../schemas/api-schema.js";
 //   `ANTHROPIC_CUSTOM_HEADERS` can't change the API version, add a beta or replace the key.
 // - The wrapper reads every body, an HTTP error's too, under the SDK's abort signal, so the
 //   timeout covers the whole response and its bytes are kept (IMPL §4.8).
+// - Requests go through undici's own `fetch`, with an Agent whose header and body timeouts are
+//   the same timeout. Node's built-in `fetch` gives up after 300 seconds without headers, which
+//   would cut a raised output limit short, whatever `timeout` says (ADR 0003).
 // - Only bodies, and an error's `retry-after` value, are returned; never a credential.
 
 /** The `anthropic-version` every 1.x SDK sends (ADR 0003). A test checks the header. */
@@ -115,8 +119,14 @@ export function nonStreamingTimeoutMs(maxTokens: number): number {
 export interface ClientOptions {
   /** Passed explicitly, so the SDK never reads a key or token from the environment. */
   readonly apiKey: string;
-  /** Tests inject one; no live model is called in tests. */
+  /** Tests inject one in place of undici's, the Agent included; no live model is called. */
   readonly fetch?: Fetch;
+  /**
+   * Tests only: the Agent's connection, such as an in-memory fake server, so that the real
+   * undici `fetch` and Agent settings are what is tested. Ignored when `fetch` is given, which
+   * replaces undici's `fetch` and the Agent together.
+   */
+  readonly connect?: Agent.Options["connect"];
 }
 
 type Fetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
@@ -125,19 +135,52 @@ export interface ClaudeClient {
   send(request: MessageRequest): Promise<SendResult>;
 }
 
+/**
+ * The Agent's settings for one send: undici's header and body timeouts, 300 seconds by default,
+ * are the send's own timeout, so the SDK's timer is the limit that applies.
+ */
+export function agentOptions(timeoutMs: number): { headersTimeout: number; bodyTimeout: number } {
+  return { headersTimeout: timeoutMs, bodyTimeout: timeoutMs };
+}
+
 /** Statuses whose response can't have a body, so it is rebuilt with none. */
 const NO_BODY = new Set([101, 204, 205, 304]);
 
 export function createClaudeClient(options: ClientOptions): ClaudeClient {
-  const inner: Fetch = options.fetch ?? globalThis.fetch.bind(globalThis);
   return {
     async send(request) {
       const body = messageBody(request);
       const requestBytes = bodyBytes(body);
+      const timeoutMs = nonStreamingTimeoutMs(request.maxTokens);
+      // One Agent per send, closed after it, with this send's timeout.
+      const agent =
+        options.fetch === undefined
+          ? new Agent({
+              ...agentOptions(timeoutMs),
+              ...(options.connect === undefined ? {} : { connect: options.connect }),
+            })
+          : undefined;
+      const inner: Fetch =
+        options.fetch ??
+        (async (input, init) => {
+          // Only the fields the SDK sends, typed for undici: a body other than the JSON string,
+          // or a missing signal, would be a type error here rather than a silent change.
+          const body = init?.body;
+          if (typeof body !== "string") throw new Error("the adapter sends only a JSON body");
+          if (agent === undefined) throw new Error("undici's fetch is used only with the Agent");
+          const response = await undiciFetch(String(input), {
+            method: init?.method ?? "POST",
+            headers: [...new Headers(init?.headers)],
+            body,
+            signal: init?.signal ?? null,
+            dispatcher: agent,
+          });
+          // Only status, status text, headers and body are read, to build a global Response.
+          return response as unknown as Response;
+        });
       /** The body of the one response this send gets, as received. */
       let received: Uint8Array | undefined;
       const fetch: Fetch = async (input, init) => {
-        const timeoutMs = nonStreamingTimeoutMs(request.maxTokens);
         const response = await inner(input, {
           ...init,
           headers: sentHeaders(options.apiKey, timeoutMs),
@@ -160,9 +203,7 @@ export function createClaudeClient(options: ClientOptions): ClaudeClient {
         fetch,
       });
       try {
-        await sdk.messages
-          .create(body, { timeout: nonStreamingTimeoutMs(request.maxTokens) })
-          .asResponse();
+        await sdk.messages.create(body, { timeout: timeoutMs }).asResponse();
         if (received === undefined) throw new Error("the response body wasn't read");
         return {
           kind: "response",
@@ -186,6 +227,9 @@ export function createClaudeClient(options: ClientOptions): ClaudeClient {
           };
         }
         throw error;
+      } finally {
+        // Everything was read, or the send failed: nothing is left to wait for.
+        await agent?.destroy();
       }
     },
   };
