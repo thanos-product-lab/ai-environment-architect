@@ -240,10 +240,10 @@
               "literal": {
                 "type": "string"
               },
-              "glob": {
+              "reason": {
                 "type": "string"
               },
-              "reason": {
+              "glob": {
                 "type": "string"
               }
             },

@@ -138,10 +138,20 @@ describe("versions and fingerprints (IMPL §3.7)", () => {
         version: CALL_SCHEMAS[call].version,
         schemaHash: CALL_SCHEMAS[call].schemaHash,
         limitsFingerprint: CALL_SCHEMAS[call].limitsFingerprint,
+        orderFingerprint: CALL_SCHEMAS[call].orderFingerprint,
       };
       expect(HISTORY[call]).toContainEqual(current);
     });
   }
+
+  it("a reorder of optional properties changes only the order fingerprint", () => {
+    for (const call of ["analyse", "recommend", "regenerate_recommendations"] as const) {
+      const [before, after] = HISTORY[call];
+      expect(after?.schemaHash, call).toBe(before?.schemaHash);
+      expect(after?.limitsFingerprint, call).toBe(before?.limitsFingerprint);
+      expect(after?.orderFingerprint, call).not.toBe(before?.orderFingerprint);
+    }
+  });
 
   it("no version is recorded with two fingerprints", () => {
     for (const call of CALLS) {
@@ -155,13 +165,27 @@ describe("versions and fingerprints (IMPL §3.7)", () => {
 // a new entry with a new version, never edit an old one, then run `corepack pnpm schemas:update`.
 const HISTORY: Record<
   CallPurpose,
-  readonly { version: string; schemaHash: string; limitsFingerprint: string }[]
+  readonly {
+    version: string;
+    schemaHash: string;
+    limitsFingerprint: string;
+    /** The property order, which `schemaHash` doesn't cover because it sorts keys (§3.7). */
+    orderFingerprint: string;
+  }[]
 > = {
   analyse: [
     {
       version: "analyse/1.0.0",
       schemaHash: "sha256:5df6b0adc41c3f69ca335bec41394d1cbf0cda469f22ba024be1eaafa5d34518",
       limitsFingerprint: "sha256:2f168fb4df7256d1054b2a8c4a79a836ed01b3f016fe5c992d439fc8bf1cc6e0",
+      orderFingerprint: "sha256:c51e88101dfef3a494ab2acd0f3bb86b90de459b264ed381152bbc0b73257e68",
+    },
+    // Optional properties last (v0.55): only the order fingerprint changes.
+    {
+      version: "analyse/1.1.0",
+      schemaHash: "sha256:5df6b0adc41c3f69ca335bec41394d1cbf0cda469f22ba024be1eaafa5d34518",
+      limitsFingerprint: "sha256:2f168fb4df7256d1054b2a8c4a79a836ed01b3f016fe5c992d439fc8bf1cc6e0",
+      orderFingerprint: "sha256:02e8f54dffc420c620e2c6ee2b3fe30842b05ed288493fb7b480fab038dbf84f",
     },
   ],
   analyse_expansion: [
@@ -169,6 +193,7 @@ const HISTORY: Record<
       version: "analyse_expansion/1.0.0",
       schemaHash: "sha256:032802a5e0a9d16c14a740f670b29b7c38ab95eb96e724d20da32c133d9d42b6",
       limitsFingerprint: "sha256:cf27dcbcb7ec675ad65eba291d62ba7bb80d5d4d316a066cc38c060abca60091",
+      orderFingerprint: "sha256:5457044f6ed74e273cb64e48e6ba3f6fcdeb6c8c8193ef93a96c025bbe558c67",
     },
   ],
   generate_questions: [
@@ -176,6 +201,7 @@ const HISTORY: Record<
       version: "generate_questions/1.0.0",
       schemaHash: "sha256:a9944c89b648209b38642fb3e33a649383cc811d7428d029db1947c6fc7093d0",
       limitsFingerprint: "sha256:f016e043b60623a5ed7d53f139696256f7b085baee3ff3efde27c7fd96c7db7b",
+      orderFingerprint: "sha256:74dca59c9fa5920637308137b21c6fd3cb202ebae988604dbc7ac91a6e4186c4",
     },
   ],
   recommend: [
@@ -183,6 +209,14 @@ const HISTORY: Record<
       version: "recommend/1.0.0",
       schemaHash: "sha256:5910184ac7655fefa4eedbfb0153e256e7809f28c37e0c023761b626cd42d4a7",
       limitsFingerprint: "sha256:bb02e2c3d57d91d88eedcda330e58b14cc58e5843e9f75c3b39fd6671465bde8",
+      orderFingerprint: "sha256:65d57deef72ebfa9d8231c136062083e7ef7051a5d9fa10e8fd91571e54f95db",
+    },
+    // Optional properties last (v0.55): only the order fingerprint changes.
+    {
+      version: "recommend/1.1.0",
+      schemaHash: "sha256:5910184ac7655fefa4eedbfb0153e256e7809f28c37e0c023761b626cd42d4a7",
+      limitsFingerprint: "sha256:bb02e2c3d57d91d88eedcda330e58b14cc58e5843e9f75c3b39fd6671465bde8",
+      orderFingerprint: "sha256:fdb28295f08fcb1942ee24d1bbf8b7b9a3a78ddf6b249e54a3d1385ed6a62492",
     },
   ],
   regenerate_recommendations: [
@@ -190,6 +224,14 @@ const HISTORY: Record<
       version: "regenerate_recommendations/1.0.0",
       schemaHash: "sha256:a295c4b308797c9973491d4b4995fdb9d9d3ece6688571759e55cca22f5aa045",
       limitsFingerprint: "sha256:a6a40d3576ef49c10afcdbb3189142a77c45c53925bb2e3371ee01082089863a",
+      orderFingerprint: "sha256:7d7a86d729e954997bd7194857d536f6790d5a0d3980971a864e65d43889db0c",
+    },
+    // Optional properties last (v0.55): only the order fingerprint changes.
+    {
+      version: "regenerate_recommendations/1.1.0",
+      schemaHash: "sha256:a295c4b308797c9973491d4b4995fdb9d9d3ece6688571759e55cca22f5aa045",
+      limitsFingerprint: "sha256:a6a40d3576ef49c10afcdbb3189142a77c45c53925bb2e3371ee01082089863a",
+      orderFingerprint: "sha256:4547ca68366b3537622a20c66e23cf1d86b4c0f3576a081fad48238b0ea35ac9",
     },
   ],
 };

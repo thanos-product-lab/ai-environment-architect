@@ -139,9 +139,6 @@
                       }
                     ]
                   },
-                  "content": {
-                    "type": "string"
-                  },
                   "rationale": {
                     "type": "string"
                   },
@@ -216,6 +213,9 @@
                         "additionalProperties": false
                       }
                     ]
+                  },
+                  "content": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -344,9 +344,6 @@
               }
             ]
           },
-          "content": {
-            "type": "string"
-          },
           "rationale": {
             "type": "string"
           },
@@ -421,6 +418,9 @@
                 "additionalProperties": false
               }
             ]
+          },
+          "content": {
+            "type": "string"
           }
         },
         "required": [

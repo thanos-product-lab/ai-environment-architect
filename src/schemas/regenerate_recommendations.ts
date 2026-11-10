@@ -13,7 +13,7 @@ import {
 // `regenerate_recommendations` (IMPL §3.3.6). An affected set larger than the `actions` ceiling
 // is split into several calls by code.
 
-export const REGENERATE_SCHEMA_VERSION = "regenerate_recommendations/1.0.0";
+export const REGENERATE_SCHEMA_VERSION = "regenerate_recommendations/1.1.0";
 
 export const REGENERATE_COLLECTION_LIMITS = { actions: 30, additions: 5, heldBack: 10 } as const;
 

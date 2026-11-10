@@ -1,9 +1,10 @@
 import { z } from "zod";
 
 // The JSON Schema sent to the API as `output_config.format` (IMPL §3.7). Structured outputs
-// support a subset of JSON Schema (checked 24 October 2026). This keeps that subset, removes the
-// limits the API can't enforce (Zod checks them after parsing), and refuses anything else, so an
-// unsupported construct fails a test here instead of a request.
+// support a subset of JSON Schema (checked 24 October and 9 November 2026). This keeps that
+// subset, removes the limits the API can't enforce (Zod checks them after parsing), and refuses
+// anything else, including an optional property before a required one, so an unsupported
+// construct fails a test here instead of a request.
 
 export type JsonSchema = { readonly [key: string]: unknown };
 
@@ -127,7 +128,24 @@ function convert(node: JsonSchema, at: string): JsonSchema {
   }
   if (out["type"] === "object" && out["additionalProperties"] !== false)
     throw new Error(`additionalProperties must be false at ${where}`);
+  checkPropertyOrder(out, where);
   return out;
+}
+
+/**
+ * The API has the model write required properties first, then optional ones, each group in
+ * schema order (IMPL §3.7, checked 9 November 2026). Optional ones last makes the order
+ * declared the order written.
+ */
+function checkPropertyOrder(node: Record<string, unknown>, where: string): void {
+  const properties = node["properties"] as Record<string, unknown> | undefined;
+  if (properties === undefined) return;
+  const required = new Set((node["required"] ?? []) as string[]);
+  let optional: string | undefined;
+  for (const name of Object.keys(properties))
+    if (!required.has(name)) optional ??= name;
+    else if (optional !== undefined)
+      throw new Error(`optional property ${optional} before required ${name} at ${where}`);
 }
 
 function checkPattern(pattern: string, where: string): string {

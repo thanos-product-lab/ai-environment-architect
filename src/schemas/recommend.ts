@@ -11,7 +11,7 @@ import {
 // `recommend` (IMPL §3.3.5). Operation, target and content combinations are checked by REC-002,
 // not the schema.
 
-export const RECOMMEND_SCHEMA_VERSION = "recommend/1.0.0";
+export const RECOMMEND_SCHEMA_VERSION = "recommend/1.1.0";
 
 export const RECOMMEND_COLLECTION_LIMITS = { recommendations: 15, heldBack: 10 } as const;
 

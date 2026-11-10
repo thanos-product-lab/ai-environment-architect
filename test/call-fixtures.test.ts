@@ -232,3 +232,45 @@ for (const call of CALLS) {
     });
   });
 }
+
+/** The same value with every object's keys in reverse order; arrays keep theirs. */
+function reverseKeys(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(reverseKeys);
+  if (typeof value !== "object" || value === null) return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .reverse()
+      .map(([key, child]) => [key, reverseKeys(child)]),
+  );
+}
+
+// The schema sent puts optional properties last, because the API has the model write required
+// ones first; that is a rule about the schema, not the response (IMPL §3.7). Parsing doesn't
+// depend on key order, and no validation rule looks at it.
+describe("a response with its keys in another order (IMPL §3.7, §3.8)", () => {
+  for (const call of CALLS) {
+    const dir = join(ROOT, call);
+    const names = existsSync(dir)
+      ? readdirSync(dir)
+          .filter((name) => name.endsWith(".json") && name !== "valid.json")
+          .filter((name) => !name.startsWith("context"))
+          .sort(comparePaths)
+      : [];
+    it(`${call}: every case gives the same result with each object's keys reversed`, () => {
+      let checked = 0;
+      for (const name of names) {
+        const fixtureCase = load(dir, name) as Case;
+        // Raw text cases test the text itself, such as malformed JSON.
+        if (fixtureCase.responseText !== undefined) continue;
+        const fixture = load(dir, fixtureCase.context ?? "context.json") as FixtureContext;
+        const text = JSON.stringify(fixtureCase.response);
+        const reordered = JSON.stringify(reverseKeys(fixtureCase.response));
+        expect(observe(call, reordered, fixture, false), name).toEqual(
+          observe(call, text, fixture, false),
+        );
+        checked += 1;
+      }
+      expect(checked).toBeGreaterThan(0);
+    });
+  }
+});

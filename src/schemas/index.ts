@@ -33,6 +33,11 @@ function describe<R extends z.ZodType, I>(definition: Definition<R, I>) {
     /** Generated from the response shape instead; a test checks it equals `apiSchema`. */
     apiSchemaFromShape: toApiSchema(definition.response),
     schemaHash: hashJson(apiSchema),
+    /**
+     * The schema's JSON in its own property order. `schemaHash` sorts keys, so this is what
+     * changes when only the order does, which the model writes fields in (IMPL §3.7).
+     */
+    orderFingerprint: sha256(new TextEncoder().encode(JSON.stringify(apiSchema))),
     /** Covers the limits only Zod checks, so changing one without a new version fails a test. */
     limitsFingerprint: hashJson({
       lengthUnit: LENGTH_UNIT,

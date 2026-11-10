@@ -178,14 +178,56 @@ describe("toApiSchema (IMPL §3.7)", () => {
 describe("schemaStats (IMPL §3.7)", () => {
   it("counts optional properties and union parameters, as the API's limits do", () => {
     const schema = z.strictObject({
-      a: z.string().optional(),
       b: z.array(
         z.strictObject({
           c: z.union([z.literal("x"), z.strictObject({ d: z.string().optional() })]),
           e: z.string().nullable(),
         }),
       ),
+      a: z.string().optional(),
     });
     expect(schemaStats(toApiSchema(schema))).toEqual({ optional: 2, unions: 2 });
+  });
+});
+
+describe("property order (IMPL §3.7)", () => {
+  it("refuses an optional property before a required one, naming where", () => {
+    const early = z.strictObject({ note: z.string().optional(), key: z.string() });
+    expect(() => toApiSchema(early)).toThrow(
+      /optional property note before required key at \(root\)/,
+    );
+    const nested = z.strictObject({
+      items: z.array(z.strictObject({ a: z.string(), b: z.string().optional(), c: z.string() })),
+    });
+    expect(() => toApiSchema(nested)).toThrow(
+      /optional property b before required c at items\.items/,
+    );
+  });
+
+  it("accepts optional properties after the required ones, in schema order", () => {
+    const schema = z.strictObject({
+      key: z.string(),
+      mode: z.string(),
+      note: z.string().optional(),
+      more: z.string().optional(),
+    });
+    const api = toApiSchema(schema) as { properties: object; required: string[] };
+    expect(Object.keys(api.properties)).toEqual(["key", "mode", "note", "more"]);
+    expect(api.required).toEqual(["key", "mode"]);
+  });
+
+  it("checks the JSON too, in each union option", () => {
+    expect(() =>
+      apiSchemaFromJson({
+        anyOf: [
+          {
+            type: "object",
+            properties: { glob: { type: "string" }, reason: { type: "string" } },
+            required: ["reason"],
+            additionalProperties: false,
+          },
+        ],
+      }),
+    ).toThrow(/optional property glob before required reason at anyOf\[0\]/);
   });
 });

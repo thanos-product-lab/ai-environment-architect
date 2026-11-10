@@ -15,7 +15,7 @@ import {
 
 // `analyse` (IMPL §3.3.2).
 
-export const ANALYSE_SCHEMA_VERSION = "analyse/1.0.0";
+export const ANALYSE_SCHEMA_VERSION = "analyse/1.1.0";
 
 /**
  * `expansionRequests` is the ceiling for the `maxExpansionRequests` setting (IMPL §1.8): a
@@ -45,8 +45,9 @@ export const expansionRequest = (l: Limits) =>
     z.strictObject({
       kind: z.literal("search"),
       literal: l.text(L.literal),
-      glob: path(l).optional(),
       reason: l.text(L.reason),
+      // Optional properties come last: the API has the model write required ones first (§3.7).
+      glob: path(l).optional(),
     }),
   ]);
 

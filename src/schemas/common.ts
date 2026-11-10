@@ -165,7 +165,6 @@ export const recommendationBody = (l: Limits) =>
     kind: z.enum(["fact", "policy"]),
     operation: z.enum(["add", "revise", "remove"]),
     target: target(l),
-    content: l.text(L.content).optional(),
     rationale: l.text(L.rationale),
     support: l.list(alias(l), L.aliasList),
     references: l.list(
@@ -177,6 +176,8 @@ export const recommendationBody = (l: Limits) =>
       L.references,
     ),
     scope: scope(l),
+    // Optional properties come last: the API has the model write required ones first (§3.7).
+    content: l.text(L.content).optional(),
   });
 
 export const recommendation = (l: Limits) =>
