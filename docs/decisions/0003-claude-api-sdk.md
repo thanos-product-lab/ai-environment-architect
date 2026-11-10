@@ -23,7 +23,7 @@ Every fact below was checked on 9 November 2026 against the sources at the end, 
 | API version | `2026-10-21`, which every 1.x release sends | An override back to `2023-06-01` |
 | Structured output | `messages.create` with `output_config.format` set to our committed JSON Schema | `zodOutputFormat`, `jsonSchemaOutputFormat`, `messages.parse` |
 | SDK retries | `maxRetries: 0`; the adapter's own loop implements IMPL §3.6 | The SDK's default of 2 retries |
-| Transport | Non-streaming, read with `.asResponse()` | `messages.stream().finalMessage()` |
+| Transport | Non-streaming, each body read whole by our `fetch` wrapper | `messages.stream().finalMessage()` |
 | Refusal fallbacks | Off | `fallbacks: "default"` |
 
 ### Package: `@anthropic-ai/sdk` 1.4.0
@@ -98,3 +98,4 @@ Checked on 9 November 2026:
 - **9 November 2026:** the adapter sets `timeout` itself, because the output limit can now be raised during a session.
 - **10 November 2026:** installed in the adapter step. The SDK's type declarations pass under TypeScript 7 with `skipLibCheck` off. Version 1.4.0 sends the API key as an `Authorization: Bearer` header.
 - **10 November 2026:** the SDK reads `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_LOG` and `ANTHROPIC_CUSTOM_HEADERS` from the environment, the last even when a key is given, and custom headers could change `anthropic-version` or add a beta. The adapter passes the key, a null token and the base URL, turns logging off, and wraps `fetch` so that only the SDK's plain headers, `anthropic-version: 2026-10-21` and the key are sent. The wrapper also reads each body, an HTTP error's included, under the SDK's abort signal: the SDK's timer stops when headers arrive, so without it a stalled body would never time out, and an error's body is retained like any response (IMPL §4.8).
+- **10 November 2026:** correction to the entry on the environment above. The headers the adapter supplies are fixed values, not copies of the SDK's: `accept`, `content-type`, `anthropic-version: 2026-10-21`, the key and `x-stainless-timeout`, because the SDK merges `ANTHROPIC_CUSTOM_HEADERS` over its own. The HTTP client adds its own headers on the wire, such as `user-agent` and `accept-encoding`, which carry nothing of ours.
