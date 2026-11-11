@@ -192,3 +192,4 @@ Checked on 8 October 2026:
 - **24 October 2026:** in M3. Schemas live in `src/schemas/`, so `rootDir: src` builds them unchanged. Shipping `prompts/` stays open for M6.
 - **9 November 2026:** the Claude API SDK is decided in ADR 0003.
 - **10 November 2026:** `undici` is added as the SDK's HTTP agent, decided in ADR 0003.
+- **11 November 2026:** inside the macOS sandbox, pnpm fails to take its store lock, so `install`, `add` and `remove` run outside it, approved one at a time; `add` and `remove` only for a package and version recorded in an ADR, `install` only with `--frozen-lockfile`. Seen on 10 and 11 November: a frozen offline install, and an `add` with a fresh store in the sandbox's own temp folder, both failed before doing anything, and allowing pnpm's store, cache and state folders didn't help. macOS's per-user temp folder, which the sandbox blocks, is the likely cause but isn't confirmed. The rule is in `CLAUDE.md`, Commands.

@@ -40,6 +40,8 @@ Created by the scaffold commit:
 
 Setup: Node from `.node-version` (for example `nvm install 24.21.0`), and pnpm through Corepack, which reads the pinned version from `package.json`. Use `corepack pnpm …`, or run `corepack enable pnpm` once and then plain `pnpm`. Don't use an older global pnpm (ADR 0002).
 
+Dependency commands (`corepack pnpm install`, `add` and `remove`) can't run inside the sandbox on macOS: pnpm fails to take its store lock, probably because it needs macOS's per-user temp folder, which stays blocked. They run outside it, approved one at a time. `add` and `remove` are only for a package and version already recorded in an ADR, and `install` only with `--frozen-lockfile`. Everything else (typecheck, lint, tests, build, git) runs inside.
+
 - `corepack pnpm install --frozen-lockfile`: install exactly what the lockfile says
 - `corepack pnpm typecheck`: `tsc --noEmit` over sources and tests
 - `corepack pnpm lint`: Biome lint and format check, no writes
