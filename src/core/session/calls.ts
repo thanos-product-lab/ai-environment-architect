@@ -148,6 +148,20 @@ export function recoverInterruptedWork(log: SessionLog): readonly SessionRecord[
   return appended;
 }
 
+// --- A call 2 that doesn't fit (IMPL §1.10) ---------------------------------------------------
+
+/**
+ * Call 2 still doesn't fit after every reduction, so it isn't sent: a `session_state` with the
+ * reason `stage_skipped` and `unsentPurpose: analyse_expansion` makes the session `incomplete`
+ * (§4.4.2), and the session continues from the same stage with call 1's results (§2.12).
+ */
+export function skipExpansion(log: SessionLog): SessionRecord {
+  return log.revise("session_state", "session_state", {
+    reason: "stage_skipped",
+    unsentPurpose: "analyse_expansion",
+  });
+}
+
 /**
  * What a read-only command shows for a call still `started` or an interval still `open`: in
  * progress while a live process holds the lock, interrupted otherwise. Writes nothing.

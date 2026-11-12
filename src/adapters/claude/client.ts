@@ -6,10 +6,12 @@ import Anthropic, {
 import type { MessageCreateParamsNonStreaming } from "@anthropic-ai/sdk/resources/messages";
 import { Agent, fetch as undiciFetch } from "undici";
 import { z } from "zod";
+import type { LimitLookup, TokenCount } from "../../core/context/token-check.js";
+import type { Effort, ModelRequest } from "../../core/request.js";
 import type { Known } from "../../core/session/records.js";
-import type { JsonSchema } from "../../schemas/api-schema.js";
 
-// The Claude API adapter (ADR 0003, IMPL §3.7, §4.8). The only code that calls the Claude API.
+// The Claude API adapter (ADR 0003, IMPL §1.10, §3.7, §4.8). The only code that calls the Claude
+// API: messages, their token counts, and the model's limits from the Models API.
 //
 // - One send per request: the SDK's retries are off, so every send can be its own model call,
 //   recorded before it is sent (IMPL §4.6). The retry policy (§3.6) is the caller's.
@@ -34,19 +36,10 @@ export const API_VERSION = "2026-10-21";
 
 const BASE_URL = "https://api.anthropic.com";
 
-export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
+export type { Effort };
 
 /** A complete request: what code assembled, with the call's settings. */
-export interface MessageRequest {
-  readonly model: string;
-  /** The call's `reservedOutputTokens` (IMPL §1.10). */
-  readonly maxTokens: number;
-  readonly effort: Effort;
-  readonly system: string;
-  readonly user: string;
-  /** The call's committed JSON Schema, `CALL_SCHEMAS[call].apiSchema`. */
-  readonly schema: JsonSchema;
-}
+export type MessageRequest = ModelRequest;
 
 /** What a 200 response says, read for the model call's record. Never the refusal's explanation. */
 export interface ReadMessage {
@@ -133,7 +126,17 @@ type Fetch = (input: string | URL | Request, init?: RequestInit) => Promise<Resp
 
 export interface ClaudeClient {
   send(request: MessageRequest): Promise<SendResult>;
+  /**
+   * The request's input tokens (IMPL §1.10), counted with its model, system prompt, messages and
+   * `output_config`. One send; a failure is the token check's to handle.
+   */
+  countTokens(request: MessageRequest): Promise<TokenCount>;
+  /** `max_input_tokens` and `max_tokens` from the Models API (IMPL §1.10). One send. */
+  modelLimits(model: string): Promise<LimitLookup>;
 }
+
+/** The timeout of a count or a model lookup, which return no generated output. */
+export const LOOKUP_TIMEOUT_MS = 60_000;
 
 /**
  * The Agent's settings for one send: undici's header and body timeouts, 300 seconds by default,
@@ -152,87 +155,163 @@ export function createClaudeClient(options: ClientOptions): ClaudeClient {
       const body = messageBody(request);
       const requestBytes = bodyBytes(body);
       const timeoutMs = nonStreamingTimeoutMs(request.maxTokens);
-      // One Agent per send, closed after it, with this send's timeout.
-      const agent =
-        options.fetch === undefined
-          ? new Agent({
-              ...agentOptions(timeoutMs),
-              ...(options.connect === undefined ? {} : { connect: options.connect }),
-            })
-          : undefined;
-      const inner: Fetch =
-        options.fetch ??
-        (async (input, init) => {
-          // Only the fields the SDK sends, typed for undici: a body other than the JSON string,
-          // or a missing signal, would be a type error here rather than a silent change.
-          const body = init?.body;
-          if (typeof body !== "string") throw new Error("the adapter sends only a JSON body");
-          if (agent === undefined) throw new Error("undici's fetch is used only with the Agent");
-          const response = await undiciFetch(String(input), {
-            method: init?.method ?? "POST",
-            headers: [...new Headers(init?.headers)],
-            body,
-            signal: init?.signal ?? null,
-            dispatcher: agent,
-          });
-          // Only status, status text, headers and body are read, to build a global Response.
-          return response as unknown as Response;
-        });
-      /** The body of the one response this send gets, as received. */
-      let received: Uint8Array | undefined;
-      const fetch: Fetch = async (input, init) => {
-        const response = await inner(input, {
-          ...init,
-          headers: sentHeaders(options.apiKey, timeoutMs),
-        });
-        received = await readBody(response, init?.signal ?? undefined);
-        return new Response(NO_BODY.has(response.status) ? null : received.slice(), {
-          status: response.status,
-          statusText: response.statusText,
-          headers: response.headers,
-        });
-      };
-      // One client per send, so the wrapper's `received` belongs to this send only.
-      const sdk = new Anthropic({
-        apiKey: options.apiKey,
-        authToken: null,
-        baseURL: BASE_URL,
-        maxRetries: 0,
-        openTelemetry: false,
-        logLevel: "off",
-        fetch,
-      });
-      try {
-        await sdk.messages.create(body, { timeout: timeoutMs }).asResponse();
-        if (received === undefined) throw new Error("the response body wasn't read");
-        return {
-          kind: "response",
-          requestBytes,
-          responseBytes: received,
-          message: readMessage(received),
-        };
-      } catch (error) {
-        // A timeout is a connection error in the SDK, so it is tested first.
-        if (error instanceof APIConnectionTimeoutError) return { kind: "timeout", requestBytes };
-        if (error instanceof APIConnectionError) return { kind: "connection", requestBytes };
-        if (error instanceof APIError && typeof error.status === "number") {
-          if (received === undefined) throw new Error("the error body wasn't read");
-          const retryAfter = error.headers?.get("retry-after") ?? undefined;
+      return withSdk(options, timeoutMs, async (sdk, received) => {
+        try {
+          await sdk.messages.create(body, { timeout: timeoutMs }).asResponse();
+          const bytes = received();
+          if (bytes === undefined) throw new Error("the response body wasn't read");
+          return {
+            kind: "response",
+            requestBytes,
+            responseBytes: bytes,
+            message: readMessage(bytes),
+          };
+        } catch (error) {
+          const failure = failureOf(error);
+          if (failure === undefined) throw error;
+          if (failure.kind !== "http_error") return { kind: failure.kind, requestBytes };
+          const bytes = received();
+          if (bytes === undefined) throw new Error("the error body wasn't read");
           return {
             kind: "http_error",
             requestBytes,
-            responseBytes: received,
-            status: error.status,
-            ...(retryAfter === undefined ? {} : { retryAfter }),
+            responseBytes: bytes,
+            status: failure.status,
+            ...(failure.retryAfter === undefined ? {} : { retryAfter: failure.retryAfter }),
           };
         }
-        throw error;
-      } finally {
-        // Everything was read, or the send failed: nothing is left to wait for.
-        await agent?.destroy();
-      }
+      });
+    },
+
+    async countTokens(request) {
+      const { max_tokens: _, ...body } = messageBody(request);
+      return withSdk(options, LOOKUP_TIMEOUT_MS, async (sdk): Promise<TokenCount> => {
+        try {
+          const counted = await sdk.messages.countTokens(body, { timeout: LOOKUP_TIMEOUT_MS });
+          const inputTokens = count.safeParse(counted?.input_tokens);
+          return inputTokens.success
+            ? { state: "counted", inputTokens: inputTokens.data }
+            : { state: "failed", reason: "unreadable_response" };
+        } catch (error) {
+          const failure = failureOf(error);
+          if (failure === undefined) throw error;
+          return { state: "failed", reason: failureReason(failure) };
+        }
+      });
+    },
+
+    async modelLimits(model) {
+      return withSdk(options, LOOKUP_TIMEOUT_MS, async (sdk): Promise<LimitLookup> => {
+        try {
+          const info = modelInfo.safeParse(
+            await sdk.models.retrieve(model, undefined, { timeout: LOOKUP_TIMEOUT_MS }),
+          );
+          if (!info.success) return { state: "failed", reason: "unreadable_response" };
+          const { max_input_tokens: input, max_tokens: output } = info.data;
+          // A limit of 0 holds no request: it is no limit, never one to check against.
+          if (input === null || input === undefined || input === 0)
+            return { state: "failed", reason: "no_input_limit" };
+          return { state: "known", maxInputTokens: input, maxOutputTokens: output ?? null };
+        } catch (error) {
+          const failure = failureOf(error);
+          if (failure === undefined) throw error;
+          return { state: "failed", reason: failureReason(failure) };
+        }
+      });
     },
   };
+}
+
+type Failure =
+  | { readonly kind: "connection" | "timeout" }
+  | { readonly kind: "http_error"; readonly status: number; readonly retryAfter?: string };
+
+/** What the SDK threw, as a failure the caller reports; undefined for anything else. */
+function failureOf(error: unknown): Failure | undefined {
+  // A timeout is a connection error in the SDK, so it is tested first.
+  if (error instanceof APIConnectionTimeoutError) return { kind: "timeout" };
+  if (error instanceof APIConnectionError) return { kind: "connection" };
+  if (error instanceof APIError && typeof error.status === "number") {
+    const retryAfter = error.headers?.get("retry-after") ?? undefined;
+    return {
+      kind: "http_error",
+      status: error.status,
+      ...(retryAfter === undefined ? {} : { retryAfter }),
+    };
+  }
+  return undefined;
+}
+
+function failureReason(failure: Failure): string {
+  return failure.kind === "http_error" ? `http_${failure.status}` : failure.kind;
+}
+
+/**
+ * One SDK client for one send, with its own Agent and timeout, so that `received` belongs to
+ * this send only. The wrapper sends only fixed headers and keeps the body as received.
+ */
+async function withSdk<T>(
+  options: ClientOptions,
+  timeoutMs: number,
+  run: (sdk: Anthropic, received: () => Uint8Array | undefined) => Promise<T>,
+): Promise<T> {
+  // One Agent per send, closed after it, with this send's timeout.
+  const agent =
+    options.fetch === undefined
+      ? new Agent({
+          ...agentOptions(timeoutMs),
+          ...(options.connect === undefined ? {} : { connect: options.connect }),
+        })
+      : undefined;
+  const inner: Fetch =
+    options.fetch ??
+    (async (input, init) => {
+      // Only the fields the SDK sends, typed for undici: a body other than the JSON string, or
+      // a missing signal, would be a type error here rather than a silent change. A GET has no
+      // body.
+      const body = init?.body;
+      if (body !== undefined && body !== null && typeof body !== "string")
+        throw new Error("the adapter sends only a JSON body");
+      if (agent === undefined) throw new Error("undici's fetch is used only with the Agent");
+      const response = await undiciFetch(String(input), {
+        method: init?.method ?? "POST",
+        headers: [...new Headers(init?.headers)],
+        ...(typeof body === "string" ? { body } : {}),
+        signal: init?.signal ?? null,
+        dispatcher: agent,
+      });
+      // Only status, status text, headers and body are read, to build a global Response.
+      return response as unknown as Response;
+    });
+  /** The body of the one response this send gets, as received. */
+  let received: Uint8Array | undefined;
+  const fetch: Fetch = async (input, init) => {
+    const response = await inner(input, {
+      ...init,
+      headers: sentHeaders(options.apiKey, timeoutMs),
+    });
+    received = await readBody(response, init?.signal ?? undefined);
+    return new Response(NO_BODY.has(response.status) ? null : received.slice(), {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
+  };
+  const sdk = new Anthropic({
+    apiKey: options.apiKey,
+    authToken: null,
+    baseURL: BASE_URL,
+    maxRetries: 0,
+    openTelemetry: false,
+    logLevel: "off",
+    fetch,
+  });
+  try {
+    return await run(sdk, () => received);
+  } finally {
+    // Everything was read, or the send failed: nothing is left to wait for.
+    await agent?.destroy();
+  }
 }
 
 /**
@@ -311,6 +390,12 @@ const message = z.object({
     cache_read_input_tokens: count.nullable().optional(),
     cache_creation_input_tokens: count.nullable().optional(),
   }),
+});
+
+/** Only the limits are read; a missing or null one is reported, never guessed. */
+const modelInfo = z.object({
+  max_input_tokens: count.nullable().optional(),
+  max_tokens: count.nullable().optional(),
 });
 
 const THINKING = new Set(["thinking", "redacted_thinking"]);

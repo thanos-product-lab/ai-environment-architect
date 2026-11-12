@@ -567,3 +567,119 @@ describe("credentials are never retained (IMPL §4.8, §4.11)", () => {
           expect(text.toLowerCase()).not.toContain(value.toLowerCase());
     });
 });
+
+describe("counting tokens (IMPL §1.10)", () => {
+  const counted = () =>
+    new Response(JSON.stringify({ input_tokens: 4321 }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+
+  it("counts with the request's model, system prompt, messages and output_config, and no max_tokens", async () => {
+    const { fetch, captured } = fakeFetch(counted);
+    const result = await createClaudeClient({ apiKey: SENTINEL_KEY, fetch }).countTokens(request());
+    expect(result).toEqual({ state: "counted", inputTokens: 4321 });
+    expect(captured).toHaveLength(1);
+    const sent = captured[0] as Captured;
+    expect(sent.url).toBe("https://api.anthropic.com/v1/messages/count_tokens");
+    const body = JSON.parse(sent.body);
+    const message = messageBody(request());
+    expect(body).toEqual({
+      model: message.model,
+      system: message.system,
+      messages: message.messages,
+      output_config: message.output_config,
+    });
+    expect(sent.headers.get("anthropic-version")).toBe(API_VERSION);
+  });
+
+  const failures: [string, () => Response | Error, string][] = [
+    ["HTTP 500", () => errorResponse(500), "http_500"],
+    ["HTTP 429", () => errorResponse(429), "http_429"],
+    ["HTTP 400", () => errorResponse(400), "http_400"],
+    ["a connection error", () => new TypeError("fetch failed"), "connection"],
+    [
+      "a body without a count",
+      () => new Response("{}", { status: 200, headers: { "content-type": "application/json" } }),
+      "unreadable_response",
+    ],
+  ];
+  for (const [what, respond, reason] of failures)
+    it(`reports ${what} as a failed count, sent once`, async () => {
+      const { fetch, captured } = fakeFetch(respond);
+      const result = await createClaudeClient({ apiKey: SENTINEL_KEY, fetch }).countTokens(
+        request(),
+      );
+      expect(result).toEqual({ state: "failed", reason });
+      expect(captured).toHaveLength(1);
+    });
+});
+
+describe("the model's limits (IMPL §1.10)", () => {
+  const model = (fields: object) => () =>
+    new Response(
+      JSON.stringify({
+        type: "model",
+        id: "claude-opus-5-5",
+        display_name: "Claude Opus 5.5",
+        created_at: "2026-10-01T00:00:00Z",
+        ...fields,
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+
+  it("reads max_input_tokens and max_tokens from the Models API", async () => {
+    const { fetch, captured } = fakeFetch(
+      model({ max_input_tokens: 1_000_000, max_tokens: 128_000 }),
+    );
+    const result = await createClaudeClient({ apiKey: SENTINEL_KEY, fetch }).modelLimits(
+      "claude-opus-5-5",
+    );
+    expect(result).toEqual({
+      state: "known",
+      maxInputTokens: 1_000_000,
+      maxOutputTokens: 128_000,
+    });
+    expect(captured[0]?.url).toBe("https://api.anthropic.com/v1/models/claude-opus-5-5");
+  });
+
+  it("fails a lookup that gives no input limit, since a guessed limit could change what is sent", async () => {
+    const { fetch } = fakeFetch(model({ max_input_tokens: null, max_tokens: 128_000 }));
+    expect(
+      await createClaudeClient({ apiKey: SENTINEL_KEY, fetch }).modelLimits("claude-opus-5-5"),
+    ).toEqual({ state: "failed", reason: "no_input_limit" });
+  });
+
+  it("fails a lookup whose input limit is 0", async () => {
+    const { fetch } = fakeFetch(model({ max_input_tokens: 0, max_tokens: 128_000 }));
+    expect(
+      await createClaudeClient({ apiKey: SENTINEL_KEY, fetch }).modelLimits("claude-opus-5-5"),
+    ).toEqual({ state: "failed", reason: "no_input_limit" });
+  });
+
+  it("keeps an unknown output maximum as null", async () => {
+    const { fetch } = fakeFetch(model({ max_input_tokens: 200_000, max_tokens: null }));
+    expect(
+      await createClaudeClient({ apiKey: SENTINEL_KEY, fetch }).modelLimits("claude-opus-5-5"),
+    ).toEqual({ state: "known", maxInputTokens: 200_000, maxOutputTokens: null });
+  });
+
+  it("reports an HTTP error or a connection error as a failed lookup, sent once", async () => {
+    for (const [respond, reason] of [
+      [() => errorResponse(404), "http_404"],
+      [() => new TypeError("fetch failed"), "connection"],
+    ] as const) {
+      const { fetch, captured } = fakeFetch(respond);
+      expect(
+        await createClaudeClient({ apiKey: SENTINEL_KEY, fetch }).modelLimits("claude-opus-5-5"),
+      ).toEqual({ state: "failed", reason });
+      expect(captured).toHaveLength(1);
+    }
+  });
+
+  it("encodes the model ID in the path", async () => {
+    const { fetch, captured } = fakeFetch(model({ max_input_tokens: 1, max_tokens: 1 }));
+    await createClaudeClient({ apiKey: SENTINEL_KEY, fetch }).modelLimits("a/b");
+    expect(captured[0]?.url).toBe("https://api.anthropic.com/v1/models/a%2Fb");
+  });
+});

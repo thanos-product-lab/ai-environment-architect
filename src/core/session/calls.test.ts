@@ -12,7 +12,14 @@ import {
 import type { InputManifest } from "../context/select.js";
 import type { AliasTable } from "../validation/aliases.js";
 import type { ValidationEvent } from "../validation/pipeline.js";
-import { activeEffort, checkBudget, recoverInterruptedWork, unfinishedWork } from "./calls.js";
+import {
+  activeEffort,
+  checkBudget,
+  recoverInterruptedWork,
+  skipExpansion,
+  unfinishedWork,
+} from "./calls.js";
+import { completeness, sessionProgress } from "./current.js";
 import { type DeepReadonly, SessionLog } from "./log.js";
 import {
   type aliasTable,
@@ -598,5 +605,28 @@ describe("active effort (IMPL §4.6, §2.13)", () => {
         leftAt: known("2026-11-01T10:22:00.000Z"),
       }),
     ).toThrow();
+  });
+});
+
+describe("a call 2 that doesn't fit (IMPL §1.10, §4.4.1, §4.4.2)", () => {
+  it("appends a session_state with stage_skipped and unsentPurpose analyse_expansion, so the session is incomplete", () => {
+    const log = withConfig();
+    const before = sessionProgress(log.records);
+    const appended = skipExpansion(log);
+    expect(appended).toMatchObject({
+      type: "session_state",
+      reason: "stage_skipped",
+      unsentPurpose: "analyse_expansion",
+    });
+    expect(sessionRecord.safeParse(appended).success).toBe(true);
+    expect(completeness(log.records)).toEqual({ state: "incomplete", reasons: ["stage_skipped"] });
+    // The session continues from where it was, with call 1's results.
+    expect(sessionProgress(log.records)).toEqual(before);
+  });
+
+  it("starts no model call, so nothing is sent", () => {
+    const log = withConfig();
+    skipExpansion(log);
+    expect(log.records.some((r) => r.type === "model_call")).toBe(false);
   });
 });

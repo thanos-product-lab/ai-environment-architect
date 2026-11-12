@@ -432,6 +432,11 @@ function stopExplanation(stop: DestinationStop): string[] {
         `CLAUDE.md matches the secret scan (${stop.ruleId}). It would be sent in every call, so the session can't start.`,
         "Remove the secret from CLAUDE.md, then run again.",
       ];
+    case "destination_exceeds_input_limit":
+      return [
+        `The first analysis request is ${grouped(stop.inputTokens)} tokens even with everything optional left out, and the model accepts ${grouped(stop.contextLimit)}. Without CLAUDE.md it would fit. CLAUDE.md is always sent whole, never cut.`,
+        "Shorten CLAUDE.md, or choose a model with a larger input limit.",
+      ];
     case "destination_unavailable":
       return [unavailable(stop.detail)];
   }

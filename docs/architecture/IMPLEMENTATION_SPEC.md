@@ -1,9 +1,13 @@
 # Implementation Specification
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 10 November 2026  
-**Version:** 0.56  
+**Date:** 12 November 2026  
+**Version:** 0.57  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.56
+
+- **Token check (§1.5, §1.10, §1.13).** The request is re-checked after each removed item, and the check stops as soon as it fits. A failed count falls back to the byte estimate for the rest of that call's check. In call 3 every cited excerpt may be removed, since no question or recommendation exists yet. When call 1 still doesn't fit, the destination is the cause if the request fits without it, which stops the session with `destination_exceeds_input_limit`; otherwise it stops with `context_exceeds_input_limit`. The safety margin is rounded up. Removed items keep their IDs and are listed in `skipped` with `token-check:<step>`, and `tokenCheck.reductions` records each one. The byte selection is unchanged, so `algorithmVersion` stays `context-select/1.7.0`, and `manifestVersion` stays 2: no build has been released with a manifest whose `tokenCheck` is set. The counting method is an input of the context (§1.3), and §2.12 gains the two call 1 stops.
 
 ### Changes from v0.55
 
@@ -466,12 +470,12 @@ It runs in this order:
 
 Determinism requirements:
 
-- **Inputs** are only the snapshot (file list, hashes, live content verified against snapshot hashes), settings, and the token count and input limit reported for the selected model. Nothing else: no filesystem enumeration order, modification times, environment, locale, randomness or model output.
+- **Inputs** are only the snapshot (file list, hashes, live content verified against snapshot hashes), settings, and the token count and input limit reported for the selected model, or the byte estimate when a count failed (§1.10). Nothing else: no filesystem enumeration order, modification times, environment, locale, randomness or model output.
 - **Path order** is bytewise ascending order of repository-relative, forward-slash, UTF-8 paths. Every "in order" in this section means this order unless stated otherwise.
 - **Budgets are in bytes** of rendered UTF-8 context. Byte selection is independent of the model. The token check (§1.10) is the only model-dependent step, and it can only remove items, never add them.
 - **Settings are versioned.** `settingsHash` is the SHA-256 of the canonical JSON of the effective settings, `algorithmVersion`, `secretRulesVersion` and `declarationPatternsVersion`.
 - **Content is verified.** When a file is read for context, its hash must match the snapshot entry. A mismatch aborts construction and reports the snapshot as unstable ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.1).
-- **Verification:** `contextHash`, the SHA-256 of the rendered context, must be identical across runs for the same snapshot, settings and model, where the same model includes the input limit reported for it (§1.10). This is a required test.
+- **Verification:** `contextHash`, the SHA-256 of the rendered context, must be identical across runs for the same snapshot, settings and model, where the same model includes the input limit reported for it and the counting method (§1.10). This is a required test.
 
 ### 1.4 Candidate set
 
@@ -569,7 +573,7 @@ Matched paths:
 
 - the destination's rendered item, BLOCKS section included, is larger than `maxDestinationBytes` (default 40,000);
 - the destination matches the secret scan (§1.7);
-- the destination cannot fit within the model's input limit after all permitted reductions (§1.10);
+- the destination cannot fit within the model's input limit after all permitted reductions (§1.10): the request still doesn't fit, but would without the destination (`destination_exceeds_input_limit`);
 - the snapshot records the destination as `unavailable` ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.1).
 
 The explanation names the reason and the options (shorten the file, or raise the setting). The destination is never truncated, skipped or partially sent. Its rendered bytes count against tier 1. If they exceed the tier 1 cap, the destination is still included, and tier 1 passes nothing down.
@@ -819,22 +823,22 @@ Whether a requested range lies within the file, and the total expansion staying 
 Byte budgets do not guarantee that a request fits: the system prompt, instructions, earlier validated results, output schema and the response itself also need room. Before every call:
 
 1. Assemble the **complete request**: system prompt, instructions, rendered context or excerpts, prior validated results, decisions and output schema.
-2. Run the secret scan on the complete request (§1.7), because counting sends it to the provider. After a reduction that renders it again, scan and count it again. Count its input tokens using the provider's token-counting facility for the selected model, with the same system prompt, messages and `output_config.format` as the request. The provider's count is itself an estimate, and can differ slightly from the input billed; the safety margin covers that. If it is unavailable, use a conservative estimate of 1 token per 3 bytes, and record that the estimate was used.
+2. Run the secret scan on the complete request (§1.7), because counting sends it to the provider. After a reduction that renders it again, scan and count it again. A match stops the check: nothing is counted or sent, and the match is handled as §1.7 says. Count its input tokens using the provider's token-counting facility for the selected model, with the same system prompt, messages and `output_config` (format and effort) as the request. The provider's count is itself an estimate, and can differ slightly from the input billed; the safety margin covers that. If a count fails, use a conservative estimate of 1 token per 3 bytes, rounded up, over the UTF-8 bytes of the system prompt, the user content and the schema's JSON; the rest of that call's check uses the estimate too, the recount of call 1 without the destination included, and records `method: estimate`. A failed count is not retried; the input limit is looked up once per call.
 3. Require: `inputTokens + reservedOutputTokens(call) + safetyMargin ≤ modelContextLimit`.
    - `reservedOutputTokens` is a per-call setting (defaults, provisional, §3.9: `analyse` 16,000; `analyse_expansion` 12,000; `generate_questions` 16,000; `recommend` 16,000; `regenerate_recommendations` 16,000). It is sent as the request's `max_tokens`, so it has to hold the model's thinking as well as its output.
-   - `safetyMargin` defaults to 5% of the model's context limit.
+   - `safetyMargin` defaults to 5% of the model's context limit, rounded up to a whole token.
    - `modelContextLimit` is the selected model's `max_input_tokens` from the provider's Models API. A failed lookup is retried as a connection error (§3.6), and the call is not sent without it, because a guessed limit could change what is sent.
 
-If the request does not fit, items are removed in this **deterministic reduction order**, re-checking after each step:
+If the request does not fit, items are removed one at a time in this **deterministic reduction order**, re-rendering, re-scanning and re-counting after each removal, and stopping as soon as the request fits:
 
 1. tier 5 source files, last selected first (test examples last within tier 5);
-2. tier 2 documentation sections, last selected first;
+2. tier 2 documentation files, last selected first;
 3. other tier 1 agent configuration, last selected first;
-4. for calls 3–5: cited excerpts for findings not referenced by any open question or candidate recommendation, then the directory tree depth.
+4. for calls 3–5: cited excerpts whose every citing finding is referenced by no open question or candidate recommendation, last rendered first, then the directory tree depth, one level at a time down to 0, the summary alone. In call 3 no question or recommendation exists yet, so every cited excerpt may be removed.
 
-The known-facts section (§3.2.5), tier 3 manifests, the destination and expansion results (§1.8) are never removed. If the request still does not fit, the call is not sent. For call 2, code appends a `session_state` with the reason `stage_skipped` and `unsentPurpose: analyse_expansion`, so the session is `incomplete` (§4.4.2), and it continues with call 1's results (§2.12). For any other call, the session stops with an explanation; for call 1, this triggers the destination rule in §1.5 if the destination is the cause.
+The known-facts section (§3.2.5), tier 3 manifests, the destination and expansion results (§1.8) are never removed. If the request still does not fit, the call is not sent. For call 2, code appends a `session_state` with the reason `stage_skipped` and `unsentPurpose: analyse_expansion`, so the session is `incomplete` (§4.4.2), and it continues with call 1's results (§2.12). For any other call, the session stops with an explanation. For call 1, code counts the fully reduced request once more without the destination: if that fits, the destination is the cause, and the session stops by the destination rule in §1.5 (`destination_exceeds_input_limit`); if not, it stops with `context_exceeds_input_limit`.
 
-Every reduction in a call that is sent is recorded in its manifest, and the tree markers are updated. The token check is the only model-dependent part of construction. Because it can only remove items, the byte selection stays reproducible across models, and the final context is reproducible for a fixed model and input limit.
+A removed item keeps its ID; no other item is renumbered. Every reduction in a call that is sent is recorded in its manifest: the item leaves `items` and joins `skipped` with the reason `token-check:<step>`, its tier's counts describe the final selection, and `tokenCheck.reductions` lists it (§1.13). The tree markers are updated. What calls 3–5 record for a removed excerpt and a reduced tree depth is specified with their request format (§3.2.6). The token check is the only model-dependent part of construction. Because it can only remove items, the byte selection stays reproducible across models, and the final context is reproducible for a fixed model and input limit.
 
 ### 1.11 Coverage-aware validation
 
@@ -963,7 +967,7 @@ Details:
 - `ignoreRules` is the snapshot's record: `{ "state": "applied" }`, or `{ "state": "not_applied", "reason": … }` with the git reason (§1.4). `ignored` lists the snapshot's `ignored` entries in path order: files, and wholly ignored directories as one path each.
 - `excluded` lists the snapshot's excluded entries with their rule, in path order, then secret-blocked files with `secret-scan:<rule ID>`, in path order. Secret-blocked files include files whose path matches, whether or not a tier selected them.
 - A path that matches the secret scan is recorded as `pathHash` instead of `path` (§1.7).
-- `tokenCheck.method` is `provider_count`, or `estimate` when the byte estimate was used (§1.10).
+- `tokenCheck.method` is `provider_count`, or `estimate` when the byte estimate was used (§1.10). `inputTokens` is the final count. Items the token check removed follow the other `skipped` entries, in rendering order; `reductions` lists each removal in the order made: `{ "step": "tier5" | "tier2" | "tier1" | "excerpt", "id", "path" (or `pathHash`), "bytes" }`, or `{ "step": "tree_depth", "treeDepth" }` with the depth after the step.
 - `retainedInputRef` is `null` until inputs are retained for a call (§1.12), `tokenCheck` until the token check runs (§1.10), and `expansion` when there was no expansion.
 
 ### 1.14 Settings
@@ -1360,6 +1364,8 @@ Repository check: 3 files changed since inspection, none cited.
 | A recommendation matches the secret scan before regeneration | Says the recommendation was removed, and names the secret rule, never the matched text. The session continues (§1.7). |
 | A decision, finding or question matches the secret scan | Says which item was left out, and names the secret rule, never the matched text. For a decision, asks the developer to correct it. The session continues (§1.7). |
 | The expansion round doesn't fit in the model's input limit | Says the extra reading couldn't be analysed, that the session continues with the first analysis, and that it will be marked incomplete (§1.10). |
+| The first analysis doesn't fit, but would without `CLAUDE.md` (`destination_exceeds_input_limit`) | Gives the request's tokens and the model's limit, says `CLAUDE.md` is always sent whole, and offers shortening it or a model with a larger input limit. Nothing was sent (§1.5, §1.10). |
+| The first analysis doesn't fit even without `CLAUDE.md` (`context_exceeds_input_limit`) | Gives the request's tokens and the model's limit, says what is never removed (the known facts, the manifests and `CLAUDE.md`), and offers a model with a larger input limit. Nothing was sent (§1.10). |
 | Model output fails validation | "Some results couldn't be verified against your repository and were left out," with a count and `[v] Details`. Never shown as findings. |
 | All output from a call fails validation | Retry offered once, then the stage can be skipped (no findings or recommendations from it) or the session saved. |
 | Generation budget reached | What was completed is kept; what remains is listed; the developer can raise the budget and continue, or proceed with what exists. |
@@ -1972,7 +1978,7 @@ Each call also records counts: proposed, accepted, corrected and relabelled item
 
 The adapter turns off the SDK's own retries, so every send is a model call with its own record (§4.6, ADR 0003). The stop reason is checked before the response is parsed: a truncated, refused or otherwise stopped response records no validation events, and its proposed count is unknown (§3.5). `error.kind` is one of `connection`, `timeout`, `server`, `rate_limit`, `request`, `truncated`, `refusal`, `unexpected_stop` and `schema`; the §2.12 screens are chosen from it.
 
-**The estimate.** The estimated tokens are the input tokens counted for the request (§1.10) plus its `reservedOutputTokens`. The estimated cost is the same sum priced: input tokens at the model's input price, or its cache-write price when the request sets a cache breakpoint, and `reservedOutputTokens` at its output price. It is an upper bound on the output, because `max_tokens` caps it. A model missing from the price table (§4.6) gives an unknown estimate with a reason.
+**The estimate.** The estimated tokens are the input tokens counted, or estimated from bytes, for the request (§1.10) plus its `reservedOutputTokens`. The estimated cost is the same sum priced: input tokens at the model's input price, or its cache-write price when the request sets a cache breakpoint, and `reservedOutputTokens` at its output price. It is an upper bound on the output, because `max_tokens` caps it. A model missing from the price table (§4.6) gives an unknown estimate with a reason.
 
 The schema-retry message lists each issue's path and code, as schema events do (§3.5), never the value received. It never includes semantic validation results. Telling the model which citations failed would teach it to make citations pass rather than be accurate.
 

@@ -1231,9 +1231,36 @@ const manifestTier = z.union([
   z.strictObject({ tier: z.literal(4), capBytes: count, usedBytes: count, treeDepth: count }),
 ]);
 
+/** One removal by the token check, in the order made (IMPL §1.10, §1.13). */
+const reduction = z.union([
+  z.strictObject({
+    step: z.enum(["tier5", "tier2", "tier1", "excerpt"]),
+    id: nonEmpty,
+    path: z.string(),
+    bytes: count,
+  }),
+  z.strictObject({
+    step: z.enum(["tier5", "tier2", "tier1", "excerpt"]),
+    id: nonEmpty,
+    pathHash: hash,
+    bytes: count,
+  }),
+  z.strictObject({ step: z.literal("tree_depth"), treeDepth: count }),
+]);
+
+/** What the token check counted and removed (IMPL §1.10, §1.13). */
+const tokenCheck = z.strictObject({
+  model: nonEmpty,
+  method: z.enum(["provider_count", "estimate"]),
+  inputTokens: count,
+  reservedOutputTokens: z.int().min(1),
+  contextLimit: z.int().min(1),
+  reductions: z.array(reduction),
+});
+
 /**
- * IMPL §1.13: paths, hashes and reasons, never source content. `tokenCheck` and `expansion` are
- * null until the token check (§1.10) and the expansion round (§1.8) record theirs, in M6.
+ * IMPL §1.13: paths, hashes and reasons, never source content. `tokenCheck` is null until the
+ * token check (§1.10) runs, and `expansion` until the expansion round (§1.8) records its own.
  */
 export const inputManifest = z.strictObject({
   manifestVersion: z.literal(2),
@@ -1251,7 +1278,7 @@ export const inputManifest = z.strictObject({
     facts: count,
     leftOut: count,
   }),
-  tokenCheck: z.null(),
+  tokenCheck: tokenCheck.nullable(),
   tiers: z.array(manifestTier),
   items: z.array(
     z.strictObject({

@@ -21,8 +21,11 @@ import {
   type DestinationStop,
   type SelectedItem,
   type SelectionGap,
+  type SkippedFile,
   selectTiers,
+  TEST_EXAMPLE_REASON,
   type TierMembership,
+  type TierUsage,
 } from "./tiers.js";
 import type { TokenSettings } from "./token-settings.js";
 import { type ContentMark, type RenderedTree, renderTree } from "./tree.js";
@@ -31,8 +34,8 @@ import { type ContentMark, type RenderedTree, renderTree } from "./tree.js";
 //
 // context = select(snapshot, settings): candidates, tiers 1, 2, 3 and 5, the secret scan (no
 // refill), the tree from the full file list with the final markers, then rendering in tier order
-// 1, 2, 3, 4, 5. The token check (IMPL §1.10) arrives with the model adapter; until then
-// `tokenCheck` is null and `contextHash` covers the byte selection.
+// 1, 2, 3, 4, 5. The token check (IMPL §1.10, `token-check.ts`) can only remove items: it
+// assembles the context again through `reduceContext`, and `contextHash` covers the final context.
 
 export const MANIFEST_VERSION = 2;
 
@@ -106,8 +109,8 @@ export interface InputManifest {
     readonly facts: number;
     readonly leftOut: number;
   };
-  /** Set by the token check (IMPL §1.10), which arrives with the model adapter. */
-  readonly tokenCheck: null;
+  /** Set by the token check (IMPL §1.10) of the call that is sent. */
+  readonly tokenCheck: TokenCheckRecord | null;
   readonly tiers: readonly ManifestTier[];
   readonly items: readonly ManifestItem[];
   readonly skipped: readonly ManifestSkipped[];
@@ -126,24 +129,64 @@ export interface InputManifest {
   readonly expansion: null;
 }
 
+/** What the token check (IMPL §1.10) removed, and what it counted (IMPL §1.13). */
+export interface TokenCheckRecord {
+  readonly model: string;
+  readonly method: "provider_count" | "estimate";
+  readonly inputTokens: number;
+  readonly reservedOutputTokens: number;
+  readonly contextLimit: number;
+  readonly reductions: readonly Reduction[];
+}
+
+export type ReductionStep = "tier5" | "tier2" | "tier1" | "excerpt";
+
+/** One removal, in the order made. A path that matches the secret scan is recorded by hash. */
+export type Reduction =
+  | (RecordedPath & { readonly step: ReductionStep; readonly id: string; readonly bytes: number })
+  | { readonly step: "tree_depth"; readonly treeDepth: number };
+
+/**
+ * What the final context is assembled from, kept so that the token check can assemble it again
+ * without some items. Nothing in it is read again from the repository.
+ */
+export interface ContextParts {
+  readonly snapshot: Snapshot;
+  readonly settings: ContextSelectionSettings;
+  readonly factsText: string;
+  readonly factsBytes: number;
+  readonly factsSent: number;
+  readonly factsLeftOut: number;
+  /** In rendering order, without the tree. */
+  readonly items: readonly SelectedItem[];
+  readonly blocked: readonly { readonly path: string; readonly ruleId: SecretRuleId }[];
+  readonly tiers: readonly TierUsage[];
+  readonly skipped: readonly SkippedFile[];
+  readonly reservedTreeBytes: number;
+}
+
+export interface ReadyContext {
+  readonly state: "ready";
+  readonly context: RenderedContext;
+  /** In rendering order, without the tree. */
+  readonly items: readonly SelectedItem[];
+  readonly tree: RenderedTree;
+  /** Deterministic `gap` findings, recorded by the session. */
+  readonly gaps: readonly SelectionGap[];
+  /** For the tier, and so the evidence basis, of any cited file (IMPL §3.2.4). */
+  readonly membership: TierMembership;
+  /**
+   * Every known fact, in order, recorded as a finding whether or not it was sent, with its
+   * `F` alias when it was (IMPL §3.2.5).
+   */
+  readonly knownFacts: readonly { readonly fact: KnownFact; readonly alias: string | null }[];
+  readonly manifest: InputManifest;
+  /** For `reduceContext`. */
+  readonly parts: ContextParts;
+}
+
 export type ContextResult =
-  | {
-      readonly state: "ready";
-      readonly context: RenderedContext;
-      /** In rendering order, without the tree. */
-      readonly items: readonly SelectedItem[];
-      readonly tree: RenderedTree;
-      /** Deterministic `gap` findings, recorded by the session. */
-      readonly gaps: readonly SelectionGap[];
-      /** For the tier, and so the evidence basis, of any cited file (IMPL §3.2.4). */
-      readonly membership: TierMembership;
-      /**
-       * Every known fact, in order, recorded as a finding whether or not it was sent, with its
-       * `F` alias when it was (IMPL §3.2.5).
-       */
-      readonly knownFacts: readonly { readonly fact: KnownFact; readonly alias: string | null }[];
-      readonly manifest: InputManifest;
-    }
+  | ReadyContext
   /** The session stops before any model call (IMPL §1.5, destination rule). */
   | { readonly state: "stopped"; readonly stop: DestinationStop }
   /** A file's content no longer matches the snapshot (IMPL §1.3). */
@@ -180,15 +223,59 @@ export async function selectContext(
   if (extracted.state !== "extracted") return extracted;
   const facts = renderKnownFacts(extracted.facts, settings.context.knownFactsBytes);
 
-  const marks = new Map<string, ContentMark>();
-  for (const item of scanned.items) marks.set(item.path, item.rendered.excerpt ? "E" : "R");
-  for (const entry of blocked) marks.set(entry.path, "S");
-  const tree = renderTree(snapshot.files, marks, settings.context, scanned.reservedTreeBytes);
+  const parts: ContextParts = {
+    snapshot,
+    settings,
+    factsText: facts.text,
+    factsBytes: facts.bytes,
+    factsSent: extracted.facts.length - facts.leftOut,
+    factsLeftOut: facts.leftOut,
+    items: scanned.items,
+    blocked,
+    tiers: scanned.tiers,
+    skipped: scanned.skipped,
+    reservedTreeBytes: scanned.reservedTreeBytes,
+  };
+  return {
+    state: "ready",
+    ...assemble(parts, new Set()),
+    gaps: [...scanned.gaps, ...extracted.gaps, ...(facts.gap === undefined ? [] : [facts.gap])],
+    membership: scanned.membership,
+    knownFacts: extracted.facts.map((fact, index) => ({
+      fact,
+      alias: facts.aliases[index] ?? null,
+    })),
+    parts,
+  };
+}
 
-  const before = scanned.items.filter((item) => item.tier < 4);
-  const after = scanned.items.filter((item) => item.tier > 4);
+/**
+ * The context again without the items whose IDs are in `removed` (IMPL §1.3 step 7, §1.10):
+ * the others keep their IDs, the tree marks the removed ones `[-]`, and the manifest lists them
+ * in `skipped` with `token-check:<tier>` and counts them out of their tier. `tokenCheck` is left
+ * for the check to set.
+ */
+export function reduceContext(context: ReadyContext, removed: ReadonlySet<string>): ReadyContext {
+  return { ...context, ...assemble(context.parts, removed) };
+}
+
+function assemble(
+  parts: ContextParts,
+  removed: ReadonlySet<string>,
+): Pick<ReadyContext, "context" | "items" | "tree" | "manifest"> {
+  const { snapshot, settings, blocked } = parts;
+  const kept = parts.items.filter((item) => !removed.has(item.id));
+  const dropped = parts.items.filter((item) => removed.has(item.id));
+
+  const marks = new Map<string, ContentMark>();
+  for (const item of kept) marks.set(item.path, item.rendered.excerpt ? "E" : "R");
+  for (const entry of blocked) marks.set(entry.path, "S");
+  const tree = renderTree(snapshot.files, marks, settings.context, parts.reservedTreeBytes);
+
+  const before = kept.filter((item) => item.tier < 4);
+  const after = kept.filter((item) => item.tier > 4);
   const text = [
-    facts.text,
+    parts.factsText,
     ...before.map(renderedText),
     tree.text,
     ...after.map(renderedText),
@@ -200,23 +287,31 @@ export async function selectContext(
   };
 
   const tiers: ManifestTier[] = [];
-  for (const usage of scanned.tiers) {
+  for (const usage of parts.tiers) {
     if (usage.tier === 5) {
       tiers.push({
         tier: 4,
-        capBytes: scanned.reservedTreeBytes,
+        capBytes: parts.reservedTreeBytes,
         usedBytes: tree.bytes,
         treeDepth: tree.depth,
       });
     }
-    tiers.push({ ...usage });
+    const out = dropped.filter((item) => item.tier === usage.tier);
+    const examples = out.filter((item) => item.reason === TEST_EXAMPLE_REASON).length;
+    tiers.push({
+      ...usage,
+      usedBytes: usage.usedBytes - out.reduce((n, item) => n + item.rendered.bytes, 0),
+      items: usage.items - out.length,
+      skipped: usage.skipped + out.length,
+      ...(usage.testExamples === undefined ? {} : { testExamples: usage.testExamples - examples }),
+    });
   }
 
   const excluded: ManifestExcluded[] = [
     ...snapshot.files.flatMap((file) =>
       file.status === "excluded" ? [{ ...recordedPath(file.path), rule: file.rule }] : [],
     ),
-    ...blocked
+    ...[...blocked]
       .sort((a, b) => comparePaths(a.path, b.path))
       .map((entry) => ({
         ...recordedPath(entry.path),
@@ -236,9 +331,9 @@ export async function selectContext(
     budget: { initialContextBytes: settings.context.initialContextBytes, usedBytes: context.bytes },
     knownFacts: {
       capBytes: settings.context.knownFactsBytes,
-      usedBytes: facts.bytes,
-      facts: extracted.facts.length - facts.leftOut,
-      leftOut: facts.leftOut,
+      usedBytes: parts.factsBytes,
+      facts: parts.factsSent,
+      leftOut: parts.factsLeftOut,
     },
     tokenCheck: null,
     tiers,
@@ -252,7 +347,13 @@ export async function selectContext(
       totalLines: item.rendered.totalLines,
       bytes: item.rendered.bytes,
     })),
-    skipped: scanned.skipped.map((file) => ({ ...recordedPath(file.path), reason: file.reason })),
+    skipped: [
+      ...parts.skipped.map((file) => ({ ...recordedPath(file.path), reason: file.reason })),
+      ...dropped.map((item) => ({
+        ...recordedPath(item.path),
+        reason: `token-check:tier${item.tier}`,
+      })),
+    ],
     excluded,
     ignoreRules: snapshot.ignoreRules,
     ignored: snapshot.files.flatMap((file) =>
@@ -261,19 +362,7 @@ export async function selectContext(
     expansion: null,
   };
 
-  return {
-    state: "ready",
-    context,
-    items: [...before, ...after],
-    tree,
-    gaps: [...scanned.gaps, ...extracted.gaps, ...(facts.gap === undefined ? [] : [facts.gap])],
-    membership: scanned.membership,
-    knownFacts: extracted.facts.map((fact, index) => ({
-      fact,
-      alias: facts.aliases[index] ?? null,
-    })),
-    manifest,
-  };
+  return { context, items: [...before, ...after], tree, manifest };
 }
 
 function renderedText(item: SelectedItem): string {

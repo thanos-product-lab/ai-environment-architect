@@ -77,6 +77,9 @@ export const DEFAULT_CONTEXT_SETTINGS: ContextSettings = {
   treeCollapseThreshold: 40,
 };
 
+/** The reason of a tier 5 test example (IMPL §1.5). */
+export const TEST_EXAMPLE_REASON = "tier5:test-example";
+
 export const AGENT_CONFIG_SKIPPED =
   "Some existing agent configuration was not read because of the analysis budget.";
 
@@ -137,7 +140,16 @@ export type DestinationStop =
       readonly renderedBytes: number;
       readonly maxDestinationBytes: number;
     }
-  | { readonly reason: "destination_secret"; readonly ruleId: SecretRuleId };
+  | { readonly reason: "destination_secret"; readonly ruleId: SecretRuleId }
+  /**
+   * Call 1 doesn't fit the model's input limit after every reduction, and would without the
+   * destination (IMPL §1.10).
+   */
+  | {
+      readonly reason: "destination_exceeds_input_limit";
+      readonly inputTokens: number;
+      readonly contextLimit: number;
+    };
 
 /** What decides the tier of a file that wasn't selected, for evidence basis (IMPL §3.2.4). */
 export interface TierMembership {
@@ -683,7 +695,7 @@ class Selector {
     for (const pkg of order) {
       for (const test of (byPackage.get(pkg) ?? []).filter(isTestFile)) {
         const limit = Math.min(settings.testExampleBytes, reserve - fill.usedBytes);
-        const added = await this.add(fill, test, "tier5:test-example", "code", limit);
+        const added = await this.add(fill, test, TEST_EXAMPLE_REASON, "code", limit);
         if (added === "blocked") {
           tried.add(test);
           continue;
