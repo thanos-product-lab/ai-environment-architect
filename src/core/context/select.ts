@@ -4,7 +4,7 @@ import { type Hash, sha256 } from "../hash.js";
 import { comparePaths } from "../paths.js";
 import type { IgnoreRules } from "../snapshot/git.js";
 import type { RepositoryFs } from "../snapshot/repository-fs.js";
-import type { Snapshot, SnapshotSettings } from "../snapshot/snapshot.js";
+import { DESTINATION_PATH, type Snapshot, type SnapshotSettings } from "../snapshot/snapshot.js";
 import { DECLARATION_PATTERNS_VERSION } from "./declarations.js";
 import type { LineRange } from "./item.js";
 import {
@@ -16,6 +16,7 @@ import {
   scanText,
 } from "./secrets.js";
 import {
+  AGENT_CONFIG_TOKEN_LIMIT,
   ALGORITHM_VERSION,
   type ContextSettings,
   type DestinationStop,
@@ -163,6 +164,8 @@ export interface ContextParts {
   readonly tiers: readonly TierUsage[];
   readonly skipped: readonly SkippedFile[];
   readonly reservedTreeBytes: number;
+  /** The selection's deterministic gaps. */
+  readonly gaps: readonly SelectionGap[];
 }
 
 export interface ReadyContext {
@@ -171,8 +174,13 @@ export interface ReadyContext {
   /** In rendering order, without the tree. */
   readonly items: readonly SelectedItem[];
   readonly tree: RenderedTree;
-  /** Deterministic `gap` findings, recorded by the session. */
+  /** The selection's deterministic `gap` findings, recorded by the session before call 1. */
   readonly gaps: readonly SelectionGap[];
+  /**
+   * One gap per reduction that removed agent configuration, in call order, each listing only
+   * that reduction's own removals (IMPL §1.10). Each is recorded before its call is sent.
+   */
+  readonly tokenCheckGaps: readonly SelectionGap[];
   /** For the tier, and so the evidence basis, of any cited file (IMPL §3.2.4). */
   readonly membership: TierMembership;
   /**
@@ -183,6 +191,11 @@ export interface ReadyContext {
   readonly manifest: InputManifest;
   /** For `reduceContext`. */
   readonly parts: ContextParts;
+  /**
+   * The IDs of every item the token check has removed so far, by this call or an earlier one:
+   * call 2 starts from call 1's reduced context (IMPL §1.10).
+   */
+  readonly removed: ReadonlySet<string>;
 }
 
 export type ContextResult =
@@ -235,28 +248,54 @@ export async function selectContext(
     tiers: scanned.tiers,
     skipped: scanned.skipped,
     reservedTreeBytes: scanned.reservedTreeBytes,
+    gaps: [...scanned.gaps, ...extracted.gaps, ...(facts.gap === undefined ? [] : [facts.gap])],
   };
+  const removed = new Set<string>();
   return {
     state: "ready",
-    ...assemble(parts, new Set()),
-    gaps: [...scanned.gaps, ...extracted.gaps, ...(facts.gap === undefined ? [] : [facts.gap])],
+    ...assemble(parts, removed),
+    gaps: parts.gaps,
+    tokenCheckGaps: [],
     membership: scanned.membership,
     knownFacts: extracted.facts.map((fact, index) => ({
       fact,
       alias: facts.aliases[index] ?? null,
     })),
     parts,
+    removed,
   };
 }
 
 /**
- * The context again without the items whose IDs are in `removed` (IMPL §1.3 step 7, §1.10):
- * the others keep their IDs, the tree marks the removed ones `[-]`, and the manifest lists them
- * in `skipped` with `token-check:<tier>` and counts them out of their tier. `tokenCheck` is left
- * for the check to set.
+ * The context again without the items whose IDs are in `removed`, as well as those already
+ * removed from it (IMPL §1.3 step 7, §1.10): the others keep their IDs, the tree marks the
+ * removed ones `[-]`, and the manifest lists them in `skipped` with `token-check:<tier>` and
+ * counts them out of their tier. Removed agent configuration gets the §1.5 gap, with the token
+ * check as its cause. `tokenCheck` is left for the check to set.
  */
 export function reduceContext(context: ReadyContext, removed: ReadonlySet<string>): ReadyContext {
-  return { ...context, ...assemble(context.parts, removed) };
+  const all = new Set([...context.removed, ...removed]);
+  // Agent configuration this reduction removed is as unread as configuration the budget
+  // skipped (IMPL §1.5), so it gets the same gap with its own cause, listing only its own
+  // removals in rendering order. Never the destination.
+  const config = context.parts.items.filter(
+    (item) =>
+      item.tier === 1 &&
+      item.path !== DESTINATION_PATH &&
+      removed.has(item.id) &&
+      !context.removed.has(item.id),
+  );
+  const gap: SelectionGap = {
+    gapType: "other",
+    statement: AGENT_CONFIG_TOKEN_LIMIT,
+    relatedPaths: config.map((item) => item.path),
+  };
+  return {
+    ...context,
+    ...assemble(context.parts, all),
+    removed: all,
+    tokenCheckGaps: config.length === 0 ? context.tokenCheckGaps : [...context.tokenCheckGaps, gap],
+  };
 }
 
 function assemble(

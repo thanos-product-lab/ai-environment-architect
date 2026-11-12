@@ -2,8 +2,12 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 12 November 2026  
-**Version:** 0.57  
+**Version:** 0.58  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.57
+
+- **Token check (§1.10, §1.11, §1.15).** Agent configuration a call's token check removes gets the §1.5 gap, with the input limit as its cause, so its files are `not_inspected` from the start. Each such call records its own gap, with only its own removals, before it is sent. Call 2 starts from call 1's reduced context plus the expansion results, and applies its own reductions from there, recording only its own.
 
 ### Changes from v0.56
 
@@ -838,7 +842,7 @@ If the request does not fit, items are removed one at a time in this **determini
 
 The known-facts section (§3.2.5), tier 3 manifests, the destination and expansion results (§1.8) are never removed. If the request still does not fit, the call is not sent. For call 2, code appends a `session_state` with the reason `stage_skipped` and `unsentPurpose: analyse_expansion`, so the session is `incomplete` (§4.4.2), and it continues with call 1's results (§2.12). For any other call, the session stops with an explanation. For call 1, code counts the fully reduced request once more without the destination: if that fits, the destination is the cause, and the session stops by the destination rule in §1.5 (`destination_exceeds_input_limit`); if not, it stops with `context_exceeds_input_limit`.
 
-A removed item keeps its ID; no other item is renumbered. Every reduction in a call that is sent is recorded in its manifest: the item leaves `items` and joins `skipped` with the reason `token-check:<step>`, its tier's counts describe the final selection, and `tokenCheck.reductions` lists it (§1.13). The tree markers are updated. What calls 3–5 record for a removed excerpt and a reduced tree depth is specified with their request format (§3.2.6). The token check is the only model-dependent part of construction. Because it can only remove items, the byte selection stays reproducible across models, and the final context is reproducible for a fixed model and input limit.
+Call 2 starts from the context call 1 sent, with call 1's removals, plus the expansion results, and applies its own reductions from there in the same order; its `tokenCheck.reductions` lists only its own, and its `skipped` every removal so far. Other agent configuration a call's check removes from tier 1 gets the deterministic gap of §1.5, with its own cause: "Some existing agent configuration was not read because the request had to fit the model's input limit." Each call that removes configuration gets one such gap, listing only its own removals in rendering order, so they are `not_inspected` (§1.11). It is recorded as a deterministic finding after the check and before that call is sent, so it follows the selection's gaps (§3.2.5) and any earlier call's, in call order. The selection's gaps are unchanged by the check, and a call that is not sent records no gap. A removed item keeps its ID; no other item is renumbered. Every reduction in a call that is sent is recorded in its manifest: the item leaves `items` and joins `skipped` with the reason `token-check:<step>`, its tier's counts describe the final selection, and `tokenCheck.reductions` lists it (§1.13). The tree markers are updated. What calls 3–5 record for a removed excerpt and a reduced tree depth is specified with their request format (§3.2.6). The token check is the only model-dependent part of construction. Because it can only remove items, the byte selection stays reproducible across models, and the final context is reproducible for a fixed model and input limit.
 
 ### 1.11 Coverage-aware validation
 
@@ -874,7 +878,7 @@ A gap keeps the label "missing" only if every file its related paths match is **
 
 Otherwise it is relabelled `not_inspected` (`GAP-002`, outcome `relabelled`), and code records on the finding ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.3) the matched files that weren't sent in full, withheld ones by `pathHash`, and the directories that count. Such a directory is recorded once, among the directories, never among the entries. That covers files not selected (`[-]`), excerpted or outline-only, `listed_only` (`[L]` and `[N]`), `ignored` (`[I]`), excluded (`[X]`), secret-blocked (`[S]`), symbolic links (`[>]`), unreadable entries (`[U]`), and the directories above when they count. The review shows it as "not inspected", not "missing". A gap on a whole directory is therefore usually `not_inspected`; the prompt asks the model to name the specific files a gap concerns.
 
-The deterministic gaps of §1.5 are `not_inspected` from the start: agent configuration skipped by the tier 1 budget records the skipped paths, and an import outside the repository records the importing file, because the imported file was never read.
+The deterministic gaps of §1.5 are `not_inspected` from the start: agent configuration skipped by the tier 1 budget, or removed by the token check (§1.10), records the skipped paths, and an import outside the repository records the importing file, because the imported file was never read.
 
 **Absence claims** must be expressed as `absenceClaim: { pathGlob, reason }`. Code copies the glob into the claim's statement, so a glob holding a backtick, whitespace, or a control or format character (Unicode `Cc`, `Cf`) is rejected first (`ABS-003`), as is one with a `..` segment, which names nothing. The glob is then normalised (above), so `./src/a.ts` is rejected by `ABS-001` when `src/a.ts` exists. Application code then evaluates the glob against the **full snapshot file list**, in this order:
 
@@ -1012,6 +1016,8 @@ All defaults are starting points. They are calibrated on the product-development
 - Line-range expansion returns exactly the requested lines; out-of-range or already-included requests are rejected.
 - A file changed after the snapshot fails expansion with "changed since snapshot".
 - A request that exceeds the token limit is reduced in the specified order, or not sent. A call 2 that still doesn't fit is recorded as `stage_skipped`, and the session continues with call 1's results.
+- Agent configuration the token check removes gets a gap per call, listing only that call's removals in rendering order, `not_inspected` from the start; the destination is never in it.
+- Call 2 starts from call 1's reduced context: no item call 1 removed comes back, its `tokenCheck.reductions` lists only its own removals, its `skipped` every removal so far, and the expansion results are kept.
 - Gap findings concerning unsent content become `not_inspected`, including gaps on paths under an excluded or wholly ignored directory or through a symbolic link; gaps on unlisted paths are rejected.
 - Absence claims contradicted by the file list are rejected, including by an `ignored`, excluded or `listed_only` entry; a claim that can match only inside uncovered directories is rejected; accepted ones use the code-generated narrow wording, name the uncovered directories the glob could reach, and cannot support broader recommendations.
 - Citations of omitted outline entries, outline labels, `BLOCKS` lines or outline-only items are rejected.

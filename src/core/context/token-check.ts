@@ -8,7 +8,7 @@ import {
   reduceContext,
   type TokenCheckRecord,
 } from "./select.js";
-import { type DestinationStop, TEST_EXAMPLE_REASON } from "./tiers.js";
+import { type DestinationStop, type SelectionGap, TEST_EXAMPLE_REASON } from "./tiers.js";
 import type { CallPurpose, TokenSettings } from "./token-settings.js";
 
 // The token check (IMPL §1.10). Before every call, the complete request is scanned (§1.7) and
@@ -227,6 +227,11 @@ export type ContextCallResult =
       readonly request: ModelRequest;
       /** The context sent, its manifest with `tokenCheck` set. */
       readonly context: ReadyContext;
+      /**
+       * This call's gap for the agent configuration it removed, if any (IMPL §1.10): recorded
+       * as a deterministic finding before the call is sent.
+       */
+      readonly gap?: SelectionGap;
     }
   /**
    * Call 2 still doesn't fit: it isn't sent, and the session records `stage_skipped`
@@ -276,10 +281,15 @@ export async function checkContextCall(
       return result;
     case "fits": {
       const sent = reduced(result.removed);
+      const gap =
+        sent.tokenCheckGaps.length > context.tokenCheckGaps.length
+          ? sent.tokenCheckGaps.at(-1)
+          : undefined;
       return {
         state: "fits",
         request: result.request,
         context: { ...sent, manifest: { ...sent.manifest, tokenCheck: result.tokenCheck } },
+        ...(gap === undefined ? {} : { gap }),
       };
     }
     case "does_not_fit":

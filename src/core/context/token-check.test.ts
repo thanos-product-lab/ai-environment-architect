@@ -11,8 +11,13 @@ import { sha256 } from "../hash.js";
 import type { ModelRequest } from "../request.js";
 import { inputManifest } from "../session/records.js";
 import { captureSnapshot, DEFAULT_SNAPSHOT_SETTINGS } from "../snapshot/snapshot.js";
+import { deterministicGapCoverage } from "../validation/coverage.js";
 import { type ContextSelectionSettings, type ReadyContext, selectContext } from "./select.js";
-import { DEFAULT_CONTEXT_SETTINGS } from "./tiers.js";
+import {
+  AGENT_CONFIG_SKIPPED,
+  AGENT_CONFIG_TOKEN_LIMIT,
+  DEFAULT_CONTEXT_SETTINGS,
+} from "./tiers.js";
 import {
   type CitedExcerpt,
   checkContextCall,
@@ -601,5 +606,195 @@ describe("the reduction order for calls 3–5 (IMPL §1.10 step 4)", () => {
       pathHash: sha256(new TextEncoder().encode(path)),
       bytes: 5,
     });
+  });
+});
+
+// --- Agent configuration the token check removed (IMPL §1.5, §1.10, §1.11) ---------------------
+
+const idsOf = (context: ReadyContext, paths: string[]) =>
+  new Set(context.items.filter((i) => paths.includes(i.path)).map((i) => i.id));
+
+/** Room for everything but the first `n` reductions of `context`'s request under `make`. */
+function limitAfter(
+  context: ReadyContext,
+  n: number,
+  make: (c: ReadyContext) => ModelRequest = build,
+): number {
+  const units = contextReductions(context);
+  const removed = units.slice(0, n).reduce((sum, u) => sum + ("bytes" in u ? u.bytes : 0), 0);
+  return bytes(make(context).user) - removed + TOKENS.reservedOutputTokens.analyse;
+}
+
+const tier1Index = (context: ReadyContext, path: string) =>
+  contextReductions(context).findIndex((u) => "path" in u && u.path === path);
+
+describe("removed agent configuration (IMPL §1.10)", () => {
+  it("adds the §1.5 gap, naming the token check as the cause, for the removed paths only", async () => {
+    const context = await ready();
+    const reduced = reduceContext(context, idsOf(context, ["AGENTS.md", ".claude/rules/style.md"]));
+    expect(reduced.tokenCheckGaps).toEqual([
+      {
+        gapType: "other",
+        statement: AGENT_CONFIG_TOKEN_LIMIT,
+        relatedPaths: ["AGENTS.md", ".claude/rules/style.md"],
+      },
+    ]);
+    expect(AGENT_CONFIG_TOKEN_LIMIT).not.toBe(AGENT_CONFIG_SKIPPED);
+    expect(AGENT_CONFIG_TOKEN_LIMIT).toMatch(/input limit/);
+    // The selection's gaps, recorded before call 1, are unchanged.
+    expect(reduced.gaps).toEqual(context.gaps);
+  });
+
+  it("lists the paths in rendering order, whatever order the IDs come in", async () => {
+    const context = await ready();
+    const ids = [...idsOf(context, ["AGENTS.md", ".claude/rules/style.md"])].reverse();
+    const reduced = reduceContext(context, new Set(ids));
+    expect(reduced.tokenCheckGaps[0]?.relatedPaths).toEqual([
+      "AGENTS.md",
+      ".claude/rules/style.md",
+    ]);
+  });
+
+  it("makes the removed files not inspected from the start (IMPL §1.11)", async () => {
+    const context = await ready();
+    const [gap] = reduceContext(context, idsOf(context, ["AGENTS.md"])).tokenCheckGaps;
+    if (gap === undefined) throw new Error("no gap");
+    expect(deterministicGapCoverage(gap)).toEqual({
+      state: "not_inspected",
+      entries: [{ path: "AGENTS.md" }],
+      directories: [],
+    });
+  });
+
+  it("adds no gap when no agent configuration is removed, and never names the destination", async () => {
+    const context = await ready();
+    expect(
+      reduceContext(context, idsOf(context, ["src/util.ts", "README.md"])).tokenCheckGaps,
+    ).toEqual([]);
+    expect(reduceContext(context, idsOf(context, ["CLAUDE.md"])).tokenCheckGaps).toEqual([]);
+  });
+
+  it("gives the call that is sent its gap, to record before it is sent", async () => {
+    const context = await ready();
+    const n = tier1Index(context, ".claude/rules/style.md") + 1;
+    const result = await checkContextCall("analyse", context, build, {
+      counter: byteCounter().counter,
+      models: limits(limitAfter(context, n)),
+      tokens: TOKENS,
+    });
+    expect(result.state).toBe("fits");
+    if (result.state !== "fits") return;
+    const gap = {
+      gapType: "other",
+      statement: AGENT_CONFIG_TOKEN_LIMIT,
+      relatedPaths: [".claude/rules/style.md"],
+    };
+    expect(result.gap).toEqual(gap);
+    expect(result.context.tokenCheckGaps).toEqual([gap]);
+  });
+
+  it("gives no gap to a call that removes no agent configuration", async () => {
+    const context = await ready();
+    const result = await checkContextCall("analyse", context, build, {
+      counter: byteCounter().counter,
+      models: limits(limitAfter(context, 1)),
+      tokens: TOKENS,
+    });
+    expect(result).toMatchObject({ state: "fits" });
+    if (result.state !== "fits") return;
+    expect(result.gap).toBeUndefined();
+    expect(result.context.tokenCheckGaps).toEqual([]);
+  });
+});
+
+// --- Call 2 starts from call 1's reduced context (IMPL §1.10) ---------------------------------
+
+describe("call 2 after call 1's reductions (IMPL §1.10)", () => {
+  const withExpansion = (c: ReadyContext) =>
+    request(`${c.context.text}<<<ITEM id=E-001 path="src/more.ts">>>\nmore\n<<<END ITEM>>>\n`);
+
+  async function afterCall1(removeCount: number) {
+    const context = await ready();
+    const units = contextReductions(context);
+    const result = await checkContextCall("analyse", context, build, {
+      counter: byteCounter().counter,
+      models: limits(limitAfter(context, removeCount)),
+      tokens: TOKENS,
+    });
+    if (result.state !== "fits") throw new Error(`call 1: ${result.state}`);
+    expect(result.context.manifest.tokenCheck?.reductions).toHaveLength(removeCount);
+    return { units, sent: result.context, gap: result.gap };
+  }
+
+  const tokenCheckSkips = (c: ReadyContext) =>
+    c.manifest.skipped.filter((s) => s.reason.startsWith("token-check:"));
+
+  it("keeps call 1's removals: a further reduction of call 1's context never brings an item back", async () => {
+    const { units, sent } = await afterCall1(2);
+    const next = units[2];
+    if (next === undefined || !("id" in next)) throw new Error("no third unit");
+    const further = reduceContext(sent, new Set([next.id]));
+    const ids = further.items.map((i) => i.id);
+    for (const u of units.slice(0, 3)) expect(ids).not.toContain("id" in u ? u.id : "");
+    expect(tokenCheckSkips(further)).toHaveLength(3);
+  });
+
+  it("applies its own reductions from there, recording only its own, with the expansion results kept", async () => {
+    const { units, sent } = await afterCall1(2);
+    const third = units[2];
+    if (third === undefined) throw new Error("no third unit");
+    const result = await checkContextCall("analyse_expansion", sent, withExpansion, {
+      counter: byteCounter().counter,
+      models: limits(limitAfter(sent, 1, withExpansion)),
+      tokens: TOKENS,
+    });
+    expect(result.state).toBe("fits");
+    if (result.state !== "fits") return;
+    expect(result.context.manifest.tokenCheck?.reductions).toEqual([third]);
+    expect(contextReductions(sent)[0]).toEqual(third);
+    expect(tokenCheckSkips(result.context)).toHaveLength(3);
+    expect(result.request.user).toContain("id=E-001");
+    const ids = result.context.items.map((i) => i.id);
+    for (const u of units.slice(0, 3)) expect(ids).not.toContain("id" in u ? u.id : "");
+  });
+
+  it("gives call 2 a separate gap for only its own removed configuration, keeping call 1's", async () => {
+    const context = await ready();
+    const call1 = await afterCall1(tier1Index(context, ".claude/rules/style.md") + 1);
+    expect(call1.gap?.relatedPaths).toEqual([".claude/rules/style.md"]);
+    // Call 2's only remaining removable item is AGENTS.md.
+    expect(contextReductions(call1.sent).map((u) => ("path" in u ? u.path : ""))).toEqual([
+      "AGENTS.md",
+    ]);
+    const result = await checkContextCall("analyse_expansion", call1.sent, withExpansion, {
+      counter: byteCounter().counter,
+      models: limits(limitAfter(call1.sent, 1, withExpansion)),
+      tokens: TOKENS,
+    });
+    expect(result.state).toBe("fits");
+    if (result.state !== "fits") return;
+    const gap2 = {
+      gapType: "other",
+      statement: AGENT_CONFIG_TOKEN_LIMIT,
+      relatedPaths: ["AGENTS.md"],
+    };
+    expect(result.gap).toEqual(gap2);
+    expect(result.context.tokenCheckGaps).toEqual([call1.gap, gap2]);
+    expect(result.context.gaps).toEqual(context.gaps);
+  });
+
+  it("sends call 2 unreduced when call 1's context and the expansion fit, keeping call 1's skips", async () => {
+    const { sent } = await afterCall1(1);
+    const result = await checkContextCall("analyse_expansion", sent, withExpansion, {
+      counter: byteCounter().counter,
+      models: limits(1_000_000),
+      tokens: TOKENS,
+    });
+    expect(result.state).toBe("fits");
+    if (result.state !== "fits") return;
+    expect(result.context.context.hash).toBe(sent.context.hash);
+    expect(result.context.manifest.tokenCheck?.reductions).toEqual([]);
+    expect(tokenCheckSkips(result.context)).toHaveLength(1);
+    expect(result.gap).toBeUndefined();
   });
 });

@@ -83,6 +83,10 @@ export const TEST_EXAMPLE_REASON = "tier5:test-example";
 export const AGENT_CONFIG_SKIPPED =
   "Some existing agent configuration was not read because of the analysis budget.";
 
+/** The same gap when the token check removed the configuration (IMPL §1.10). */
+export const AGENT_CONFIG_TOKEN_LIMIT =
+  "Some existing agent configuration was not read because the request had to fit the model's input limit.";
+
 export type SelectedTier = 1 | 2 | 3 | 5;
 
 export interface SelectedItem {
