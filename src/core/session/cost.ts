@@ -114,6 +114,7 @@ export interface BeforeSend {
   readonly started: {
     readonly budget: CallBudget;
     readonly estimatedCost: Known<number>;
+    readonly estimatedTokens: Known<number>;
     readonly priceTable: { readonly version: string; readonly date: string };
   };
 }
@@ -134,6 +135,7 @@ export function checkBeforeSend(
     started: {
       budget: check.budget,
       estimatedCost: estimate.cost,
+      estimatedTokens: estimate.tokens,
       priceTable: { version: table.version, date: table.date },
     },
   };

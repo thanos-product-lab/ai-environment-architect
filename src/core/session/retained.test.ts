@@ -457,7 +457,8 @@ const interruptedEnd = {
 describe("responses are for replay only (IMPL §4.8)", () => {
   it("no source file outside the schema, saving, loading and interruption mentions retained responses", () => {
     // A new file here would be a new reader: records, the export and the review are built from
-    // records, never from retained responses. calls.ts only writes a null reference on resume.
+    // records, never from retained responses. calls.ts only writes a null reference on resume,
+    // and send.ts only writes the reference and the file of the response it received.
     const root = join(import.meta.dirname, "..", "..");
     const sources = (dir: string): string[] =>
       readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -474,6 +475,7 @@ describe("responses are for replay only (IMPL §4.8)", () => {
       "core/session/load.ts",
       "core/session/records.ts",
       "core/session/retained.ts",
+      "core/session/send.ts",
       "core/session/store.ts",
     ]);
   });

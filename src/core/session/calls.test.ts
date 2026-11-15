@@ -304,9 +304,40 @@ describe("the budget with unknown costs (IMPL §4.6, §3.6)", () => {
     expect(check.budget.spentCostUsd).toMatchObject({ state: "unknown", knownPartsSum: 0 });
   });
 
-  it("can't check tokens when a call's usage is unknown", () => {
+  it("counts a call's estimatedTokens when its usage is unknown, and stops at the ceiling with it", () => {
+    const log = withConfig({ maxTokens: 3500 });
+    log.start(callDraft({ estimatedTokens: known(3000) }));
+    recoverInterruptedWork(log);
+    const check = checkBudget(log.records, { cost: known(0), tokens: known(400) });
+    expect(check).toMatchObject({ result: "send", budget: { spentTokens: known(3000) } });
+    expect(checkBudget(log.records, { cost: known(0), tokens: known(600) })).toMatchObject({
+      result: "budget_reached",
+      exceeded: ["tokens"],
+    });
+  });
+
+  it("counts a call's known usage over its estimatedTokens when that is more", () => {
     const log = withConfig({ maxTokens: 100000 });
-    const a = log.start(callDraft());
+    const a = log.start(callDraft({ estimatedTokens: known(3000) }));
+    log.revise(
+      "model_call",
+      a.modelCallId,
+      completedCall({
+        state: "failed",
+        usage: {
+          input: known(5000),
+          output: unknown("not_reported"),
+          cacheRead: known(0),
+          cacheWrite: known(0),
+        },
+      }),
+    );
+    expect(checkBudget(log.records, estimate).budget.spentTokens).toEqual(known(5000));
+  });
+
+  it("can't check tokens when a call's usage and estimatedTokens are both unknown", () => {
+    const log = withConfig({ maxTokens: 100000 });
+    const a = log.start(callDraft({ estimatedTokens: unknown("no_count") }));
     recoverInterruptedWork(log);
     expect(checkBudget(log.records, estimate)).toMatchObject({
       result: "cannot_check",
@@ -427,9 +458,9 @@ describe("the budget with unknown costs (IMPL §4.6, §3.6)", () => {
 });
 
 describe("the budget: review fixes (IMPL §4.6)", () => {
-  it("a settled call with partly known usage counts its known parts", () => {
+  it("a settled call with partly known usage and an unknown estimate counts its known parts", () => {
     const log = withConfig({ maxTokens: 100000 });
-    const a = log.start(callDraft());
+    const a = log.start(callDraft({ estimatedTokens: unknown("no_count") }));
     log.revise(
       "model_call",
       a.modelCallId,

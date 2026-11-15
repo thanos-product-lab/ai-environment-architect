@@ -14,8 +14,8 @@ import type {
 //
 // - A call still `started`, or an interval still `open`, on resume was interrupted. Its end,
 //   usage and cost are unknown, never zero, because it may have been billed.
-// - The budget counts an unknown cost as the call's `estimatedCost`, and never reports the
-//   estimate as cost. Unknown parts with no stand-in make the check impossible until a
+// - The budget counts an unknown cost as the call's `estimatedCost`, and unknown usage as its
+//   `estimatedTokens`, and never reports either estimate as the call's cost or usage. Unknown parts with no stand-in make the check impossible until a
 //   `generation_config` revision with the reason `budget_raised` or `budget_confirmed` settles
 //   them; a settled call then counts its known parts only.
 // - Active effort is the sum of the closed intervals; an interrupted or in-progress one makes it a
@@ -229,16 +229,23 @@ function costOf(call: ModelCallRecord): number | undefined {
   return call.estimatedCost.state === "known" ? call.estimatedCost.value : undefined;
 }
 
-/** Tokens: the four usage counts, and whether every one is known. */
+/**
+ * Tokens: the four usage counts when every one is known. Otherwise the call's estimate stands in,
+ * or its known parts if they are more, for the budget only; with the estimate unknown too, the
+ * known parts, and the call is incomplete.
+ */
 function tokensOf(call: ModelCallRecord): { readonly known: number; readonly complete: boolean } {
-  if (call.state === "started") return { known: 0, complete: false };
   let known = 0;
-  let complete = true;
-  for (const part of Object.values(call.usage)) {
-    if (part.state === "known") known += part.value;
-    else complete = false;
-  }
-  return { known, complete };
+  let complete = call.state !== "started";
+  if (call.state !== "started")
+    for (const part of Object.values(call.usage)) {
+      if (part.state === "known") known += part.value;
+      else complete = false;
+    }
+  if (complete) return { known, complete };
+  return call.estimatedTokens.state === "known"
+    ? { known: Math.max(known, call.estimatedTokens.value), complete: true }
+    : { known, complete: false };
 }
 
 /** The revisions that settle earlier unknowns: a raise or a confirmation (§4.6). */

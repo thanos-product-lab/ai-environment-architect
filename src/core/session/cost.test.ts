@@ -213,13 +213,14 @@ describe("the check before a send (IMPL §3.6, §4.6)", () => {
     cachesInput: false,
   };
 
-  it("gives the started revision its budget, estimatedCost and the table's version and date", () => {
+  it("gives the started revision its budget, estimatedCost, estimatedTokens and the table's version and date", () => {
     const log = withConfig({ maxCostUsd: 10 });
     const { check, started } = checkBeforeSend(log.records, TABLE, input);
     expect(check.result).toBe("send");
     expect(started).toEqual({
       budget: check.budget,
       estimatedCost: estimateCall(TABLE, input).cost,
+      estimatedTokens: estimateCall(TABLE, input).tokens,
       priceTable: { version: "prices/test", date: "2026-11-15" },
     });
     expect(sessionRecord.safeParse(log.start(callDraft(started))).success).toBe(true);
@@ -257,7 +258,7 @@ describe("the check before a send (IMPL §3.6, §4.6)", () => {
     });
   });
 
-  it("counts partly known usage by its known parts, never as zero, and a later call with an unknown cost stops the check again", () => {
+  it("counts partly known usage as the call's estimatedTokens, never as zero, and the unknown cost as its estimatedCost", () => {
     const log = withConfig({ maxTokens: 1_000_000, maxCostUsd: 10 });
     const first = log.start(callDraft(checkBeforeSend(log.records, TABLE, input).started));
     const partial = usage({
@@ -273,11 +274,12 @@ describe("the check before a send (IMPL §3.6, §4.6)", () => {
         cost: callCost(TABLE, RECORDED, known("claude-test"), partial),
       }),
     );
-    const blocked = checkBeforeSend(log.records, TABLE, input).check;
-    expect(blocked).toMatchObject({ result: "cannot_check", unknown: ["tokens"] });
-    // The cost is unknown, so the budget stands in the call's estimate, never zero.
-    expect(blocked.budget.spentCostUsd).toEqual(known(0.368));
-    expect(blocked.budget.spentTokens).toMatchObject({ state: "unknown", knownPartsSum: 21_000 });
+    const { check } = checkBeforeSend(log.records, TABLE, input);
+    expect(check.result).toBe("send");
+    // Usage and cost are unknown, so the budget stands in the call's estimates, never zero:
+    // 12,000 input plus 16,000 reserved output tokens, more than the 21,000 known.
+    expect(check.budget.spentCostUsd).toEqual(known(0.368));
+    expect(check.budget.spentTokens).toEqual(known(28_000));
   });
 
   it("counts an interrupted call's estimate in the spend, never as its cost", () => {

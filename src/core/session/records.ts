@@ -1344,6 +1344,8 @@ const modelCallStartedFields = {
   budget: callBudget,
   /** The §3.6 estimate in USD: for the budget only, never reported as the call's cost. */
   estimatedCost: known(z.number().min(0)),
+  /** The §3.6 estimate in tokens: for the budget only, never reported as the call's usage. */
+  estimatedTokens: known(count),
   startedAt: timestamp,
 };
 

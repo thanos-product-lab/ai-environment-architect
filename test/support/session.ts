@@ -97,6 +97,7 @@ export function callDraft(
       spentTokens: { state: "known", value: 0 },
     },
     estimatedCost: { state: "known", value: 0.5 },
+    estimatedTokens: { state: "known", value: 3000 },
     startedAt: "2026-11-01T10:16:00.000Z",
     ...overrides,
   } as LineageStart<"model_call">;

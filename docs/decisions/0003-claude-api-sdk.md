@@ -22,7 +22,7 @@ Every fact below was checked on 9 November 2026 against the sources at the end, 
 | Package | `@anthropic-ai/sdk` 1.4.0, pinned exactly | Raw `fetch`, with no dependency |
 | API version | `2026-10-21`, which every 1.x release sends | An override back to `2023-06-01` |
 | Structured output | `messages.create` with `output_config.format` set to our committed JSON Schema | `zodOutputFormat`, `jsonSchemaOutputFormat`, `messages.parse` |
-| SDK retries | `maxRetries: 0`; the adapter's own loop implements IMPL §3.6 | The SDK's default of 2 retries |
+| SDK retries | `maxRetries: 0`; our own loop implements IMPL §3.6 | The SDK's default of 2 retries |
 | Transport | Non-streaming, each body read whole by our `fetch` wrapper | `messages.stream().finalMessage()` |
 | HTTP agent | `undici` 8.12.3, pinned exactly, with header and body timeouts equal to the send's timeout | Node's built-in `fetch`, which stops waiting at 300 seconds |
 | Refusal fallbacks | Off | `fallbacks: "default"` |
@@ -55,7 +55,7 @@ Every fact below was checked on 9 November 2026 against the sources at the end, 
 
 ### SDK retries: off
 
-**Decision.** The client is built with `maxRetries: 0`. The adapter's own loop applies IMPL §3.6.
+**Decision.** The client is built with `maxRetries: 0`. Our own loop applies IMPL §3.6. It is in core (`src/core/session/send.ts`), because it records every send in the session, and it sends through the adapter's `send`.
 
 **Why.** By default the SDK retries connection errors, timeouts, 408, 409, 429 and 5xx twice, without telling the caller. Those sends would have no `started` revision and no `modelCallId`, so the session would under-record what may have been billed (IMPL §4.6). The documentation doesn't say how the SDK treats `retry-after`, so the adapter reads the header from the error itself.
 
@@ -116,3 +116,4 @@ Checked on 9 November 2026:
 - **10 November 2026:** the SDK reads `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_LOG` and `ANTHROPIC_CUSTOM_HEADERS` from the environment, the last even when a key is given, and custom headers could change `anthropic-version` or add a beta. The adapter passes the key, a null token and the base URL, turns logging off, and wraps `fetch` so that only the SDK's plain headers, `anthropic-version: 2026-10-21` and the key are sent. The wrapper also reads each body, an HTTP error's included, under the SDK's abort signal: the SDK's timer stops when headers arrive, so without it a stalled body would never time out, and an error's body is retained like any response (IMPL §4.8).
 - **10 November 2026:** correction to the entry on the environment above. The headers the adapter supplies are fixed values, not copies of the SDK's: `accept`, `content-type`, `anthropic-version: 2026-10-21`, the key and `x-stainless-timeout`, because the SDK merges `ANTHROPIC_CUSTOM_HEADERS` over its own. The HTTP client adds its own headers on the wire, such as `user-agent` and `accept-encoding`, which carry nothing of ours.
 - **10 November 2026:** `undici` 8.12.3 added as the HTTP agent, with header and body timeouts equal to the send's timeout, because Node's built-in `fetch` stops waiting for headers after 300 seconds and would cut a raised output limit short at 5 minutes. Installed outside the sandbox with the developer's approval; the tests run inside it.
+- **15 November 2026:** the IMPL §3.6 retry loop is in core, not the adapter, because it writes a model call for every send; it sends through the adapter, which adds `requestBytes` so the request can be retained before it is sent.

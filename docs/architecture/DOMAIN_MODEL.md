@@ -1,8 +1,8 @@
 # Domain Model
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 9 November 2026  
-**Version:** 0.33 — consolidated specification  
+**Date:** 15 November 2026  
+**Version:** 0.34 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,10 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.33
+
+- **Token estimate (§13.1).** A model call records `estimatedTokens`, which the budget counts when its usage is unknown, as `estimatedCost` stands in for an unknown cost ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §4.6).
 
 ### Changes from v0.32
 
@@ -673,7 +677,7 @@ In the first slice, invalidating the whole proposal is acceptable wherever the n
 | `budget` | Limits applied to this call |
 | `usage` | Input, output and cached tokens where available |
 | `cost?`, `costBasis`, `priceTable` | `costBasis` is `estimated` or `unknown`: the provider reports usage but no cost per request, so a known cost is computed from usage and a price table, whose version and date are recorded. Unknown is never recorded as zero |
-| `estimatedCost` | The estimate checked against the budget before sending; used for the budget when the cost is unknown, never reported as cost |
+| `estimatedCost`, `estimatedTokens` | The estimate checked against the budget before sending; used for the budget when the cost or usage is unknown, never reported as cost or usage |
 | `counts` | Proposed (unknown, with a reason, after a schema failure or when no response was parsed), accepted, corrected, relabelled, and rejections by rule; for `analyse` and `analyse_expansion`, the corrected-citation rate and citations proposed ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.2.2, §3.5) |
 | `startedAt`, `endedAt`, `durationMs` | `endedAt` and `durationMs` are unknown, with a reason, for an interrupted call |
 
