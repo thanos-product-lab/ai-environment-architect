@@ -185,6 +185,25 @@ describe("the request (ADR 0003, IMPL §3.7)", () => {
   it("builds the same bytes for the same request", () => {
     expect(bodyBytes(messageBody(request()))).toEqual(bodyBytes(messageBody(request())));
   });
+
+  // The price table's cache-write price is the default 5-minute lifetime's (IMPL §4.6), so no
+  // request may set a cache breakpoint or a lifetime of its own.
+  for (const call of CALLS)
+    it(`${call}: never sets a cache breakpoint or a cache lifetime`, async () => {
+      const { fetch, captured } = fakeFetch();
+      await createClaudeClient({ apiKey: SENTINEL_KEY, fetch }).send(request(call));
+      const keys = new Set<string>();
+      const walk = (value: unknown): void => {
+        if (Array.isArray(value)) value.forEach(walk);
+        else if (value !== null && typeof value === "object")
+          for (const [key, inner] of Object.entries(value)) {
+            keys.add(key);
+            walk(inner);
+          }
+      };
+      walk(JSON.parse((captured[0] as Captured).body));
+      for (const key of ["cache_control", "ttl"]) expect(keys.has(key), key).toBe(false);
+    });
 });
 
 describe("the response (IMPL §3.7, §4.6, §4.8)", () => {

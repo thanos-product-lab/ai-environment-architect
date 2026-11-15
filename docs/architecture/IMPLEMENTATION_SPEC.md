@@ -1,9 +1,13 @@
 # Implementation Specification
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 12 November 2026  
-**Version:** 0.58  
+**Date:** 15 November 2026  
+**Version:** 0.59  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.58
+
+- **Cost and the price table (§3.6, §4.6).** A call's cost is priced by its returned model, the one billed; the requested and returned models are both recorded. A model missing from the table, an unknown returned model or any unknown usage count gives an unknown cost with a reason, and the budget stands in the call's estimate. Cache-write prices are those of the default 5-minute lifetime, and requests set no cache breakpoint or lifetime. The estimate and the check before a send are one core function, `checkBeforeSend`; the retry policy calls it before every send, retries included. A call is priced only from the table it records, and the reasons for an unknown estimate or cost are a closed list.
 
 ### Changes from v0.57
 
@@ -1984,7 +1988,7 @@ Each call also records counts: proposed, accepted, corrected and relabelled item
 
 The adapter turns off the SDK's own retries, so every send is a model call with its own record (§4.6, ADR 0003). The stop reason is checked before the response is parsed: a truncated, refused or otherwise stopped response records no validation events, and its proposed count is unknown (§3.5). `error.kind` is one of `connection`, `timeout`, `server`, `rate_limit`, `request`, `truncated`, `refusal`, `unexpected_stop` and `schema`; the §2.12 screens are chosen from it.
 
-**The estimate.** The estimated tokens are the input tokens counted, or estimated from bytes, for the request (§1.10) plus its `reservedOutputTokens`. The estimated cost is the same sum priced: input tokens at the model's input price, or its cache-write price when the request sets a cache breakpoint, and `reservedOutputTokens` at its output price. It is an upper bound on the output, because `max_tokens` caps it. A model missing from the price table (§4.6) gives an unknown estimate with a reason.
+**The estimate.** The estimated tokens are the input tokens counted, or estimated from bytes, for the request (§1.10) plus its `reservedOutputTokens`. The estimated cost is the same sum priced: input tokens at the model's input price, or its cache-write price when the request sets a cache breakpoint, and `reservedOutputTokens` at its output price. It is an upper bound on the output, because `max_tokens` caps it. A model missing from the price table (§4.6) gives an unknown estimate with a reason. Every send, retries included, is estimated and checked again, because each one can cost money (§4.6).
 
 The schema-retry message lists each issue's path and code, as schema events do (§3.5), never the value received. It never includes semantic validation results. Telling the model which citations failed would teach it to make citations pass rather than be accurate.
 
@@ -2438,7 +2442,7 @@ type ModelCallEnded = Omit<ModelCallStarted, "revision" | "state"> & {
 - **Tokens.** The tokens spent so far are the sum of every call's four usage counts. A call with any usage unknown makes the token check impossible, as an unknown estimate does for cost: there is no token estimate to stand in for it. The check before sending compares the spend plus the call's own estimate, of cost and of tokens, with each ceiling that is set; an unset ceiling is never checked.
 - **Raising or confirming.** Either appends a `generation_config` revision: raising with the new limits and the reason `budget_raised`, confirming with the same limits and the reason `budget_confirmed`. Apart from `output_limit_raised` (below), these are the only reasons a `generation_config` revision may give, and it changes nothing but the budget (§4.4.1). It settles every unknown before it: the unknown parts of calls started before it count as their known parts only (`knownPartsSum`), and the next call may be sent with an unknown estimate. A call started after it, with unknown parts, makes the check impossible again.
 - **Raising the output limit.** After a truncation (§3.6), the developer may raise `reservedOutputTokens` for one or more calls, never lowering any. That appends a `generation_config` revision with the reason `output_limit_raised`, which changes only that setting and the `settingsHash` that covers it. Before appending anything, code refuses a value that isn't higher than the current one, that is above the model's output maximum (`max_tokens` in the provider's Models API), or that would make the truncated call fail the token check (§1.10). It leaves the budget alone and settles no unknown. The resend is a new model call whose `retryOf` names the truncated one, and its token and budget checks use the new limit.
-- **Cost is always an estimate.** The API reports a call's usage, but no cost per request, so a known cost is computed: the four usage counts priced from the versioned table `src/adapters/claude/prices.ts`. Its basis is `estimated`, and the call records the table's `version` and the `date` its prices were checked.
+- **Cost is always an estimate.** The API reports a call's usage, but no cost per request, so a known cost is computed: the four usage counts priced from the versioned table `src/adapters/claude/prices.ts`. Its basis is `estimated`, and the call records the table's `version` and the `date` its prices were checked. It is priced by the returned model, which is the one billed; when that differs from the requested model, both are on the record. A model missing from the table, an unknown returned model or any unknown usage count gives an unknown cost with a reason, never zero, and the budget counts the call's `estimatedCost` instead. The reasons are `no_price:<model>` (the model isn't in the table), `returned_model_unknown` and `usage_unknown:<counts>`, naming the unknown counts in the order input, output, cacheRead, cacheWrite. A call is priced from the table its `started` revision records, and code refuses any other. The table's cache-write price is that of the default 5-minute cache lifetime, so requests set no cache breakpoint or lifetime of their own. The table is pinned to its version by a test, as schemas are (§3.7): changing it, the date included, needs a new version.
 - `costBasis: "unknown"` in DM §13.1 is `cost.state: "unknown"` here.
 
 **Effort intervals.** An `open` revision is written when a prompt that waits for the developer is shown, and a `closed` revision with `leftAt` when it is answered (§2.13). An interval still `open` when its session is resumed was interrupted: the process holding the lock closes it with `leftAt` unknown, reason `interrupted`. Read-only commands treat it as they treat calls (above).
