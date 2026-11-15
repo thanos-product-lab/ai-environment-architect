@@ -182,6 +182,41 @@ describe("the request (ADR 0003, IMPL §3.7)", () => {
     }
   });
 
+  it("sends a schema retry's message as a second text block after the user content, the rest identical (IMPL §3.6)", async () => {
+    const { fetch, captured } = fakeFetch();
+    const client = createClaudeClient({ apiKey: SENTINEL_KEY, fetch });
+    await client.send(request());
+    await client.send({ ...request(), retryMessage: "- (root): invalid_type" });
+    const [plain, retry] = captured.map((c) => JSON.parse(c.body));
+    expect(plain.messages).toEqual([{ role: "user", content: "<context>…</context>" }]);
+    expect(retry.messages).toEqual([
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "<context>…</context>" },
+          { type: "text", text: "- (root): invalid_type" },
+        ],
+      },
+    ]);
+    const { messages: _a, ...plainRest } = plain;
+    const { messages: _b, ...retryRest } = retry;
+    expect(retryRest).toEqual(plainRest);
+  });
+
+  it("gives as requestBytes exactly the bytes it sends, before sending them (IMPL §4.8)", async () => {
+    const { fetch, captured } = fakeFetch();
+    const client = createClaudeClient({ apiKey: SENTINEL_KEY, fetch });
+    for (const req of [
+      request(),
+      { ...request(), retryMessage: "- content: not_one_text_block" },
+    ]) {
+      const before = client.requestBytes(req);
+      const result = await client.send(req);
+      expect(decoder.decode(before)).toBe(captured.at(-1)?.body);
+      expect(result.requestBytes).toEqual(before);
+    }
+  });
+
   it("builds the same bytes for the same request", () => {
     expect(bodyBytes(messageBody(request()))).toEqual(bodyBytes(messageBody(request())));
   });

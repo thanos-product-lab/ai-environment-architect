@@ -28,6 +28,7 @@ import {
   type ModelLimits,
   type Reduction,
   reduceContext,
+  scanRequest,
   type TokenCounter,
 } from "./token-check.js";
 import type { TokenSettings } from "./token-settings.js";
@@ -251,6 +252,22 @@ describe("checkTokens (IMPL §1.10)", () => {
     expect(result.removed).toBe(3);
     expect(result.tokenCheck.method).toBe("estimate");
     expect(result.tokenCheck.inputTokens).toBe(estimateTokens(result.request));
+  });
+
+  it("scans a schema retry's message with the rest of the request", () => {
+    const secret = "AKIAIOSFODNN7EXAMPLE";
+    expect(scanRequest(request("x"))).toBeUndefined();
+    expect(scanRequest({ ...request("x"), retryMessage: secret })).toBe("aws-access-key-id");
+  });
+
+  it("estimates a schema retry's message with the user content", () => {
+    const req = { ...request("x"), retryMessage: "- (root): invalid_type" };
+    const total =
+      bytes(req.system) +
+      bytes(req.user) +
+      bytes(req.retryMessage) +
+      bytes(JSON.stringify(req.schema));
+    expect(estimateTokens(req)).toBe(Math.ceil(total / 3));
   });
 
   it("estimates over the system prompt, the user content and the schema's JSON", () => {

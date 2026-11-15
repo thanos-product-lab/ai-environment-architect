@@ -7,7 +7,7 @@ import type { MessageCreateParamsNonStreaming } from "@anthropic-ai/sdk/resource
 import { Agent, fetch as undiciFetch } from "undici";
 import { z } from "zod";
 import type { LimitLookup, TokenCount } from "../../core/context/token-check.js";
-import type { Effort, ModelRequest } from "../../core/request.js";
+import type { Effort, ModelRequest, ReadMessage, SendResult } from "../../core/request.js";
 import type { Known } from "../../core/session/records.js";
 
 // The Claude API adapter (ADR 0003, IMPL §1.10, §3.7, §4.8). The only code that calls the Claude
@@ -36,48 +36,10 @@ export const API_VERSION = "2026-10-21";
 
 const BASE_URL = "https://api.anthropic.com";
 
-export type { Effort };
+export type { Effort, ReadMessage, SendResult };
 
 /** A complete request: what code assembled, with the call's settings. */
 export type MessageRequest = ModelRequest;
-
-/** What a 200 response says, read for the model call's record. Never the refusal's explanation. */
-export interface ReadMessage {
-  readonly returnedModel: string;
-  readonly stopReason: string | null;
-  /** With `stopReason: "refusal"`: the API's `stop_details.category`, if it gives one. */
-  readonly refusalCategory?: string;
-  /** Every `text` block, in order. Thinking blocks are ignored (IMPL §3.7). */
-  readonly textBlocks: readonly string[];
-  /** The type of every block that is neither `text` nor thinking. */
-  readonly otherBlocks: readonly string[];
-  readonly usage: {
-    readonly input: Known<number>;
-    readonly output: Known<number>;
-    readonly cacheRead: Known<number>;
-    readonly cacheWrite: Known<number>;
-  };
-}
-
-export type SendResult =
-  | {
-      readonly kind: "response";
-      readonly requestBytes: Uint8Array;
-      /** The body exactly as received, to retain for replay (IMPL §4.8). */
-      readonly responseBytes: Uint8Array;
-      /** Undefined when the body isn't a message, which the caller treats as a failed call. */
-      readonly message: ReadMessage | undefined;
-    }
-  | {
-      readonly kind: "http_error";
-      readonly requestBytes: Uint8Array;
-      /** The error body exactly as received; it is retained like any response (IMPL §4.8). */
-      readonly responseBytes: Uint8Array;
-      readonly status: number;
-      /** The `retry-after` header as sent, if any; the retry policy reads it (IMPL §3.6). */
-      readonly retryAfter?: string;
-    }
-  | { readonly kind: "connection" | "timeout"; readonly requestBytes: Uint8Array };
 
 /** The body sent: exactly these fields, so nothing else can reach the API. */
 export function messageBody(request: MessageRequest): MessageCreateParamsNonStreaming {
@@ -85,7 +47,19 @@ export function messageBody(request: MessageRequest): MessageCreateParamsNonStre
     model: request.model,
     max_tokens: request.maxTokens,
     system: request.system,
-    messages: [{ role: "user", content: request.user }],
+    messages: [
+      {
+        role: "user",
+        // The schema retry adds its message as a second block, leaving the rest identical (§3.6).
+        content:
+          request.retryMessage === undefined
+            ? request.user
+            : [
+                { type: "text", text: request.user },
+                { type: "text", text: request.retryMessage },
+              ],
+      },
+    ],
     output_config: {
       effort: request.effort,
       format: { type: "json_schema", schema: request.schema as Record<string, unknown> },
@@ -125,6 +99,8 @@ export interface ClientOptions {
 type Fetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
 export interface ClaudeClient {
+  /** The exact body bytes `send` posts for `request`, to retain before it is sent (IMPL §4.8). */
+  requestBytes(request: MessageRequest): Uint8Array;
   send(request: MessageRequest): Promise<SendResult>;
   /**
    * The request's input tokens (IMPL §1.10), counted with its model, system prompt, messages and
@@ -151,6 +127,8 @@ const NO_BODY = new Set([101, 204, 205, 304]);
 
 export function createClaudeClient(options: ClientOptions): ClaudeClient {
   return {
+    requestBytes: (request) => bodyBytes(messageBody(request)),
+
     async send(request) {
       const body = messageBody(request);
       const requestBytes = bodyBytes(body);

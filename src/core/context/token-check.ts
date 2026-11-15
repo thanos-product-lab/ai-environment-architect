@@ -82,15 +82,22 @@ export type TokenCheckResult =
 /** The rule ID of the first secret-scan match in what the request sends, if any. */
 export function scanRequest(request: ModelRequest): SecretRuleId | undefined {
   return (
-    scanText(request.system) ?? scanText(request.user) ?? scanText(JSON.stringify(request.schema))
+    scanText(request.system) ??
+    scanText(request.user) ??
+    (request.retryMessage === undefined ? undefined : scanText(request.retryMessage)) ??
+    scanText(JSON.stringify(request.schema))
   );
 }
 
-/** 1 token per 3 bytes, rounded up, over the system prompt, the user content and the schema. */
+/**
+ * 1 token per 3 bytes, rounded up, over the system prompt, the user content (a schema retry's
+ * message included) and the schema.
+ */
 export function estimateTokens(request: ModelRequest): number {
   const bytes =
     Buffer.byteLength(request.system, "utf8") +
     Buffer.byteLength(request.user, "utf8") +
+    Buffer.byteLength(request.retryMessage ?? "", "utf8") +
     Buffer.byteLength(JSON.stringify(request.schema), "utf8");
   return Math.ceil(bytes / 3);
 }
