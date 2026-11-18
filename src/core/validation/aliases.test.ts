@@ -52,6 +52,13 @@ describe("alias tables (IMPL §3.2.1)", () => {
     ]);
   });
 
+  it("leaves a null finding's number unused, so a withheld known fact keeps its gap (IMPL §3.2.6)", () => {
+    const table = createAliasTable("generate_questions", {
+      findings: ["fndr_0001", null, "fndr_0003"],
+    });
+    expect(table.entries.map((entry) => entry.alias)).toEqual(["F-1", "F-3"]);
+  });
+
   it("numbers B aliases exactly as the BLOCKS section renders them", () => {
     const table = createAliasTable("analyse", {
       blocks: [

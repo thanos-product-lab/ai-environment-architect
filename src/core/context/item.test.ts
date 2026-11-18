@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Hash } from "../hash.js";
-import { blockRanges, type ExcerptStrategy, type ItemInput, renderItem } from "./item.js";
+import {
+  blockRanges,
+  type ExcerptStrategy,
+  type ItemInput,
+  renderDestinationSection,
+  renderItem,
+} from "./item.js";
 
 // Excerpting and item rendering (IMPL §1.6).
 
@@ -510,6 +516,35 @@ describe("destination blocks (IMPL §1.5, §1.6)", () => {
     expect(
       blockRanges(content, [{ blockId: "other-1", sourceSpan: { start: 0, end: 20 } }]),
     ).toEqual([{ first: 1, last: 4, alias: "B-1" }]);
+  });
+});
+
+describe("the DESTINATION section of calls 3–5 (IMPL §3.2.6)", () => {
+  const blocks = [
+    { first: 1, last: 1, alias: "B-1" },
+    { first: 3, last: 3, alias: "B-2" },
+  ];
+
+  it("renders every line under its own header, with the BLOCKS and CONTENT of call 1's item", () => {
+    const content = new TextEncoder().encode("# Rules\n\n- <<<one\n");
+    const call1 = render(input("CLAUDE.md", "", { content, blocks }), "none")?.text ?? "";
+    const body = call1.slice(call1.indexOf("BLOCKS\n"), call1.indexOf("<<<END"));
+    expect(renderDestinationSection("CLAUDE.md", content, blocks)).toBe(
+      `<<<DESTINATION path="CLAUDE.md" totalLines=3>>>\n${body}<<<END DESTINATION>>>\n`,
+    );
+    expect(body).toContain("   3 | - <<\\<one\n");
+  });
+
+  it("renders an absent destination as its header and end frame", () => {
+    expect(renderDestinationSection("CLAUDE.md", undefined, [])).toBe(
+      '<<<DESTINATION path="CLAUDE.md" absent>>>\n<<<END DESTINATION>>>\n',
+    );
+  });
+
+  it("renders an empty destination with no lines and no BLOCKS lines", () => {
+    expect(renderDestinationSection("CLAUDE.md", new Uint8Array(), [])).toBe(
+      '<<<DESTINATION path="CLAUDE.md" totalLines=0>>>\nBLOCKS\nCONTENT\n<<<END DESTINATION>>>\n',
+    );
   });
 });
 

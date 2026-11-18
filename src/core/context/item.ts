@@ -130,6 +130,33 @@ export function renderLines(
   return layout.finish(merged, undefined, limitBytes, false, !(whole || n === 0));
 }
 
+/**
+ * The destination as calls 3–5 receive it (IMPL §3.2.6): every line, with the BLOCKS and CONTENT
+ * sections of the call-1 destination item and their escaping, under a header of its own.
+ * `undefined` content is an absent destination.
+ */
+export function renderDestinationSection(
+  path: string,
+  content: Uint8Array | undefined,
+  blocks: readonly BlockLines[],
+): string {
+  if (content === undefined)
+    return `<<<DESTINATION path=${quote(path)} absent>>>\n<<<END DESTINATION>>>\n`;
+  const layout = new Layout({
+    id: "DESTINATION",
+    path,
+    hash: "sha256:",
+    reason: "",
+    content,
+    blocks,
+  });
+  let text = `<<<DESTINATION path=${quote(path)} totalLines=${layout.lines.length}>>>\n`;
+  text += layout.blocksText;
+  text += "CONTENT\n";
+  for (let line = 1; line <= layout.lines.length; line++) text += layout.contentLine(line);
+  return `${text}<<<END DESTINATION>>>\n`;
+}
+
 /** Sorted, with overlapping and adjacent ranges joined. */
 export function mergeRanges(ranges: readonly LineRange[]): LineRange[] {
   const sorted = [...ranges].sort((a, b) => a.first - b.first || a.last - b.last);

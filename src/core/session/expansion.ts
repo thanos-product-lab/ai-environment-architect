@@ -44,13 +44,22 @@ function ruleOf(path: string, blocked: ReadonlyMap<string, string>): string | un
 
 /** The evidence of every blocked file: left out of every later call's cited excerpts. */
 export function blockedEvidenceIds(records: readonly SessionRecord[]): ReadonlySet<string> {
+  return new Set(blockedEvidenceRules(records).keys());
+}
+
+/** Each blocked file's evidence, by ID, with the rule that blocked the file. */
+export function blockedEvidenceRules(
+  records: readonly SessionRecord[],
+): ReadonlyMap<string, string> {
   const blocked = blockedFiles(records);
-  const ids = new Set<string>();
-  if (blocked.size === 0) return ids;
+  const rules = new Map<string, string>();
+  if (blocked.size === 0) return rules;
   for (const r of records)
-    if (r.type === "evidence" && "path" in r && ruleOf(r.path, blocked) !== undefined)
-      ids.add(r.id);
-  return ids;
+    if (r.type === "evidence" && "path" in r) {
+      const rule = ruleOf(r.path, blocked);
+      if (rule !== undefined) rules.set(r.id, rule);
+    }
+  return rules;
 }
 
 /**

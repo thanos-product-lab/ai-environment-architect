@@ -41,7 +41,11 @@ export interface AliasEntry {
 export interface AliasSources {
   /** Context and expansion item IDs as rendered: `T<tier>-<nnn>` and `E-<n>`. */
   readonly items?: readonly string[];
-  readonly findings?: readonly string[];
+  /**
+   * A `null` leaves its number unused: a known fact withheld after call 1 keeps its alias, and
+   * no other record takes it (IMPL §3.2.6).
+   */
+  readonly findings?: readonly (string | null)[];
   readonly conflicts?: readonly string[];
   readonly questions?: readonly string[];
   readonly decisions?: readonly string[];
@@ -78,7 +82,7 @@ export function createAliasTable(call: CallPurpose, sources: AliasSources): Alia
     if (!ITEM_ID.test(itemId)) throw new Error(`not a rendered item ID: ${itemId}`);
     add(itemId.startsWith("T") ? "T" : "E", itemId, { kind: "item", itemId });
   }
-  const records: readonly [AliasKind, readonly string[] | undefined][] = [
+  const records: readonly [AliasKind, readonly (string | null)[] | undefined][] = [
     ["F", sources.findings],
     ["C", sources.conflicts],
     ["Q", sources.questions],
@@ -87,7 +91,7 @@ export function createAliasTable(call: CallPurpose, sources: AliasSources): Alia
   ];
   for (const [kind, ids] of records)
     (ids ?? []).forEach((recordId, index) => {
-      add(kind, `${kind}-${index + 1}`, { kind: "record", recordId });
+      if (recordId !== null) add(kind, `${kind}-${index + 1}`, { kind: "record", recordId });
     });
   (sources.blocks ?? []).forEach((block, index) => {
     add("B", blockAlias(index + 1), { kind: "block", blockId: block.blockId, hash: block.hash });

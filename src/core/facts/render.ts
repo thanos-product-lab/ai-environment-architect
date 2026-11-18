@@ -1,6 +1,5 @@
-import { escapeDelimiters } from "../context/escape.js";
 import type { SelectionGap } from "../context/tiers.js";
-import type { Basis } from "../validation/citations.js";
+import { claimLines, renderLines } from "../requests/records.js";
 import type { KnownFact } from "./known-facts.js";
 
 // The known-facts section (IMPL §3.2.5): sent first in the context, within its own byte cap.
@@ -12,13 +11,6 @@ const CLOSE = "<<<END KNOWN FACTS>>>\n";
 
 /** The frame's bytes: the smallest section, and so the smallest `knownFactsBytes` allowed. */
 export const KNOWN_FACTS_FRAME_BYTES = byteLength(OPEN) + byteLength(CLOSE);
-
-/** Basis labels are words (§2.5). */
-const LABELS: Record<Basis, string> = {
-  documentation: "documented",
-  code_observation: "observed",
-  existing_guidance: "existing guidance",
-};
 
 export interface KnownFactsSection {
   readonly text: string;
@@ -66,23 +58,15 @@ export function renderKnownFacts(facts: readonly KnownFact[], capBytes: number):
   };
 }
 
-/** One fact in the §3.2.6 record format, each line escaped and ending with a line break. */
+/** One fact in the §3.2.6 record format, as calls 2–5 render it too. */
 function renderFact(fact: KnownFact, alias: string): string {
-  const labels = fact.basis.map((basis) => LABELS[basis]).join(", ");
-  const scope = fact.scope.kind === "repository" ? "repository" : fact.scope.paths.join(", ");
-  const lines = [
-    `${alias}  [${labels} · ${fact.basis.join(", ")}]  scope: ${scope}`,
-    `     ${fact.statement}`,
-  ];
-  for (const evidence of fact.evidence) {
-    if (evidence.kind === "entry") {
-      lines.push(`     evidence: ${evidence.path} (file)`);
-      continue;
-    }
-    lines.push(`     evidence: ${evidence.path}:${evidence.lineStart}-${evidence.lineEnd}`);
-    for (const line of evidence.excerpt.split("\n")) lines.push(`       | ${line}`);
-  }
-  return lines.map((line) => `${escapeDelimiters(line)}\n`).join("");
+  return renderLines(
+    claimLines(
+      alias,
+      { basis: fact.basis, scope: fact.scope, statement: fact.statement },
+      fact.evidence,
+    ),
+  );
 }
 
 function byteLength(text: string): number {
