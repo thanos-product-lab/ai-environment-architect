@@ -1,0 +1,27 @@
+{
+  "description": "Files a search never searches may change without failing it: a file outside the glob, an ignored file and a deleted listed_only file, all of which hold the literal.",
+  "section": "IMPL §1.8",
+  "rule": "EXP-008",
+  "nearMissOf": "exp008-search-unmatched-file-changed.json",
+  "files": [
+    { "path": "docs/retries.md", "status": "read", "content": "# Retries\n\nSet retryLimit in src/a.ts.\n" },
+    { "path": "src/a.ts", "status": "read", "content": "export const retryLimit = 3;\nexport const delayMs = 100;\n" },
+    { "path": "src/big.ts", "status": "listed_only", "reason": "too_large", "content": "export const retryLimit = 9;\n" },
+    { "path": "src/scratch.ts", "status": "ignored", "content": "const retryLimit = 99;\n" }
+  ],
+  "changed": {
+    "docs/retries.md": "# Retries\n\nSet retryLimit in src/a.ts or the environment.\n",
+    "src/big.ts": null,
+    "src/scratch.ts": "const retryLimit = 100;\n"
+  },
+  "requests": [
+    { "kind": "search", "literal": "retryLimit", "glob": "src", "reason": "Find where the retry limit is used." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "executed", "matches": 1, "capped": false,
+        "items": [ { "id": "E-1", "path": "src/a.ts", "includedLines": "1-2", "excerpt": false, "totalLines": 2, "outline": false } ] }
+    ],
+    "status": [ "expansionRequests/0 executed: 1 item" ]
+  }
+}

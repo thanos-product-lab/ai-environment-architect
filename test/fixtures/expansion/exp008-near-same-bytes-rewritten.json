@@ -1,0 +1,20 @@
+{
+  "description": "A file rewritten after the snapshot with identical bytes still matches the snapshot's hash, so the read runs.",
+  "section": "IMPL §1.8",
+  "rule": "EXP-008",
+  "nearMissOf": "exp008-content-edited.json",
+  "files": [
+    { "path": "src/util.ts", "status": "read", "content": "export const a = 1;\nexport const b = 2;\nexport const c = 3;\n" }
+  ],
+  "changed": { "src/util.ts": "export const a = 1;\nexport const b = 2;\nexport const c = 3;\n" },
+  "requests": [
+    { "kind": "read", "entries": [{ "path": "src/util.ts", "lines": "2-3" }], "reason": "See the other constants." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "executed",
+        "items": [ { "id": "E-1", "path": "src/util.ts", "includedLines": "2-3", "excerpt": true, "totalLines": 3, "outline": false } ] }
+    ],
+    "status": [ "expansionRequests/0 executed: 1 item" ]
+  }
+}

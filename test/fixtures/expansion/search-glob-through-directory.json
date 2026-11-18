@@ -1,0 +1,34 @@
+{
+  "description": "The globs lib and lib/* both reach files at any depth under lib (lib/* through the directory lib/http), but neither reaches lib.ts or libs/extra.ts; files are numbered in path order, deep/post.ts before get.ts.",
+  "section": "IMPL §1.8, §1.11 Globs",
+  "rule": null,
+  "files": [
+    { "path": "app.ts", "status": "read", "content": "import { get } from \"./lib/http/get\";\nrequest(\"/app\");\nexport {};\n" },
+    { "path": "lib.ts", "status": "read", "content": "// root helper\nrequest(\"/root\");\nexport {};\n" },
+    { "path": "lib/http/get.ts", "status": "read", "content": "// get\nrequest(\"GET\");\nexport {};\n" },
+    { "path": "lib/http/deep/post.ts", "status": "read", "content": "// post\nrequest(\"POST\");\nexport {};\n" },
+    { "path": "libs/extra.ts", "status": "read", "content": "// extra\nrequest(\"/extra\");\nexport {};\n" }
+  ],
+  "requests": [
+    { "kind": "search", "literal": "request(", "glob": "lib", "reason": "Find requests in the library." },
+    { "kind": "search", "literal": "request(", "glob": "lib/*", "reason": "Find requests one level into the library." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "executed", "matches": 2, "capped": false,
+        "items": [
+          { "id": "E-1", "path": "lib/http/deep/post.ts", "includedLines": "1-3", "excerpt": false, "totalLines": 3, "outline": false },
+          { "id": "E-2", "path": "lib/http/get.ts", "includedLines": "1-3", "excerpt": false, "totalLines": 3, "outline": false }
+        ] },
+      { "index": 1, "outcome": "executed", "matches": 2, "capped": false,
+        "items": [
+          { "id": "E-3", "path": "lib/http/deep/post.ts", "includedLines": "1-3", "excerpt": false, "totalLines": 3, "outline": false },
+          { "id": "E-4", "path": "lib/http/get.ts", "includedLines": "1-3", "excerpt": false, "totalLines": 3, "outline": false }
+        ] }
+    ],
+    "status": [
+      "expansionRequests/0 executed: 2 items",
+      "expansionRequests/1 executed: 2 items"
+    ]
+  }
+}

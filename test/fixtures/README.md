@@ -47,6 +47,23 @@ The withheld placeholder works as in `support/`.
 
 Every other file is one `scope`, `gap` or `absenceClaim` with `expect`: the outcome (`accepted`, `relabelled` or `rejected`), the rule, and the gap's coverage or the absence claim's code-generated statement, `null` when the item is rejected. `detailExcludes` lists text the rejection detail must not contain. A withheld path in an expected coverage is written `{"pathHash":"withheld:<path>"}`; the test hashes it. A case may override `ignoreRules`, or replace `files`, `sent` and `userExclusions` when it needs a repository of its own. Naming follows `support/`.
 
+## `expansion/`
+
+Expansion execution cases (IMPL §1.8: `EXP-007` to `EXP-010`, the execution part of `EXP-001`, the secret scan, search semantics, rendering of `E` items, `E` numbering and status lines). Each file is one complete case, never a patch, with its own tiny repository:
+
+- `description`: one sentence; for byte-budget cases it says roughly how large each item is. Budget settings leave a wide margin, so the outcome doesn't depend on a few bytes of header.
+- `section`; `rule`: the rule the case targets, `secret-scan:<rule ID>` for the scan, or `null` for a behaviour case; `nearMissOf`: for a near miss, the rejecting case it nearly repeats.
+- `settings`: optional `maxExpansionRequests`, `expansionBytes` and `expansionEntryBytes`; absent means the defaults (5, 60,000, 8,000).
+- `files`: the snapshot's entries, each with `path`, `status` (`read`, `listed_only` with `reason` `too_large`, `contains_nul` or `not_utf8`, `ignored`, `excluded` with `rule`, `symlink` with `target`) and `content`: a string, or `{ "base64": "…" }` for bytes that aren't UTF-8 or hold a NUL. The runner takes the status as given: a `too_large` file's content is kept tiny, and is treated as over `maxReadableFileBytes`. Snapshot hashes are computed from `content`. Tier membership is the default: no packages, no imports, default source extensions. Directories that only contain entries are implied.
+- `changed`: optional, the live content after the snapshot, by path; `null` means the file is gone. A path missing from it is unchanged.
+- `sent`: the lines call 1's initial context sent of each file, as `a-b` runs; a path missing from it was not sent.
+- `requests`: call 1's `expansionRequests`, exactly as the `analyse` schema writes them. Line ranges are always `a-b`, a single line `n-n`, because a bare number fails the schema.
+- `expect.requests`: one entry per request in response order: `index`, `outcome` (`executed` or `rejected`), `rule` for a rejected one (a static rule, an execution rule or `secret-scan:<rule ID>`), `items` for an executed one (`[]` when it returned none), and `matches` and `capped` for an executed search. Each item gives `id`, `path`, `includedLines` (the rendered `included` attribute, so one line is `n`), `excerpt`, `totalLines`, optionally `outline` (whether the item has an `OUTLINE` section) and `reason` (`expansion:expansionRequests/<index>`). Every rendered `E` item has no `tier` attribute.
+- `expect.status`: call 2's status lines in order, without the `<<<EXPANSION>>>` frame.
+- `expect.recordExcludes`: optional, text the `expansion_round` record and the status lines must not contain (after placeholder substitution); `expect.itemContentExcludes`: optional, text no item's content lines may contain, for the delimiter escape.
+
+The runner builds the snapshot, runs the static checks (`LIMIT-002`, `EXP-001` to `EXP-006`), then executes. The placeholder `{{aws-access-key-id}}` works as in `support/`: it is replaced, in paths and content, before hashing. Files are named `<rule-or-topic>-<case>.json`, near misses `<rule>-near-<case>.json`; `order-*` cases pin which execution rule wins when two would fail.
+
 ## `responses/`
 
 Recorded model responses, one directory per call (IMPL §3.7). Each call directory's `valid.json` is a representative response that schema tests accept completely.

@@ -1,0 +1,20 @@
+{
+  "description": "A file ending in two LFs has an empty fifth line, so a range to line 5 is within the file and runs.",
+  "section": "IMPL §1.8, §1.6 Lines",
+  "rule": "EXP-007",
+  "nearMissOf": "exp007-final-newline-no-extra-line.json",
+  "files": [
+    { "path": "src/util.ts", "status": "read", "content": "export const a = 1;\nexport const b = 2;\nexport const c = 3;\nexport const d = 4;\n\n" }
+  ],
+  "sent": { "src/util.ts": "1-2" },
+  "requests": [
+    { "kind": "read", "entries": [{ "path": "src/util.ts", "lines": "3-5" }], "reason": "See the rest of util." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "executed",
+        "items": [ { "id": "E-1", "path": "src/util.ts", "includedLines": "3-5", "excerpt": true, "totalLines": 5, "outline": false } ] }
+    ],
+    "status": [ "expansionRequests/0 executed: 1 item" ]
+  }
+}

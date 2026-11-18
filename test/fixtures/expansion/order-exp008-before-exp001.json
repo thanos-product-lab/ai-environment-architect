@@ -1,0 +1,16 @@
+{
+  "description": "A too-large file that holds a NUL byte and has also changed since the snapshot fails EXP-008 first, because the change is checked before the content.",
+  "section": "IMPL §1.8",
+  "rule": "EXP-008",
+  "files": [
+    { "path": "data/dump.sql", "status": "listed_only", "reason": "too_large", "content": { "base64": "YWIKY2QKAAo=" } }
+  ],
+  "changed": { "data/dump.sql": "ab\ncd\nef\n" },
+  "requests": [
+    { "kind": "read", "entries": [{ "path": "data/dump.sql", "lines": "1-2" }], "reason": "See the start of the dump." }
+  ],
+  "expect": {
+    "requests": [ { "index": 0, "outcome": "rejected", "rule": "EXP-008" } ],
+    "status": [ "expansionRequests/0 rejected: changed since snapshot" ]
+  }
+}

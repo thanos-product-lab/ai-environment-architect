@@ -1,0 +1,17 @@
+{
+  "description": "A search that finds nothing is executed with 0 matches and no items, and its status line says no matches, not executed: 0 items.",
+  "section": "IMPL §1.8",
+  "rule": null,
+  "files": [
+    { "path": "src/a.ts", "status": "read", "content": "export const one = 1;\nexport const two = 2;\n" }
+  ],
+  "requests": [
+    { "kind": "search", "literal": "deprecated", "reason": "Find deprecated code." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "executed", "matches": 0, "capped": false, "items": [] }
+    ],
+    "status": [ "expansionRequests/0 no matches" ]
+  }
+}

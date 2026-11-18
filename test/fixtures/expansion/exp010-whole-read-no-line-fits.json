@@ -1,0 +1,16 @@
+{
+  "description": "With expansionEntryBytes 300, a read without ranges of a file with no declarations whose first line alone is about 450 bytes is rejected: not even one line fits, and no empty or outline-only item is sent instead.",
+  "section": "IMPL §1.8, §1.6",
+  "rule": "EXP-010",
+  "settings": { "maxExpansionRequests": 5, "expansionBytes": 60000, "expansionEntryBytes": 300 },
+  "files": [
+    { "path": "notes/todo.txt", "status": "read", "content": "lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\nshort\nlines\n" }
+  ],
+  "requests": [
+    { "kind": "read", "entries": [{ "path": "notes/todo.txt" }], "reason": "See the to-do notes." }
+  ],
+  "expect": {
+    "requests": [ { "index": 0, "outcome": "rejected", "rule": "EXP-010" } ],
+    "status": [ "expansionRequests/0 rejected: over budget" ]
+  }
+}

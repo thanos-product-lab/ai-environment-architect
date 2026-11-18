@@ -1,0 +1,15 @@
+{
+  "description": "A too-large listed_only file holding a NUL byte on line 3 is rejected even though the requested lines 1-2 are plain text: the snapshot never read it, so the check runs here over the whole file.",
+  "section": "IMPL §1.8",
+  "rule": "EXP-001",
+  "files": [
+    { "path": "data/dump.sql", "status": "listed_only", "reason": "too_large", "content": { "base64": "YWIKY2QKAAo=" } }
+  ],
+  "requests": [
+    { "kind": "read", "entries": [{ "path": "data/dump.sql", "lines": "1-2" }], "reason": "See the start of the dump." }
+  ],
+  "expect": {
+    "requests": [ { "index": 0, "outcome": "rejected", "rule": "EXP-001" } ],
+    "status": [ "expansionRequests/0 rejected: invalid request" ]
+  }
+}

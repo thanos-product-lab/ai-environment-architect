@@ -1,0 +1,18 @@
+{
+  "description": "Both matches (lines 5 and 11) are on lines the initial context sent (1-12), so they count but give no item, even though line 11's context reaches unsent lines 13-14: executed with 0 items, and the round returns nothing, so call 2 is not sent.",
+  "section": "IMPL §1.8",
+  "rule": null,
+  "files": [
+    { "path": "src/client.ts", "status": "read", "content": "const n1 = 1;\nconst n2 = 2;\nconst n3 = 3;\nconst n4 = 4;\nretry(); // 5\nconst n6 = 6;\nconst n7 = 7;\nconst n8 = 8;\nconst n9 = 9;\nconst n10 = 10;\nretry(); // 11\nconst n12 = 12;\nconst n13 = 13;\nconst n14 = 14;\nconst n15 = 15;\nconst n16 = 16;\nconst n17 = 17;\nconst n18 = 18;\nconst n19 = 19;\nconst n20 = 20;\nconst n21 = 21;\nconst n22 = 22;\nconst n23 = 23;\nconst n24 = 24;\nconst n25 = 25;\nconst n26 = 26;\nconst n27 = 27;\nconst n28 = 28;\nconst n29 = 29;\nconst n30 = 30;\n" }
+  ],
+  "sent": { "src/client.ts": "1-12" },
+  "requests": [
+    { "kind": "search", "literal": "retry()", "reason": "Find where requests are retried." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "executed", "matches": 2, "capped": false, "items": [] }
+    ],
+    "status": [ "expansionRequests/0 executed: 0 items" ]
+  }
+}

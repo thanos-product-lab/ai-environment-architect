@@ -237,7 +237,7 @@ export async function selectTiers(
       blocks: blockRanges(destination.bytes, destination.blocks),
     };
     const rendered = renderItem(input, "none", settings.maxDestinationBytes);
-    const secret = rendered === undefined ? undefined : scanItem({ ...input, tier: 1, rendered });
+    const secret = rendered === undefined ? undefined : scanItem({ path: input.path, rendered });
     if (secret !== undefined) {
       return { state: "stopped", stop: { reason: "destination_secret", ruleId: secret } };
     }
@@ -334,7 +334,8 @@ function isTier1(path: string): boolean {
 
 const MARKDOWN = [".md", ".markdown", ".mdx"];
 
-function isMarkdown(path: string): boolean {
+/** `.md`, `.markdown` or `.mdx`, ASCII case-insensitively (IMPL §1.5). */
+export function isMarkdown(path: string): boolean {
   const name = asciiLower(baseName(path));
   return MARKDOWN.some((ext) => name.length > ext.length && name.endsWith(ext));
 }

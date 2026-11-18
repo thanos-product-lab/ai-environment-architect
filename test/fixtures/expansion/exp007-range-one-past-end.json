@@ -1,0 +1,24 @@
+{
+  "description": "A range that ends one line past the 12-line file rejects the request, which uses no item ID, so the next request's item is E-1.",
+  "section": "IMPL §1.8",
+  "rule": "EXP-007",
+  "files": [
+    { "path": "src/client.ts", "status": "read", "content": "import { get } from \"./http\";\n\nexport function fetchUser(id: string) {\n  return get(`/users/${id}`);\n}\n\nexport function fetchTeam(id: string) {\n  return get(`/teams/${id}`);\n}\n\nexport const retries = 3;\nexport const timeoutMs = 5000;\n" }
+  ],
+  "sent": { "src/client.ts": "1-5" },
+  "requests": [
+    { "kind": "read", "entries": [{ "path": "src/client.ts", "lines": "10-13" }], "reason": "See the settings at the end of the client." },
+    { "kind": "read", "entries": [{ "path": "src/client.ts", "lines": "7-9" }], "reason": "See fetchTeam." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "rejected", "rule": "EXP-007" },
+      { "index": 1, "outcome": "executed",
+        "items": [ { "id": "E-1", "path": "src/client.ts", "includedLines": "7-9", "excerpt": true, "totalLines": 12, "outline": false } ] }
+    ],
+    "status": [
+      "expansionRequests/0 rejected: range past end of file",
+      "expansionRequests/1 executed: 1 item"
+    ]
+  }
+}

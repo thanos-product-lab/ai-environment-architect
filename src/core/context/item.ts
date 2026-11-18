@@ -24,11 +24,12 @@ import { escapeDelimiters } from "./escape.js";
 export type ExcerptStrategy = "none" | "markdown" | "code" | "lines";
 
 export interface ItemInput {
-  /** `T<tier>-<sequence>`. */
+  /** `T<tier>-<sequence>`, or `E-<sequence>` for an expansion item (IMPL §1.8). */
   readonly id: string;
   readonly path: string;
   readonly hash: Hash;
-  readonly tier: number;
+  /** Absent for an expansion item: its header has no `tier` attribute (IMPL §1.8). */
+  readonly tier?: number;
   readonly reason: string;
   /** The file's bytes, valid UTF-8 and already verified against `hash`. */
   readonly content: Uint8Array;
@@ -107,6 +108,39 @@ export function renderItem(
     }
   }
   return linesExcerpt(layout, limitBytes);
+}
+
+/**
+ * Exactly the lines of `ranges`, for an expansion item (IMPL §1.8): in line order, overlapping and
+ * adjacent ranges merged, with no outline. It is an excerpt unless the ranges cover every line.
+ * Undefined when it exceeds `limitBytes`: such an item is never cut. Every range must lie within
+ * the file.
+ */
+export function renderLines(
+  input: ItemInput,
+  ranges: readonly LineRange[],
+  limitBytes: number,
+): RenderedItem | undefined {
+  const layout = new Layout(input);
+  const n = layout.lines.length;
+  if (ranges.some((range) => range.first < 1 || range.last > n || range.first > range.last))
+    throw new Error(`a range of ${input.path} lies outside its ${n} lines`);
+  const merged = mergeRanges(ranges);
+  const whole = merged.length === 1 && merged[0]?.first === 1 && merged[0]?.last === n;
+  return layout.finish(merged, undefined, limitBytes, false, !(whole || n === 0));
+}
+
+/** Sorted, with overlapping and adjacent ranges joined. */
+export function mergeRanges(ranges: readonly LineRange[]): LineRange[] {
+  const sorted = [...ranges].sort((a, b) => a.first - b.first || a.last - b.last);
+  const merged: LineRange[] = [];
+  for (const range of sorted) {
+    const last = merged[merged.length - 1];
+    if (last !== undefined && range.first <= last.last + 1)
+      merged[merged.length - 1] = { first: last.first, last: Math.max(last.last, range.last) };
+    else merged.push({ ...range });
+  }
+  return merged;
 }
 
 interface Unit {
@@ -234,7 +268,7 @@ class Layout {
     const { id, path, hash, tier, reason } = this.input;
     return (
       `<<<ITEM id=${id} path=${quote(path)} hash=${quote(hash)}\n` +
-      `        tier=${tier} reason=${quote(reason)} excerpt=${excerpt}\n` +
+      `        ${tier === undefined ? "" : `tier=${tier} `}reason=${quote(reason)} excerpt=${excerpt}\n` +
       `        included=${quote(formatRanges(ranges))} totalLines=${this.lines.length}>>>\n`
     );
   }
@@ -266,9 +300,11 @@ class Layout {
     outline: readonly OutlineEntry[] | undefined,
     limitBytes: number,
     outlineOnly = false,
+    /** For an item of chosen lines with no outline (IMPL §1.8): whether it leaves lines out. */
+    linesExcerpt?: boolean,
   ): RenderedItem | undefined {
     if (outline !== undefined && ranges.length === 0 && !outlineOnly) return undefined;
-    const excerpt = outline !== undefined;
+    const excerpt = linesExcerpt ?? outline !== undefined;
     let text = this.header(excerpt, ranges);
     if (outline !== undefined)
       text += `OUTLINE\n${outline.map((e) => this.outlineLine(e)).join("")}`;
@@ -284,7 +320,7 @@ class Layout {
     text += `<<<END ${this.input.id}>>>\n`;
     const bytes = byteLength(text);
     if (bytes > limitBytes) {
-      if (excerpt && !outlineOnly)
+      if (outline !== undefined && !outlineOnly)
         throw new Error(`excerpt of ${this.input.path} exceeds its limit`);
       return undefined;
     }

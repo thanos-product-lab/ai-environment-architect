@@ -1,0 +1,19 @@
+{
+  "description": "A lone CR ends a line, so this mixed-ending file has 4 lines and a range to line 4 runs (a split on LF or CRLF alone counts 3).",
+  "section": "IMPL §1.8, §1.6 Lines",
+  "rule": "EXP-007",
+  "nearMissOf": "exp007-crlf-counted-once.json",
+  "files": [
+    { "path": "src/legacy.js", "status": "read", "content": "var a = 1;\r\nvar b = 2;\rvar c = 3;\r\nvar d = 4;\n" }
+  ],
+  "requests": [
+    { "kind": "read", "entries": [{ "path": "src/legacy.js", "lines": "3-4" }], "reason": "See the last two variables." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "executed",
+        "items": [ { "id": "E-1", "path": "src/legacy.js", "includedLines": "3-4", "excerpt": true, "totalLines": 4, "outline": false } ] }
+    ],
+    "status": [ "expansionRequests/0 executed: 1 item" ]
+  }
+}

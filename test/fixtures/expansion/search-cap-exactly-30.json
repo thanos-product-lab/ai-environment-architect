@@ -1,0 +1,22 @@
+{
+  "description": "Exactly 30 matching lines are all kept and capped is false, since no more were found.",
+  "section": "IMPL §1.8",
+  "rule": null,
+  "files": [
+    { "path": "src/a.ts", "status": "read", "content": "hit(1);\nhit(2);\nhit(3);\nhit(4);\nhit(5);\nhit(6);\nhit(7);\nhit(8);\nhit(9);\nhit(10);\nhit(11);\nhit(12);\nhit(13);\nhit(14);\nhit(15);\nhit(16);\nhit(17);\nhit(18);\nhit(19);\nhit(20);\n" },
+    { "path": "src/b.ts", "status": "read", "content": "hit(1);\nhit(2);\nhit(3);\nhit(4);\nhit(5);\nhit(6);\nhit(7);\nhit(8);\nhit(9);\nhit(10);\n" }
+  ],
+  "requests": [
+    { "kind": "search", "literal": "hit(", "reason": "Find every call to hit." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "executed", "matches": 30, "capped": false,
+        "items": [
+          { "id": "E-1", "path": "src/a.ts", "includedLines": "1-20", "excerpt": false, "totalLines": 20, "outline": false },
+          { "id": "E-2", "path": "src/b.ts", "includedLines": "1-10", "excerpt": false, "totalLines": 10, "outline": false }
+        ] }
+    ],
+    "status": [ "expansionRequests/0 executed: 2 items" ]
+  }
+}

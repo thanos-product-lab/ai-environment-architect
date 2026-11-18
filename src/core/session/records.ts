@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { ANALYSE_COLLECTION_LIMITS } from "../../schemas/analyse.js";
+import { MAX_MATCHES } from "../context/expansion.js";
+import { SECRET_RULES } from "../context/secrets.js";
 import type { Hash } from "../hash.js";
 
 // Session records (IMPL §4.3–§4.5; DM §5–§8). The session file is a header and an append-only
@@ -50,6 +52,7 @@ export const RECORD_KINDS = {
   failed_item: { record: "fail" },
   inputs_purged: { record: "pur" },
   secret_withheld: { record: "sw" },
+  expansion_round: { record: "exr" },
 } as const satisfies Record<string, RecordKind>;
 
 export type RecordTypeName = keyof typeof RECORD_KINDS;
@@ -1308,7 +1311,8 @@ export const inputManifest = z.strictObject({
   ),
   ignoreRules,
   ignored: z.array(recordedPath),
-  expansion: z.null(),
+  /** Call 2 only: the round's `expansion_round` record, by record ID (§1.8, §1.13). */
+  expansion: z.strictObject({ expansionRoundId: recordId("expansion_round") }).nullable(),
 });
 
 /** The limits in force when the call was sent, and the spend the §3.6 check counted (§4.6). */
@@ -1515,6 +1519,105 @@ export const secretWithheldRecord = z.strictObject({
   secretRuleId,
 });
 
+/** One of the secret scan's rule IDs (IMPL §1.7). */
+const secretRuleIdOf = z.enum(SECRET_RULES.map((rule) => rule.id));
+
+// --- The expansion round (IMPL §1.8, §1.13) --------------------------------------------------
+
+const expansionItemFields = {
+  id: z.string().regex(/^E-[1-9][0-9]*$/),
+  fileHash: hash,
+  excerpt: z.boolean(),
+  includedLines: z.string(),
+  totalLines: count,
+  bytes: count,
+};
+
+/** A path, or its hash when the secret scan withholds the name (IMPL §1.7). */
+const expansionItem = z.union([
+  z.strictObject({ ...expansionItemFields, path: z.string() }),
+  z.strictObject({ ...expansionItemFields, pathHash: hash }),
+]);
+
+const expansionKind = z.enum(["read", "search"]);
+
+/**
+ * Immutable, at most one per session: every expansion request of call 1, in response order, with
+ * its outcome. `rule` is set exactly for a rejected request; `items` for an executed one, and
+ * `matches` and `capped` for an executed search. Never matched text or content.
+ */
+export const expansionRoundRecord = z
+  .strictObject({
+    ...envelope("expansion_round"),
+    snapshotId,
+    /** Call 1, whose response held the requests. */
+    modelCallId,
+    budgetBytes: count,
+    usedBytes: count,
+    requests: z
+      .array(
+        z.union([
+          z.strictObject({
+            index: count,
+            kind: expansionKind,
+            outcome: z.literal("rejected"),
+            /** A static or execution rule ID, or `secret-scan:<rule ID>`. */
+            rule: z.union([
+              z.string().regex(/^[A-Z]+-[0-9]{3}$/),
+              z.enum(SECRET_RULES.map((rule) => `secret-scan:${rule.id}` as const)),
+            ]),
+          }),
+          z.strictObject({
+            index: count,
+            kind: z.literal("read"),
+            outcome: z.literal("executed"),
+            items: z.array(expansionItem),
+          }),
+          z.strictObject({
+            index: count,
+            kind: z.literal("search"),
+            outcome: z.literal("executed"),
+            matches: z.int().min(0).max(MAX_MATCHES),
+            capped: z.boolean(),
+            items: z.array(expansionItem),
+          }),
+        ]),
+      )
+      .min(1),
+    /** Files a secret match blocked for the rest of the session, in path order (§1.8). */
+    blocked: z.array(
+      z.union([
+        z.strictObject({ path: z.string(), secretRuleId: secretRuleIdOf }),
+        z.strictObject({ pathHash: hash, secretRuleId: secretRuleIdOf }),
+      ]),
+    ),
+  })
+  .superRefine((round, ctx) => {
+    // Requests are every one of call 1's, in response order; `E` IDs run from 1 in execution
+    // order; `usedBytes` is the items' total (IMPL §1.8, §1.13).
+    let next = 1;
+    let total = 0;
+    round.requests.forEach((request, position) => {
+      if (request.index !== position)
+        ctx.addIssue({ code: "custom", message: `request ${position} has index ${request.index}` });
+      if (request.outcome === "rejected") return;
+      for (const item of request.items) {
+        if (item.id !== `E-${next}`)
+          ctx.addIssue({
+            code: "custom",
+            message: `${item.id} is out of order; expected E-${next}`,
+          });
+        next++;
+        total += item.bytes;
+      }
+    });
+    if (total !== round.usedBytes)
+      ctx.addIssue({
+        code: "custom",
+        message: `usedBytes ${round.usedBytes} isn't the items' ${total}`,
+      });
+  });
+
 // --- The file (§4.3) -------------------------------------------------------------------------
 
 // A plain union: the finding, conflict, question and evidence variants are unions themselves.
@@ -1541,6 +1644,7 @@ export const sessionRecord = z.union([
   effortCorrectionRecord,
   inputsPurgedRecord,
   secretWithheldRecord,
+  expansionRoundRecord,
 ]);
 
 export const sessionHeader = z.strictObject({

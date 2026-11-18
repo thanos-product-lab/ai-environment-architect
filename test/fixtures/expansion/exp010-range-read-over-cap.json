@@ -1,0 +1,24 @@
+{
+  "description": "With expansionEntryBytes 1,000, a range read whose item is about 2,200 bytes is rejected, never cut to fit, and a later range read of about 450 bytes runs as E-1.",
+  "section": "IMPL §1.8",
+  "rule": "EXP-010",
+  "settings": { "maxExpansionRequests": 5, "expansionBytes": 60000, "expansionEntryBytes": 1000 },
+  "files": [
+    { "path": "src/a.ts", "status": "read", "content": "// row 01 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 02 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 03 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 04 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 05 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 06 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 07 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 08 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 09 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 10 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 11 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 12 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 13 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 14 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 15 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 16 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n" }
+  ],
+  "requests": [
+    { "kind": "read", "entries": [{ "path": "src/a.ts", "lines": "1-16" }], "reason": "See all of a." },
+    { "kind": "read", "entries": [{ "path": "src/a.ts", "lines": "1-2" }], "reason": "See the first rows of a." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "rejected", "rule": "EXP-010" },
+      { "index": 1, "outcome": "executed",
+        "items": [ { "id": "E-1", "path": "src/a.ts", "includedLines": "1-2", "excerpt": true, "totalLines": 16, "outline": false } ] }
+    ],
+    "status": [
+      "expansionRequests/0 rejected: over budget",
+      "expansionRequests/1 executed: 1 item"
+    ]
+  }
+}

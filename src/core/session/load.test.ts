@@ -95,12 +95,44 @@ function validLog(): SessionLog {
       aliases: { call: "generate_questions", entries: [] },
     }),
   );
-  log.start(
-    callDraft({
-      purpose: "analyse_expansion",
-      aliases: { call: "analyse_expansion", entries: [] },
-    }),
-  );
+  // Call 1's expansion round, which call 2's manifest names (IMPL §1.8, §1.13).
+  const round = log.append({
+    type: "expansion_round",
+    snapshotId: SNAP,
+    modelCallId: first.modelCallId,
+    budgetBytes: 60_000,
+    usedBytes: 300,
+    requests: [
+      { index: 0, kind: "read", outcome: "rejected", rule: "EXP-008" },
+      {
+        index: 1,
+        kind: "search",
+        outcome: "executed",
+        matches: 1,
+        capped: false,
+        items: [
+          {
+            id: "E-1",
+            path: "docs/guide.md",
+            fileHash: hashOf("a"),
+            excerpt: true,
+            includedLines: "1-4",
+            totalLines: 9,
+            bytes: 300,
+          },
+        ],
+      },
+    ],
+    blocked: [],
+  });
+  const expansionDraft = callDraft({
+    purpose: "analyse_expansion",
+    aliases: { call: "analyse_expansion", entries: [] },
+  });
+  log.start({
+    ...expansionDraft,
+    inputManifest: { ...expansionDraft.inputManifest, expansion: { expansionRoundId: round.id } },
+  });
   const claims = ["The guide asks for pnpm.", "The guide asks for npm."].map((statement) => {
     const ev = log.append({
       type: "evidence",
@@ -681,7 +713,7 @@ describe("check 2: the file schema (IMPL §4.9)", () => {
         byId(j, "ev_0001").note = "extra";
       }),
     );
-    expect(found).toMatchObject({ check: 2, name: "schema", recordId: "ev_0001", seq: 9 });
+    expect(found).toMatchObject({ check: 2, name: "schema", recordId: "ev_0001", seq: 10 });
   });
 
   it("rejects a claim or absence finding without evidence", async () => {
@@ -2287,5 +2319,164 @@ describe("session format 2 (IMPL §4.4.1, §4.6, §4.9, §4.11)", () => {
         } as never),
       );
     }).toThrow(/invalid model_call/);
+  });
+});
+
+describe("the expansion round (IMPL §1.8, §1.13, §4.4.1)", () => {
+  /** The valid session already holds a round after call 1, and a call 2 whose manifest names it. */
+  function expansionLog(): { log: SessionLog } {
+    return { log: validLog() };
+  }
+
+  const expansionCorrupted = (edit: (json: Json) => void) => {
+    const json = JSON.parse(serialiseSession(fileOf(expansionLog().log)));
+    edit(json);
+    return encode(JSON.stringify(json));
+  };
+  const call2 = (json: Json) =>
+    json.records.findLast(
+      (r: Json) => r.type === "model_call" && r.purpose === "analyse_expansion",
+    );
+  const roundOf = (json: Json) => json.records.find((r: Json) => r.type === "expansion_round");
+
+  it("loads a round and a call 2 manifest that names it", async () => {
+    const { log } = expansionLog();
+    const result = await loadSession(encode(serialiseSession(fileOf(log))), memoryContent());
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects a manifest naming a round that isn't in the session", async () => {
+    const bytes = expansionCorrupted((json) => {
+      call2(json).inputManifest.expansion.expansionRoundId = "exr_9999";
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 4,
+      detail: expect.stringMatching(/inputManifest.expansion.expansionRoundId/),
+    });
+  });
+
+  it("rejects a manifest naming a record that isn't a round", async () => {
+    const bytes = expansionCorrupted((json) => {
+      call2(json).inputManifest.expansion.expansionRoundId = SNAP;
+    });
+    expect(await failure(bytes)).toMatchObject({ check: 2 });
+  });
+
+  it("rejects a round naming a snapshot or call that isn't in the session", async () => {
+    const snapshot = expansionCorrupted((json) => {
+      roundOf(json).snapshotId = "snap_9999";
+    });
+    expect(await failure(snapshot)).toMatchObject({ check: 4 });
+    const call = expansionCorrupted((json) => {
+      roundOf(json).modelCallId = "call_9999";
+    });
+    expect(await failure(call)).toMatchObject({ check: 4 });
+  });
+
+  it("rejects, at the schema, a rejected request with items or an executed one with a rule", async () => {
+    const withItems = expansionCorrupted((json) => {
+      roundOf(json).requests[0].items = [];
+    });
+    expect(await failure(withItems)).toMatchObject({ check: 2 });
+    const withRule = expansionCorrupted((json) => {
+      roundOf(json).requests[1].rule = "EXP-009";
+    });
+    expect(await failure(withRule)).toMatchObject({ check: 2 });
+    const searchCounts = expansionCorrupted((json) => {
+      roundOf(json).requests[0] = {
+        index: 0,
+        kind: "read",
+        outcome: "executed",
+        items: [],
+        matches: 0,
+        capped: false,
+      };
+    });
+    expect(await failure(searchCounts)).toMatchObject({ check: 2 });
+  });
+
+  it("rejects a call 2 whose manifest names no round", async () => {
+    const bytes = expansionCorrupted((json) => {
+      call2(json).inputManifest.expansion = null;
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 4,
+      detail: expect.stringMatching(/names no expansion round/),
+    });
+  });
+
+  it("rejects a round whose call isn't an analyse call, or whose snapshot isn't that call's", async () => {
+    const notAnalyse = expansionCorrupted((json) => {
+      roundOf(json).modelCallId = call2(json).modelCallId;
+    });
+    expect(await failure(notAnalyse)).toMatchObject({
+      check: 4,
+      detail: expect.stringMatching(/an analyse call/),
+    });
+    const otherSnapshot = expansionCorrupted((json) => {
+      for (const r of json.records)
+        if (r.type === "model_call" && r.modelCallId === roundOf(json).modelCallId)
+          r.inputManifest.snapshotId = "snap_0002";
+      json.records.splice(1, 0, { ...byId(json, SNAP), id: "snap_0002" });
+      renumber(json);
+    });
+    expect(await failure(otherSnapshot)).toMatchObject({
+      check: 4,
+      detail: expect.stringMatching(/the snapshot of call 1/),
+    });
+  });
+
+  it("rejects, at the schema, a round whose totals, order or IDs disagree", async () => {
+    const edits: ((round: Json) => void)[] = [
+      (round) => {
+        round.usedBytes = 0;
+      },
+      (round) => {
+        round.requests[1].index = 5;
+      },
+      (round) => {
+        round.requests[1].items[0].id = "E-2";
+      },
+      (round) => {
+        round.requests = [];
+        round.usedBytes = 0;
+      },
+      (round) => {
+        round.requests[1].matches = 31;
+      },
+      (round) => {
+        round.requests[0].rule = "secret-scan:made-up";
+      },
+    ];
+    for (const edit of edits) {
+      const bytes = expansionCorrupted((json) => edit(roundOf(json)));
+      expect(await failure(bytes)).toMatchObject({ check: 2 });
+    }
+  });
+
+  it("rejects a second expansion round", async () => {
+    const bytes = expansionCorrupted((json) => {
+      const round = roundOf(json);
+      json.records.push({ ...round, id: "exr_0002", seq: json.records.length + 1 });
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 4,
+      detail: expect.stringMatching(/more than one expansion round/),
+    });
+  });
+
+  it("rejects an expansion in call 1's manifest", async () => {
+    const bytes = expansionCorrupted((json) => {
+      const first = json.records.find(
+        (r: Json) => r.type === "model_call" && r.purpose === "analyse",
+      );
+      for (const r of json.records)
+        if (r.type === "model_call" && r.modelCallId === first.modelCallId)
+          r.inputManifest.expansion = { expansionRoundId: roundOf(json).id };
+    });
+    expect(await failure(bytes)).toMatchObject({
+      check: 4,
+      detail: expect.stringMatching(/only an analyse_expansion/),
+    });
   });
 });

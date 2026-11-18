@@ -126,8 +126,8 @@ export interface InputManifest {
    * expansion, and wholly ignored directories, which capture doesn't enter.
    */
   readonly ignored: readonly RecordedPath[];
-  /** Set when the expansion round runs (IMPL §1.8). */
-  readonly expansion: null;
+  /** Call 2 only: the round's `expansion_round` record (IMPL §1.8, §1.13). Call 1's is null. */
+  readonly expansion: { readonly expansionRoundId: string } | null;
 }
 
 /** What the token check (IMPL §1.10) removed, and what it counted (IMPL §1.13). */

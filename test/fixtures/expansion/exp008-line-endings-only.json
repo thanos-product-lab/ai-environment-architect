@@ -1,0 +1,16 @@
+{
+  "description": "A file whose only change is LF to CRLF has a different hash, so it has changed since the snapshot: no line-ending normalisation before hashing.",
+  "section": "IMPL §1.8",
+  "rule": "EXP-008",
+  "files": [
+    { "path": "src/util.ts", "status": "read", "content": "export const a = 1;\nexport const b = 2;\nexport const c = 3;\n" }
+  ],
+  "changed": { "src/util.ts": "export const a = 1;\r\nexport const b = 2;\r\nexport const c = 3;\r\n" },
+  "requests": [
+    { "kind": "read", "entries": [{ "path": "src/util.ts", "lines": "2-3" }], "reason": "See the other constants." }
+  ],
+  "expect": {
+    "requests": [ { "index": 0, "outcome": "rejected", "rule": "EXP-008" } ],
+    "status": [ "expansionRequests/0 rejected: changed since snapshot" ]
+  }
+}

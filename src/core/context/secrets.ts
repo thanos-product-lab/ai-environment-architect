@@ -217,7 +217,7 @@ function withheldIfSecret(gap: SelectionGap): SelectionGap {
  * scanned raw: in the header it is JSON-encoded, which can hide a match. A cut label could
  * otherwise leave part of a secret that no rule matches.
  */
-export function scanItem(item: SelectedItem): SecretRuleId | undefined {
+export function scanItem(item: Pick<SelectedItem, "path" | "rendered">): SecretRuleId | undefined {
   const path = scanText(item.path);
   if (path !== undefined) return path;
   const rendered = scanText(item.rendered.text);

@@ -1,0 +1,20 @@
+{
+  "description": "With expansionEntryBytes 1,000, a search item of about 2,200 bytes still runs: the per-entry cap applies to read entries only, and only expansionBytes limits a search.",
+  "section": "IMPL §1.8",
+  "rule": "EXP-010",
+  "nearMissOf": "exp010-range-read-over-cap.json",
+  "settings": { "maxExpansionRequests": 5, "expansionBytes": 60000, "expansionEntryBytes": 1000 },
+  "files": [
+    { "path": "src/a.ts", "status": "read", "content": "// row 01 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 02 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 03 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 04 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 05 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 06 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 07 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 08 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 09 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 10 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 11 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 12 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 13 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 14 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 15 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n// row 16 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n" }
+  ],
+  "requests": [
+    { "kind": "search", "literal": "lorem", "glob": "src/a.ts", "reason": "Find the comments in a." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "executed", "matches": 16, "capped": false,
+        "items": [ { "id": "E-1", "path": "src/a.ts", "includedLines": "1-16", "excerpt": false, "totalLines": 16, "outline": false } ] }
+    ],
+    "status": [ "expansionRequests/0 executed: 1 item" ]
+  }
+}

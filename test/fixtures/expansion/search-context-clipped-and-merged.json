@@ -1,0 +1,18 @@
+{
+  "description": "Matches on lines 2, 9 and 19 of a 22-line file: context is clipped at both ends of the file, the adjacent runs 1-5 and 6-12 merge, giving 1-12,16-22.",
+  "section": "IMPL §1.8",
+  "rule": null,
+  "files": [
+    { "path": "src/flow.ts", "status": "read", "content": "const v1 = 1;\nstep(); // 2\nconst v3 = 3;\nconst v4 = 4;\nconst v5 = 5;\nconst v6 = 6;\nconst v7 = 7;\nconst v8 = 8;\nstep(); // 9\nconst v10 = 10;\nconst v11 = 11;\nconst v12 = 12;\nconst v13 = 13;\nconst v14 = 14;\nconst v15 = 15;\nconst v16 = 16;\nconst v17 = 17;\nconst v18 = 18;\nstep(); // 19\nconst v20 = 20;\nconst v21 = 21;\nconst v22 = 22;\n" }
+  ],
+  "requests": [
+    { "kind": "search", "literal": "step()", "reason": "Find each step." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "executed", "matches": 3, "capped": false,
+        "items": [ { "id": "E-1", "path": "src/flow.ts", "includedLines": "1-12,16-22", "excerpt": true, "totalLines": 22, "outline": false } ] }
+    ],
+    "status": [ "expansionRequests/0 executed: 1 item" ]
+  }
+}

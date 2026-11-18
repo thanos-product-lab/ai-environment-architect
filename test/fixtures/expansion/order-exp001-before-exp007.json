@@ -1,0 +1,15 @@
+{
+  "description": "A request for lines 1-9 of a 3-line too-large file holding a NUL byte fails EXP-001, not EXP-007, because content is checked before ranges.",
+  "section": "IMPL §1.8",
+  "rule": "EXP-001",
+  "files": [
+    { "path": "data/dump.sql", "status": "listed_only", "reason": "too_large", "content": { "base64": "YWIKY2QKAAo=" } }
+  ],
+  "requests": [
+    { "kind": "read", "entries": [{ "path": "data/dump.sql", "lines": "1-9" }], "reason": "See the start of the dump." }
+  ],
+  "expect": {
+    "requests": [ { "index": 0, "outcome": "rejected", "rule": "EXP-001" } ],
+    "status": [ "expansionRequests/0 rejected: invalid request" ]
+  }
+}

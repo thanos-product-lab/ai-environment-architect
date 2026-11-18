@@ -1,0 +1,26 @@
+{
+  "description": "Search items are numbered in bytewise path order, Zeta.ts, a-b.ts, a/b.ts, alpha.ts (Z < a, and - < / < l), not in locale order or the order files are listed.",
+  "section": "IMPL §1.8",
+  "rule": null,
+  "files": [
+    { "path": "src/alpha.ts", "status": "read", "content": "export const tag = \"marker\";\n" },
+    { "path": "src/a/b.ts", "status": "read", "content": "export const tag = \"marker\";\n" },
+    { "path": "src/Zeta.ts", "status": "read", "content": "export const tag = \"marker\";\n" },
+    { "path": "src/a-b.ts", "status": "read", "content": "export const tag = \"marker\";\n" }
+  ],
+  "requests": [
+    { "kind": "search", "literal": "marker", "reason": "Find every tag." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "executed", "matches": 4, "capped": false,
+        "items": [
+          { "id": "E-1", "path": "src/Zeta.ts", "includedLines": "1", "excerpt": false, "totalLines": 1, "outline": false },
+          { "id": "E-2", "path": "src/a-b.ts", "includedLines": "1", "excerpt": false, "totalLines": 1, "outline": false },
+          { "id": "E-3", "path": "src/a/b.ts", "includedLines": "1", "excerpt": false, "totalLines": 1, "outline": false },
+          { "id": "E-4", "path": "src/alpha.ts", "includedLines": "1", "excerpt": false, "totalLines": 1, "outline": false }
+        ] }
+    ],
+    "status": [ "expansionRequests/0 executed: 4 items" ]
+  }
+}

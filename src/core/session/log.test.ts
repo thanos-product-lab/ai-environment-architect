@@ -87,7 +87,7 @@ describe("envelope (IMPL §4.3)", () => {
   });
 
   it("has a record prefix for every type in the §4.4.1 table, and lineage prefixes", () => {
-    expect(Object.keys(RECORD_KINDS)).toHaveLength(22);
+    expect(Object.keys(RECORD_KINDS)).toHaveLength(23);
     expect(RECORD_KINDS.finding).toEqual({
       record: "fndr",
       lineage: { field: "findingId", prefix: "fnd" },

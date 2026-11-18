@@ -1,0 +1,18 @@
+{
+  "description": "In a file whose lines end with a lone CR, a match on line 10 of 12 gives lines 7-12 (a split on LF alone would see one line).",
+  "section": "IMPL §1.8, §1.6 Lines",
+  "rule": null,
+  "files": [
+    { "path": "src/old.js", "status": "read", "content": "var l1 = 1;\rvar l2 = 2;\rvar l3 = 3;\rvar l4 = 4;\rvar l5 = 5;\rvar l6 = 6;\rvar l7 = 7;\rvar l8 = 8;\rvar l9 = 9;\rstart();\rvar l11 = 11;\rvar l12 = 12;\r" }
+  ],
+  "requests": [
+    { "kind": "search", "literal": "start()", "reason": "Find the entry call." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "executed", "matches": 1, "capped": false,
+        "items": [ { "id": "E-1", "path": "src/old.js", "includedLines": "7-12", "excerpt": true, "totalLines": 12, "outline": false } ] }
+    ],
+    "status": [ "expansionRequests/0 executed: 1 item" ]
+  }
+}

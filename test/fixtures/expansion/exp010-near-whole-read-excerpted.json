@@ -1,0 +1,20 @@
+{
+  "description": "With expansionEntryBytes 1,200, a read without ranges of a 30-line source file is excerpted within the cap with its outline: the imports, small() and tail() (about 550 bytes) are kept, and big() (about 2,700 bytes) is skipped and marked.",
+  "section": "IMPL §1.8, §1.6",
+  "rule": "EXP-010",
+  "nearMissOf": "exp010-whole-read-no-line-fits.json",
+  "settings": { "maxExpansionRequests": 5, "expansionBytes": 60000, "expansionEntryBytes": 1200 },
+  "files": [
+    { "path": "src/report.ts", "status": "read", "content": "import { db } from \"./db\";\n\nexport function small() {\n  return 1;\n}\nexport function big() {\n  // body 01 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n  // body 02 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n  // body 03 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n  // body 04 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n  // body 05 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n  // body 06 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n  // body 07 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n  // body 08 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n  // body 09 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n  // body 10 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n  // body 11 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n  // body 12 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n  // body 13 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n  // body 14 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n  // body 15 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n  // body 16 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n  // body 17 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n  // body 18 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n  // body 19 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n  // body 20 lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore\n}\nexport function tail() {\n  return 2;\n}\n" }
+  ],
+  "requests": [
+    { "kind": "read", "entries": [{ "path": "src/report.ts" }], "reason": "See the report module." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "executed",
+        "items": [ { "id": "E-1", "path": "src/report.ts", "includedLines": "1-5,28-30", "excerpt": true, "totalLines": 30, "outline": true } ] }
+    ],
+    "status": [ "expansionRequests/0 executed: 1 item" ]
+  }
+}

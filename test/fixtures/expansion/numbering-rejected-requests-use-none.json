@@ -1,0 +1,45 @@
+{
+  "description": "E numbers run across requests in response order, a read's entries in order and a search's files in path order, and neither the execution-rejected request 1 nor the statically rejected request 3 uses a number.",
+  "section": "IMPL §1.8",
+  "rule": null,
+  "files": [
+    { "path": "src/a.ts", "status": "read", "content": "import { get } from \"./http\";\n\nexport function fetchUser(id: string) {\n  return get(`/users/${id}`);\n}\n\nexport function fetchTeam(id: string) {\n  return get(`/teams/${id}`);\n}\n\nexport const retries = 3;\nexport const timeoutMs = 5000;\n" },
+    { "path": "src/b.ts", "status": "read", "content": "export function b1() {}\nexport function b2() {}\nexport function b3() {}\nexport function b4() {}\nexport function b5() {}\nexport function b6() {}\nexport function b7() {}\nexport function b8() {}\n" },
+    { "path": "src/d.ts", "status": "read", "content": "// TODO(api): drop v1\nexport const d = 1;\nexport const e = 2;\n" },
+    { "path": "src/c.ts", "status": "read", "content": "export const c = 1;\n// TODO(api): rename\nexport const f = 2;\n" }
+  ],
+  "requests": [
+    { "kind": "read", "entries": [ { "path": "src/a.ts", "lines": "3-5" }, { "path": "src/b.ts", "lines": "1-2" } ], "reason": "See fetchUser and the first b functions." },
+    { "kind": "read", "entries": [ { "path": "src/a.ts", "lines": "13-13" } ], "reason": "See the end of a." },
+    { "kind": "search", "literal": "TODO(api)", "glob": "src", "reason": "Find the API to-dos." },
+    { "kind": "read", "entries": [ { "path": "src/b.ts", "lines": "5-3" } ], "reason": "See the middle of b." },
+    { "kind": "read", "entries": [ { "path": "src/b.ts", "lines": "7-8" } ], "reason": "See the last b functions." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "executed",
+        "items": [
+          { "id": "E-1", "path": "src/a.ts", "includedLines": "3-5", "excerpt": true, "totalLines": 12, "outline": false, "reason": "expansion:expansionRequests/0" },
+          { "id": "E-2", "path": "src/b.ts", "includedLines": "1-2", "excerpt": true, "totalLines": 8, "outline": false, "reason": "expansion:expansionRequests/0" }
+        ] },
+      { "index": 1, "outcome": "rejected", "rule": "EXP-007" },
+      { "index": 2, "outcome": "executed", "matches": 2, "capped": false,
+        "items": [
+          { "id": "E-3", "path": "src/c.ts", "includedLines": "1-3", "excerpt": false, "totalLines": 3, "outline": false, "reason": "expansion:expansionRequests/2" },
+          { "id": "E-4", "path": "src/d.ts", "includedLines": "1-3", "excerpt": false, "totalLines": 3, "outline": false, "reason": "expansion:expansionRequests/2" }
+        ] },
+      { "index": 3, "outcome": "rejected", "rule": "EXP-002" },
+      { "index": 4, "outcome": "executed",
+        "items": [
+          { "id": "E-5", "path": "src/b.ts", "includedLines": "7-8", "excerpt": true, "totalLines": 8, "outline": false, "reason": "expansion:expansionRequests/4" }
+        ] }
+    ],
+    "status": [
+      "expansionRequests/0 executed: 2 items",
+      "expansionRequests/1 rejected: range past end of file",
+      "expansionRequests/2 executed: 2 items",
+      "expansionRequests/3 rejected: invalid request",
+      "expansionRequests/4 executed: 1 item"
+    ]
+  }
+}

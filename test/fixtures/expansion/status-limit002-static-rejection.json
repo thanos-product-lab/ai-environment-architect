@@ -1,0 +1,28 @@
+{
+  "description": "With maxExpansionRequests 2, a third request is rejected by LIMIT-002 and still gets its own status line, rejected: invalid request, after an executed read and a search with no matches.",
+  "section": "IMPL §1.8",
+  "rule": null,
+  "settings": { "maxExpansionRequests": 2, "expansionBytes": 60000, "expansionEntryBytes": 8000 },
+  "files": [
+    { "path": "src/a.ts", "status": "read", "content": "export const one = 1;\nexport const two = 2;\nexport const three = 3;\nexport const four = 4;\n" },
+    { "path": "src/b.ts", "status": "read", "content": "export const five = 5;\nexport const six = 6;\n" }
+  ],
+  "requests": [
+    { "kind": "read", "entries": [{ "path": "src/a.ts", "lines": "3-4" }], "reason": "See the last constants of a." },
+    { "kind": "search", "literal": "nothingMatchesThis", "reason": "Check for a helper." },
+    { "kind": "read", "entries": [{ "path": "src/b.ts", "lines": "1-2" }], "reason": "See b." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "executed",
+        "items": [ { "id": "E-1", "path": "src/a.ts", "includedLines": "3-4", "excerpt": true, "totalLines": 4, "outline": false } ] },
+      { "index": 1, "outcome": "executed", "matches": 0, "capped": false, "items": [] },
+      { "index": 2, "outcome": "rejected", "rule": "LIMIT-002" }
+    ],
+    "status": [
+      "expansionRequests/0 executed: 1 item",
+      "expansionRequests/1 no matches",
+      "expansionRequests/2 rejected: invalid request"
+    ]
+  }
+}

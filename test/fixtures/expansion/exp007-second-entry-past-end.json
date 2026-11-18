@@ -1,0 +1,24 @@
+{
+  "description": "The second of two read entries runs past the end of its 8-line file, so the whole request is rejected: the valid first entry returns nothing and takes no ID.",
+  "section": "IMPL §1.8",
+  "rule": "EXP-007",
+  "files": [
+    { "path": "src/a.ts", "status": "read", "content": "export const one = 1;\nexport const two = 2;\nexport const three = 3;\n" },
+    { "path": "src/b.ts", "status": "read", "content": "export function b1() {}\nexport function b2() {}\nexport function b3() {}\nexport function b4() {}\nexport function b5() {}\nexport function b6() {}\nexport function b7() {}\nexport function b8() {}\n" }
+  ],
+  "requests": [
+    { "kind": "read", "entries": [ { "path": "src/a.ts", "lines": "1-2" }, { "path": "src/b.ts", "lines": "6-9" } ], "reason": "Compare the two modules." },
+    { "kind": "read", "entries": [ { "path": "src/b.ts", "lines": "6-8" } ], "reason": "See the last functions." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "rejected", "rule": "EXP-007" },
+      { "index": 1, "outcome": "executed",
+        "items": [ { "id": "E-1", "path": "src/b.ts", "includedLines": "6-8", "excerpt": true, "totalLines": 8, "outline": false } ] }
+    ],
+    "status": [
+      "expansionRequests/0 rejected: range past end of file",
+      "expansionRequests/1 executed: 1 item"
+    ]
+  }
+}

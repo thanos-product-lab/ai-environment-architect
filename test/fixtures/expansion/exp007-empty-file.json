@@ -1,0 +1,15 @@
+{
+  "description": "An empty file has no lines, so even line 1 is past its end.",
+  "section": "IMPL §1.8, §1.6 Lines",
+  "rule": "EXP-007",
+  "files": [
+    { "path": "src/empty.ts", "status": "read", "content": "" }
+  ],
+  "requests": [
+    { "kind": "read", "entries": [{ "path": "src/empty.ts", "lines": "1-1" }], "reason": "See what the module exports." }
+  ],
+  "expect": {
+    "requests": [ { "index": 0, "outcome": "rejected", "rule": "EXP-007" } ],
+    "status": [ "expansionRequests/0 rejected: range past end of file" ]
+  }
+}

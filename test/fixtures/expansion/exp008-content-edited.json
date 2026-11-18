@@ -1,0 +1,25 @@
+{
+  "description": "A file edited after the snapshot (one digit changed) rejects the read even though the requested lines are unchanged, and the next request still runs as E-1.",
+  "section": "IMPL §1.8",
+  "rule": "EXP-008",
+  "files": [
+    { "path": "src/api.ts", "status": "read", "content": "export const base = \"/api\";\nexport const version = 1;\nexport function url(p: string) {\n  return `${base}/v${version}/${p}`;\n}\n" },
+    { "path": "src/util.ts", "status": "read", "content": "export const a = 1;\nexport const b = 2;\n" }
+  ],
+  "changed": { "src/api.ts": "export const base = \"/api\";\nexport const version = 2;\nexport function url(p: string) {\n  return `${base}/v${version}/${p}`;\n}\n" },
+  "requests": [
+    { "kind": "read", "entries": [{ "path": "src/api.ts", "lines": "3-5" }], "reason": "See how URLs are built." },
+    { "kind": "read", "entries": [{ "path": "src/util.ts", "lines": "1-2" }], "reason": "See the utilities." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "rejected", "rule": "EXP-008" },
+      { "index": 1, "outcome": "executed",
+        "items": [ { "id": "E-1", "path": "src/util.ts", "includedLines": "1-2", "excerpt": false, "totalLines": 2, "outline": false } ] }
+    ],
+    "status": [
+      "expansionRequests/0 rejected: changed since snapshot",
+      "expansionRequests/1 executed: 1 item"
+    ]
+  }
+}

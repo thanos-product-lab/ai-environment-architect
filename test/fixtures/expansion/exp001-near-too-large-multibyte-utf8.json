@@ -1,0 +1,19 @@
+{
+  "description": "A too-large listed_only file of valid UTF-8 with multi-byte characters (accents, an emoji) reads by range, with no outline.",
+  "section": "IMPL §1.8",
+  "rule": "EXP-001",
+  "nearMissOf": "exp001-too-large-not-utf8.json",
+  "files": [
+    { "path": "data/names.csv", "status": "listed_only", "reason": "too_large", "content": "id,name\n1,Zoë\n2,Ångström\n3,😀\n" }
+  ],
+  "requests": [
+    { "kind": "read", "entries": [{ "path": "data/names.csv", "lines": "2-3" }], "reason": "See sample rows." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "executed",
+        "items": [ { "id": "E-1", "path": "data/names.csv", "includedLines": "2-3", "excerpt": true, "totalLines": 4, "outline": false } ] }
+    ],
+    "status": [ "expansionRequests/0 executed: 1 item" ]
+  }
+}

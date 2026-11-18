@@ -1,9 +1,14 @@
 # Implementation Specification
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 15 November 2026  
-**Version:** 0.60  
+**Date:** 16 November 2026  
+**Version:** 0.61  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.60
+
+- **Expansion execution (§1.8).** The checks made as a request runs are rules, in order: `EXP-008` (changed since snapshot), `EXP-001` for a too-large file that holds a NUL byte or isn't UTF-8, `EXP-007` (a range past the end of the file), `EXP-010` (a `read` entry over `expansionEntryBytes`), the secret scan, then `EXP-009` (over `expansionBytes`); the first failure rejects the whole request. Range and search items have no outline; a read without ranges is excerpted by the file's kind. Search matches are whole lines, case-sensitive, at most 30, with 3 lines of context, and never resend lines the initial context sent. `E` items have no `tier` attribute. Call 2 gets a status line per request, with no content.
+- **Expansion record (§1.8, §1.13, §4.4.1).** A new `expansion_round` record holds every request's outcome, rule and items, and is appended whether or not call 2 is sent; call 2's manifest refers to it by `expansionRoundId`. A round that returns no item sends no call 2 and records nothing as skipped. A secret match blocks its file for the rest of the session, as in §1.7, and the record lists the blocked files; call-1 findings left with no evidence outside them get a `secret_withheld` record. Loading checks that a round's call is an `analyse` call in the round's snapshot, that every `analyse_expansion` manifest names the round, and that `usedBytes`, request indexes and `E` IDs agree. The session format stays 2: a reader of an earlier version refuses the new record rather than misreading it, and nothing has been released.
 
 ### Changes from v0.59
 
@@ -819,11 +824,47 @@ Each request is validated deterministically. The static checks run with the `ana
 | `EXP-004` | A search `glob`, when given, holds no backtick, whitespace, or control or format character (`Cc`, `Cf`), names something after the path normalisation of §1.11, lies under one of the snapshot's scope roots (its leading segments are the root's segments, written without wildcards, so `**/*.ts` is not under `src`; the root `.` covers everything), and matches at least one searchable file, a `read` entry that is not withheld or blocked by its content, directly or through a directory it matches, as in §1.11. |
 | `EXP-005` | A search `literal` is line-safe text: it holds no control character (`Cc`), so no line break, is at least 3 code points long, and is not only `White_Space`, punctuation or symbols. Matches are found within one line, so a line break could never match. |
 
-Whether a requested range lies within the file, and the total expansion staying within `expansionBytes` (default 60,000), are checked when the request is executed, because they need the file's content. Invalid requests are rejected with a recorded reason. Valid ones are executed by application code:
+Whether a requested range lies within the file, and the total expansion staying within `expansionBytes` (default 60,000), are checked when the request is executed, because they need the file's content. Invalid requests are rejected with a recorded reason. Valid ones are executed by code (`src/core/context/expansion.ts`), in response order.
 
-- File content is read live, and its hash must match the snapshot. A mismatch fails that request with "changed since snapshot".
-- Search runs over candidate files only, never `ignored` ones, in path order. Matches are ordered by path, then line, and the result is capped.
-- Results are rendered in the same item format, with IDs `E-<sequence>` and reason `expansion:expansionRequests/<index>`, the request's position in the response (§3.5), and pass the secret scan before inclusion.
+**Execution checks.** Each request that passed the static checks is checked again as it runs. A `read` entry goes through every check in this order before the next entry starts. A search reads and checks every file it searches (`EXP-008`) before it matches anything, then scans its items in path order. `EXP-009` comes last, for the request as a whole. The first failure rejects the whole request: it returns nothing, and uses no budget or item ID.
+
+| Rule | Check | Status line |
+|---|---|---|
+| `EXP-008` | Every file the request reads is read live, and its hash matches the snapshot. A file that can't be read, or no longer matches, fails the request with "changed since snapshot". A search reads every file it searches, whether or not it matches there. | `rejected: changed since snapshot` |
+| `EXP-001` | A `listed_only` file too large to excerpt holds no NUL byte and is valid UTF-8. The snapshot doesn't check a file too large to read, so this part of `EXP-001` is checked here. | `rejected: invalid request` |
+| `EXP-007` | Every requested range ends at or before the file's last line (§1.6, Lines). | `rejected: range past end of file` |
+| `EXP-010` | Each `read` entry's item is at most `expansionEntryBytes`. A range read is never cut: over the cap, it is rejected. A read without ranges is excerpted within the cap, and rejected only when §1.6 gives no item: an outline-only item, or a first Markdown unit cut at a blank line, fits. | `rejected: over budget` |
+| secret scan | Each item passes the secret scan (§1.7): its raw path, its rendered text and the uncut text of every cut outline label. A match rejects the request with `secret-scan:<rule ID>`, never the matched text. | `rejected: withheld` |
+| `EXP-009` | The request's items, added to those of the requests executed before it, are at most `expansionBytes` in total. A later, smaller request can still fit. | `rejected: over budget` |
+
+**A secret match blocks its file for the rest of the session**, as in §1.7: the request whose own item matched stays rejected, every other `read` in the round that names the file, before or after the match, is rejected with that file's `secret-scan:<rule ID>` unless an earlier check or entry fails it first, no search searches it, call 2 doesn't resend call 1's items of it and its tree marks it `[S]`, and excerpts of it accepted in call 1 are withheld from calls 3–5, with a `secret_withheld` record (§4.4.1) for each current finding left with no evidence outside the blocked files, naming the rule of the first blocked file in its evidence order.
+
+**`read`.** Each entry is one item.
+
+- With ranges, the item is exactly those lines: the ranges in line order, overlaps and adjacent ranges merged. It has no `OUTLINE`, since the model has already seen the outline of an excerpted file and an `[L]` file's outline could fill the cap by itself. `excerpt` is `false` only when the ranges cover every line.
+- Without ranges, the file is excerpted by §1.6 within `expansionEntryBytes`, with its outline: by the Markdown rules for a Markdown file (§1.5: `.md`, `.markdown` or `.mdx`), by whole lines from the start for a tier 3 file, and by the source code rules, which take whole lines when no declaration is detected, for every other file.
+
+**`search`.** It runs over the searchable files: `read` entries that are not withheld or blocked by content, never `ignored` or `listed_only` ones. With a glob, only files it matches, directly or through a directory it matches (§1.11). Files are searched in path order, line by line, with lines as in §1.6. A **match** is a line that contains the literal, compared code unit for code unit, case-sensitively; a line with several occurrences is one match. The first 30 matches in path, then line, order are kept, and the record says whether more were found.
+
+- A file with kept matches gives one item. Its lines are each kept match on a line the initial context didn't send, with 3 lines before and 3 after, within the file, merged, without the lines the initial context sent of that file. A match on a line the initial context sent counts towards the matches, and adds no lines, not even its context. A file whose matches add no lines gives no item.
+- A search item has no `OUTLINE`; `excerpt` is `false` only when its lines cover the whole file.
+
+**Items.** Results are rendered in the item format of §1.6, without the `tier` attribute, since the basis comes from tier membership (§3.2.4), with IDs `E-<sequence>` and reason `expansion:expansionRequests/<index>`, the request's position in the response (§3.5). Sequence numbers run from 1 in execution order: requests in response order, then a `read`'s entries in order and a search's files in path order. A rejected request uses none.
+
+**Status lines.** Call 2 receives one status line per expansion request in the response, in response order, statically rejected ones included, before the `E` items. A status line holds no path, literal or content:
+
+```text
+<<<EXPANSION>>>
+expansionRequests/0 executed: 2 items
+expansionRequests/1 no matches
+expansionRequests/2 rejected: changed since snapshot
+expansionRequests/3 rejected: invalid request
+<<<END EXPANSION>>>
+```
+
+An executed request says `executed: 1 item` or `executed: <n> items`, `executed: 0 items` for a search whose matches add no lines, and `no matches` for a search that found none. A rejected one gives the text in the table above; a request a static check rejected says `rejected: invalid request`. Each line, and the frame, ends with a line break.
+
+**The expansion record.** When call 1's validated response holds at least one expansion request, code appends an `expansion_round` record (§4.4.1) once the round has run, after call 1's records and before call 2's token check, whether or not call 2 is then sent. It lists every request with its outcome, the rule that rejected it, and the items it returned with their bytes. Call 2's manifest refers to it (§1.13). The rates of `EXP-007` to `EXP-010` are read from this record. Call 2 is sent only when the round returned at least one item. If it returned none, call 2 is not sent and nothing is recorded as skipped: no `stage_skipped` and no incomplete session, since there was nothing new to analyse.
 
 **One expansion round** in the first slice. Call 2 cannot request further expansion. If call 2 doesn't fit in the model's input limit, it isn't sent, and the session continues with call 1's results (§1.10).
 
@@ -970,7 +1011,30 @@ Every model call records an input manifest ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md)
 }
 ```
 
-When expansion is used, `expansion` lists each request, its validation outcome, the items returned and their bytes.
+When expansion is used, call 2's manifest has `"expansion": { "expansionRoundId": "exr_…" }`, the `expansion_round` record of the round (§1.8, §4.4.1), which lists each request, its validation outcome, the items returned and their bytes. Call 1's manifest always has `null`. The `E` items are listed only there, not in the manifest's `items`:
+
+```json
+{
+  "type": "expansion_round",
+  "id": "exr_…",
+  "snapshotId": "snap_…",
+  "modelCallId": "call_…",
+  "budgetBytes": 60000,
+  "usedBytes": 1024,
+  "requests": [
+    { "index": 0, "kind": "read", "outcome": "rejected", "rule": "EXP-001" },
+    { "index": 1, "kind": "search", "outcome": "executed", "matches": 4, "capped": false,
+      "items": [
+        { "id": "E-1", "path": "src/client.ts", "fileHash": "sha256:…", "excerpt": true,
+          "includedLines": "10-16", "totalLines": 80, "bytes": 512 }
+      ] },
+    { "index": 2, "kind": "read", "outcome": "rejected", "rule": "secret-scan:generic-assignment" }
+  ],
+  "blocked": [{ "path": "config/local.ts", "secretRuleId": "generic-assignment" }]
+}
+```
+
+`modelCallId` is call 1's. `rule` is set exactly for a rejected request: the static rule from its `failed_item` record (§4.4.3), an execution rule, or `secret-scan:<rule ID>`. `items` is set exactly for an executed request, and `matches` and `capped` for an executed search, where `matches` counts the kept matches. A path that matches the secret scan is recorded as `pathHash`. `usedBytes` is the total of the items' `bytes`. `blocked` lists each file a secret match blocked (§1.8), in path order, with the first rule that matched it, never the matched text; it is empty when nothing matched. Requests are listed with `index` 0, 1, 2 and so on, every one of call 1's, and `E` IDs run from 1 in that order. An `analyse_expansion` call's manifest always names the round, since call 2 is sent only after a round that returned items; the round's `modelCallId` is an `analyse` call and its `snapshotId` that call's snapshot.
 
 Details:
 
@@ -1024,6 +1088,10 @@ All defaults are starting points. They are calibrated on the product-development
 - Delimiter sequences inside file content are escaped.
 - Line-range expansion returns exactly the requested lines; out-of-range or already-included requests are rejected.
 - A file changed after the snapshot fails expansion with "changed since snapshot".
+- A range past the end of the file (`EXP-007`), a file changed since the snapshot (`EXP-008`), a request over `expansionBytes` (`EXP-009`), a `read` entry over `expansionEntryBytes` (`EXP-010`) and a secret match each reject the whole request, which uses no budget or item ID; a later request that fits still runs.
+- A search keeps the first 30 matching lines in path and line order, sends 3 lines of context around each match on an unsent line, and never resends a line the initial context sent; a match on a sent line still counts.
+- A secret match during expansion blocks its file: every `read` of it in the round, earlier ones included, is rejected with the same rule, no search returns it, and a call-1 finding whose only evidence is from it gets a `secret_withheld` record and is withheld from later calls.
+- Status lines name each request's outcome and hold no path, literal or content. The `expansion_round` record is appended whether or not call 2 is sent, and a round that returns no item sends no call 2 and records nothing as skipped.
 - A request that exceeds the token limit is reduced in the specified order, or not sent. A call 2 that still doesn't fit is recorded as `stage_skipped`, and the session continues with call 1's results.
 - Agent configuration the token check removes gets a gap per call, listing only that call's removals in rendering order, `not_inspected` from the start; the destination is never in it.
 - Call 2 starts from call 1's reduced context: no item call 1 removed comes back, its `tokenCheck.reductions` lists only its own removals, its `skipped` every removal so far, and the expansion results are kept.
@@ -2268,7 +2336,7 @@ The example leaves out most record fields.
 | Field | Names |
 |---|---|
 | `findingIds`, `findingId`, `conflictIds`, `conflictId`, `gapIds`, `questionId`, `recommendationId`, `blockedBy`, `modelCallId`, `retryOf`, `producedBy` (a model call) | Lineage IDs |
-| `supersedes`, `snapshotId`, `evidenceIds`, `decisionIds`, `resolvingDecisionId`, `revisionId`, `selectedRevisionIds`, `artifactRevisionId`, `reviewId` | Record IDs |
+| `supersedes`, `snapshotId`, `evidenceIds`, `decisionIds`, `resolvingDecisionId`, `revisionId`, `selectedRevisionIds`, `artifactRevisionId`, `reviewId`, a manifest's `expansionRoundId` (§1.13) | Record IDs |
 | A recommendation revision's `support` | Each entry is typed: a finding by lineage ID, so `REC-001` sees its current state; a decision by record ID, so a superseded decision makes the recommendation affected (DM §12). There are no evidence entries: evidence is reached through the findings |
 | A recommendation revision's `target` | A block ID and hash in the snapshot active when the revision was created. A block is not a record; §4.4.2 resolves it in later snapshots |
 | A reference's `supportingFindingId` and `evidenceId` (DM §9.1) | The finding by lineage ID; the evidence by record ID |
@@ -2289,6 +2357,7 @@ The lineage of `session_state` and `generation_config` is the session itself, so
 | `conflict` | `conflictId` (`conf_`) | `confr_` | §4.5. Carries `snapshotId` | `unresolved` or `resolved`, of the active snapshot, with every member finding current |
 | `question` | `questionId` (`q_`) | `qr_` | `open` → `answered`, `skipped` or `unreached`. A skipped question answered later gets another revision | `open`, `answered`, `skipped`, `unreached`, while at least one finding, gap or conflict it resolves is current |
 | `decision` | — | `dec_` | A correction is a new decision whose `supersedes` names the old one (DM §8.2) | not superseded |
+| `expansion_round` | — | `exr_` | Immutable. At most one per session, appended when call 1's validated response holds an expansion request, whether or not call 2 is sent (§1.8, §1.13): `snapshotId`, `modelCallId` (call 1), `budgetBytes`, `usedBytes`, each request's outcome, rule and items, and the files a secret match blocked | — |
 | `secret_withheld` | none | `sw_` | Appended when an item's text matches the secret scan (§1.7): `itemId`, the lineage ID of a finding, conflict or question or the record ID of a decision, and `secretRuleId`, never the matched text. It covers every revision of the item, earlier or later. Never revised | every one |
 | `recommendation_revision` | `recommendationId` (`rec_`) | `rrev_` | DM §9.1. A new revision per regeneration `revise` or developer edit, with its own `producedBy`. Invalidation: a revision with status `invalidated` and `invalidatedReason` (below) | `valid` |
 | `held_back` | — | `hb_` | Immutable. One per accepted `heldBack` entry (§3.3.5), with its `topic`, `blockedBy` and `modelCallId` | §4.4.2 |

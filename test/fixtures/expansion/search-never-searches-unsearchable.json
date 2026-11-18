@@ -1,0 +1,23 @@
+{
+  "description": "The literal is in six files, but only src/a.ts is searchable: an ignored file, a too-large listed_only file, a file withheld by name, an excluded file and a symbolic link are never searched, so matches is 1.",
+  "section": "IMPL §1.8",
+  "rule": null,
+  "files": [
+    { "path": ".env", "status": "excluded", "rule": ".env", "content": "QUEUE_HOOK=flushQueue\n" },
+    { "path": "keys/{{aws-access-key-id}}.ts", "status": "read", "content": "export const hook = \"flushQueue\";\n" },
+    { "path": "logs/debug.ts", "status": "ignored", "content": "flushQueue();\n" },
+    { "path": "src/a.ts", "status": "read", "content": "export function drain() {\n  flushQueue();\n}\n" },
+    { "path": "src/big.ts", "status": "listed_only", "reason": "too_large", "content": "flushQueue();\n" },
+    { "path": "src/link.ts", "status": "symlink", "target": "a.ts" }
+  ],
+  "requests": [
+    { "kind": "search", "literal": "flushQueue", "reason": "Find where the queue is flushed." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "executed", "matches": 1, "capped": false,
+        "items": [ { "id": "E-1", "path": "src/a.ts", "includedLines": "1-3", "excerpt": false, "totalLines": 3, "outline": false } ] }
+    ],
+    "status": [ "expansionRequests/0 executed: 1 item" ]
+  }
+}

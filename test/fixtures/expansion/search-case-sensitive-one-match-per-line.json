@@ -1,0 +1,18 @@
+{
+  "description": "A search for fetchUser is case-sensitive, so FETCHUSER, fetchuser and FetchUserLegacy don't match, and line 20, with two occurrences, is one match: 2 matches, with context 1-7 and 17-23.",
+  "section": "IMPL §1.8",
+  "rule": null,
+  "files": [
+    { "path": "src/users.ts", "status": "read", "content": "import { get } from \"./http\";\n\n// FETCHUSER and fetchuser were the v1 names.\nexport function fetchUser(id: string) {\n  return get(`/users/${id}`);\n}\n\nexport function fetchTeam(id: string) {\n  return get(`/teams/${id}`);\n}\n\nexport function fetchOrg(id: string) {\n  return get(`/orgs/${id}`);\n}\n\nexport function FetchUserLegacy(id: string) {\n  return get(`/v1/users/${id}`);\n}\n\n// Callers: fetchUser for one id, fetchUser in a loop for many.\nexport const userCache = new Map<string, unknown>();\n\nexport const ttl = 60;\nexport const version = 2;\n" }
+  ],
+  "requests": [
+    { "kind": "search", "literal": "fetchUser", "reason": "Find where users are fetched." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "executed", "matches": 2, "capped": false,
+        "items": [ { "id": "E-1", "path": "src/users.ts", "includedLines": "1-7,17-23", "excerpt": true, "totalLines": 24, "outline": false } ] }
+    ],
+    "status": [ "expansionRequests/0 executed: 1 item" ]
+  }
+}

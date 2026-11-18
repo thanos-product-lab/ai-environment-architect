@@ -1,0 +1,16 @@
+{
+  "description": "A file deleted after the snapshot can't be read live, so a read without ranges fails as changed since snapshot.",
+  "section": "IMPL §1.8",
+  "rule": "EXP-008",
+  "files": [
+    { "path": "src/jobs.ts", "status": "read", "content": "export function schedule() {\n  return 1;\n}\n" }
+  ],
+  "changed": { "src/jobs.ts": null },
+  "requests": [
+    { "kind": "read", "entries": [{ "path": "src/jobs.ts" }], "reason": "See the job scheduler." }
+  ],
+  "expect": {
+    "requests": [ { "index": 0, "outcome": "rejected", "rule": "EXP-008" } ],
+    "status": [ "expansionRequests/0 rejected: changed since snapshot" ]
+  }
+}

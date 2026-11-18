@@ -1,0 +1,24 @@
+{
+  "description": "A too-large listed_only file whose line 2 is the byte 0xFF is not valid UTF-8, so a request for the valid line 1 alone is still rejected.",
+  "section": "IMPL §1.8",
+  "rule": "EXP-001",
+  "files": [
+    { "path": "data/export.csv", "status": "listed_only", "reason": "too_large", "content": { "base64": "b2sK/wo=" } },
+    { "path": "src/a.ts", "status": "read", "content": "export const one = 1;\nexport const two = 2;\n" }
+  ],
+  "requests": [
+    { "kind": "read", "entries": [{ "path": "data/export.csv", "lines": "1-1" }], "reason": "See the CSV header." },
+    { "kind": "read", "entries": [{ "path": "src/a.ts", "lines": "2-2" }], "reason": "See the second constant." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "rejected", "rule": "EXP-001" },
+      { "index": 1, "outcome": "executed",
+        "items": [ { "id": "E-1", "path": "src/a.ts", "includedLines": "2", "excerpt": true, "totalLines": 2, "outline": false } ] }
+    ],
+    "status": [
+      "expansionRequests/0 rejected: invalid request",
+      "expansionRequests/1 executed: 1 item"
+    ]
+  }
+}

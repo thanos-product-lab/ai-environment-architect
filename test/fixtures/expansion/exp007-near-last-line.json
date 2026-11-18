@@ -1,0 +1,20 @@
+{
+  "description": "A range that ends exactly on the 12-line file's last line is within the file and runs.",
+  "section": "IMPL §1.8",
+  "rule": "EXP-007",
+  "nearMissOf": "exp007-range-one-past-end.json",
+  "files": [
+    { "path": "src/client.ts", "status": "read", "content": "import { get } from \"./http\";\n\nexport function fetchUser(id: string) {\n  return get(`/users/${id}`);\n}\n\nexport function fetchTeam(id: string) {\n  return get(`/teams/${id}`);\n}\n\nexport const retries = 3;\nexport const timeoutMs = 5000;\n" }
+  ],
+  "sent": { "src/client.ts": "1-5" },
+  "requests": [
+    { "kind": "read", "entries": [{ "path": "src/client.ts", "lines": "10-12" }], "reason": "See the settings at the end of the client." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "executed",
+        "items": [ { "id": "E-1", "path": "src/client.ts", "includedLines": "10-12", "excerpt": true, "totalLines": 12, "outline": false } ] }
+    ],
+    "status": [ "expansionRequests/0 executed: 1 item" ]
+  }
+}

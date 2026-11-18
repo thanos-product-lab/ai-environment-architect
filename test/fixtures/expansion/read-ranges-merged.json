@@ -1,0 +1,19 @@
+{
+  "description": "Out-of-order, overlapping and adjacent ranges 8-10,3-5,5-6,11-11 are merged in line order into one item 3-6,8-11, with no outline.",
+  "section": "IMPL §1.8",
+  "rule": null,
+  "files": [
+    { "path": "src/client.ts", "status": "read", "content": "import { get } from \"./http\";\n\nexport function fetchUser(id: string) {\n  return get(`/users/${id}`);\n}\n\nexport function fetchTeam(id: string) {\n  return get(`/teams/${id}`);\n}\n\nexport const retries = 3;\nexport const timeoutMs = 5000;\n" }
+  ],
+  "sent": { "src/client.ts": "1-2" },
+  "requests": [
+    { "kind": "read", "entries": [{ "path": "src/client.ts", "lines": "8-10,3-5,5-6,11-11" }], "reason": "See both fetch functions and the retry setting." }
+  ],
+  "expect": {
+    "requests": [
+      { "index": 0, "outcome": "executed",
+        "items": [ { "id": "E-1", "path": "src/client.ts", "includedLines": "3-6,8-11", "excerpt": true, "totalLines": 12, "outline": false } ] }
+    ],
+    "status": [ "expansionRequests/0 executed: 1 item" ]
+  }
+}

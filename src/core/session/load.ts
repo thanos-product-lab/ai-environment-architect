@@ -291,6 +291,7 @@ const revisedBy = lineage("revisedBy", "model_call");
 
 const REFERENCES: Partial<Record<RecordTypeName, readonly Reference[]>> = {
   content_notice: [record("snapshotId", "snapshot"), lineage("modelCallId", "model_call")],
+  expansion_round: [record("snapshotId", "snapshot"), lineage("modelCallId", "model_call")],
   evidence: [record("snapshotId", "snapshot")],
   finding: [
     record("snapshotId", "snapshot"),
@@ -376,6 +377,12 @@ function referencesOf(r: SessionRecord): { reference: Reference; id: string }[] 
       reference: record("inputManifest.snapshotId", "snapshot"),
       id: r.inputManifest.snapshotId,
     });
+    // Call 2's manifest names its expansion round (§1.13); no other call's names one.
+    if (r.inputManifest.expansion !== null)
+      found.push({
+        reference: record("inputManifest.expansion.expansionRoundId", "expansion_round"),
+        id: r.inputManifest.expansion.expansionRoundId,
+      });
     for (const entry of r.aliases.entries) {
       const type = ALIAS_TARGET_TYPES[entry.kind];
       if (entry.target.kind === "record" && type !== undefined)
@@ -406,8 +413,29 @@ function checkReferences(records: readonly SessionRecord[]): void {
   // A model call is sent under the session's settings, so the first generation_config comes
   // before every call.
   const firstConfig = records.find((r) => r.type === "generation_config")?.seq;
+  // One expansion round in the first slice (§1.8).
+  const rounds = records.filter((r) => r.type === "expansion_round");
+  if (rounds.length > 1) reject(4, "the session has more than one expansion round", rounds[1]);
+  // The round follows call 1, in call 1's snapshot (§1.13). Unknown calls are check 4's below.
+  for (const round of rounds) {
+    if (round.type !== "expansion_round") continue;
+    const call = records.find(
+      (r) => r.type === "model_call" && r.modelCallId === round.modelCallId,
+    );
+    if (call === undefined || call.type !== "model_call") continue;
+    if (call.purpose !== "analyse")
+      reject(4, `modelCallId names ${round.modelCallId}, which isn't an analyse call`, round);
+    if (call.inputManifest.snapshotId !== round.snapshotId)
+      reject(4, `snapshotId ${round.snapshotId} isn't the snapshot of call 1`, round);
+  }
+
   for (const r of records)
     if (r.type === "model_call") {
+      if (r.inputManifest.expansion !== null && r.purpose !== "analyse_expansion")
+        reject(4, "only an analyse_expansion call's manifest names an expansion round", r);
+      // Call 2 is sent only after a round that returned items (§1.8).
+      if (r.inputManifest.expansion === null && r.purpose === "analyse_expansion")
+        reject(4, "the analyse_expansion call names no expansion round", r);
       if (firstConfig === undefined) reject(4, "the session has no generation_config", r);
       if (firstConfig > r.seq)
         reject(4, "the call comes before the session's first generation_config", r);

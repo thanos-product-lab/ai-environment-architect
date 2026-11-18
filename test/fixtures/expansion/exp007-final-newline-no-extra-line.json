@@ -1,0 +1,16 @@
+{
+  "description": "A 4-line file ending in LF has no line 5: a final line ending does not start another line, so a range to line 5 is past the end (a split on LF would count 5).",
+  "section": "IMPL §1.8, §1.6 Lines",
+  "rule": "EXP-007",
+  "files": [
+    { "path": "src/util.ts", "status": "read", "content": "export const a = 1;\nexport const b = 2;\nexport const c = 3;\nexport const d = 4;\n" }
+  ],
+  "sent": { "src/util.ts": "1-2" },
+  "requests": [
+    { "kind": "read", "entries": [{ "path": "src/util.ts", "lines": "3-5" }], "reason": "See the rest of util." }
+  ],
+  "expect": {
+    "requests": [ { "index": 0, "outcome": "rejected", "rule": "EXP-007" } ],
+    "status": [ "expansionRequests/0 rejected: range past end of file" ]
+  }
+}

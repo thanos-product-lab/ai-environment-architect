@@ -1,0 +1,17 @@
+{
+  "description": "A search reads every file it searches: src/b.ts holds no match but changed since the snapshot, so the whole search is rejected, including the match in src/a.ts.",
+  "section": "IMPL §1.8",
+  "rule": "EXP-008",
+  "files": [
+    { "path": "src/a.ts", "status": "read", "content": "export const retryLimit = 3;\nexport const delayMs = 100;\n" },
+    { "path": "src/b.ts", "status": "read", "content": "export const name = \"b\";\n" }
+  ],
+  "changed": { "src/b.ts": "export const name = \"bee\";\n" },
+  "requests": [
+    { "kind": "search", "literal": "retryLimit", "glob": "src", "reason": "Find where the retry limit is used." }
+  ],
+  "expect": {
+    "requests": [ { "index": 0, "outcome": "rejected", "rule": "EXP-008" } ],
+    "status": [ "expansionRequests/0 rejected: changed since snapshot" ]
+  }
+}

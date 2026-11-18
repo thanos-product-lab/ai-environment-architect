@@ -1,0 +1,15 @@
+{
+  "description": "A CRLF is one line ending, so a 3-line CRLF file has no line 4 (counting CR and LF separately would give 6 lines).",
+  "section": "IMPL §1.8, §1.6 Lines",
+  "rule": "EXP-007",
+  "files": [
+    { "path": "src/win.ts", "status": "read", "content": "export const x = 1;\r\nexport const y = 2;\r\nexport const z = 3;\r\n" }
+  ],
+  "requests": [
+    { "kind": "read", "entries": [{ "path": "src/win.ts", "lines": "3-4" }], "reason": "See the last constants." }
+  ],
+  "expect": {
+    "requests": [ { "index": 0, "outcome": "rejected", "rule": "EXP-007" } ],
+    "status": [ "expansionRequests/0 rejected: range past end of file" ]
+  }
+}
