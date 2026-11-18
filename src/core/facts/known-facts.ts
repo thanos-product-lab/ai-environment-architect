@@ -90,10 +90,11 @@ interface Entry {
 
 /**
  * A name or path that can't be written as one inline code span: empty, with whitespace at either
- * end, or holding a backtick or a control character.
+ * end, or holding a backtick, a control character, or a line or paragraph separator (U+2028,
+ * U+2029), which would make the statement span lines.
  */
 function unsafe(text: string): boolean {
-  return text === "" || /^\s|\s$|[`\p{Cc}]/u.test(text);
+  return text === "" || /^\s|\s$|[`\p{Cc}\u2028\u2029]/u.test(text);
 }
 
 export async function extractKnownFacts(

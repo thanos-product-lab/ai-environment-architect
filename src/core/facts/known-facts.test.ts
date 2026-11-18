@@ -209,6 +209,13 @@ describe("extractKnownFacts", () => {
     expect(statements(result)).toEqual(["`package.json` defines the script `ok`."]);
   });
 
+  it("gives no fact for a name holding a line or paragraph separator", async () => {
+    const result = await extracted({
+      "package.json": '{ "scripts": { "a\\u2028b": "x", "c\\u2029d": "x", "ok": "x" } }\n',
+    });
+    expect(statements(result)).toEqual(["`package.json` defines the script `ok`."]);
+  });
+
   it("gives no fact for an empty name, or one with whitespace at either end", async () => {
     const result = await extracted({
       "package.json": '{ "scripts": { "": "x", " b": "x", "c ": "x", "d e": "x" } }\n',

@@ -8,7 +8,7 @@
 ### Changes from v0.61
 
 - **Rendering validated records (§3.2.6, §3.2.1, §3.8).** The format for calls 2–5 is specified. Call 2 resends call 1's context as its token check left it, without blocked files, with the known-facts section rendered again without withheld facts, then the call-1 results, the expansion status and the `E` items. Calls 3–5 send framed sections in a fixed order: destination, tree, limits, findings, conflicts, questions, decisions, and for call 5 the affected recommendations and the change summary, whose lines are a closed list. Each record kind has its header and lines; a text field that could start a line of its own is a JSON string, and the delimiter escape applies once. A removed excerpt is `(excerpt not sent)`, a blocked or matching one `(excerpt withheld)`. Records and excerpts are scanned before numbering, and a withheld record gets no alias. `F` numbers the known facts sent in call 1 first, with their call-1 aliases in every call, a withheld fact's alias left unused; facts left out of call 1 are never sent. This closes the §3.9 open point on numbering. Other records are numbered without gaps by the `seq` of their first revision. The calls 3–5 excerpt reductions record the evidence ID, path and bytes. Paths follow the tree-name rule. Call 2's manifest describes its own known-facts section (§1.13).
-- **Known facts (§3.2.5, §3.9).** A name or path holding U+2028 or U+2029 gives no fact, as one holding a control character doesn't, so facts render the same in every call. This closes the §3.9 open point.
+- **Known facts (§3.2.5, §3.9).** A name or path holding U+2028 or U+2029 gives no fact, as one holding a control character doesn't, so facts render the same in every call. This closes the §3.9 open point. The rendered known facts can change, so `algorithmVersion` is `context-select/1.8.0` (§1.13).
 - **Call-1 records (§3.3.3).** Call 2's `F` and `C` records are the current, aliased ones: the known facts sent in call 1, the accepted call-1 findings and the deterministic gaps, and the current call-1 conflicts. A record withheld before call 2 isn't among them, and gets no outcome.
 - **Change summary (§3.3.6).** It counts the `target_changed` recommendations, which have no alias, rather than naming them.
 - **Caching (§1.2, §3.9).** Prompt caching is off for every call, provisionally, instead of optional for call 2.
@@ -969,7 +969,7 @@ Every model call records an input manifest ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md)
 ```json
 {
   "manifestVersion": 2,
-  "algorithmVersion": "context-select/1.7.0",
+  "algorithmVersion": "context-select/1.8.0",
   "secretRulesVersion": "secret-scan/1.1.0",
   "declarationPatternsVersion": "declarations/1.0.0",
   "settingsHash": "sha256:…",

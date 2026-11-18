@@ -11,11 +11,6 @@
       "evidence": [{ "kind": "lines", "path": "package.json", "lineStart": 6, "lineEnd": 6 }]
     },
     {
-      "statement": "`package.json` defines the script `ls sep`.",
-      "scope": "repository",
-      "evidence": [{ "kind": "lines", "path": "package.json", "lineStart": 7, "lineEnd": 7 }]
-    },
-    {
       "statement": "`package.json` defines the script `ok`.",
       "scope": "repository",
       "evidence": [{ "kind": "lines", "path": "package.json", "lineStart": 8, "lineEnd": 8 }]

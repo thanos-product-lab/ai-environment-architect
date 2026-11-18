@@ -72,7 +72,7 @@ export function callDraft(
     detectorVersion: "detect/0.1.0",
     inputManifest: {
       manifestVersion: 2,
-      algorithmVersion: "context-select/1.7.0",
+      algorithmVersion: "context-select/1.8.0",
       secretRulesVersion: "secret-scan/1.1.0",
       declarationPatternsVersion: "declarations/1.0.0",
       settingsHash: hashOf("3"),
