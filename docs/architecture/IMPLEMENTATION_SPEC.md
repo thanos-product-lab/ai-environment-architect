@@ -1,9 +1,17 @@
 # Implementation Specification
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 16 November 2026  
-**Version:** 0.61  
+**Date:** 18 November 2026  
+**Version:** 0.62  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.61
+
+- **Rendering validated records (§3.2.6, §3.2.1, §3.8).** The format for calls 2–5 is specified. Call 2 resends call 1's context as its token check left it, without blocked files, with the known-facts section rendered again without withheld facts, then the call-1 results, the expansion status and the `E` items. Calls 3–5 send framed sections in a fixed order: destination, tree, limits, findings, conflicts, questions, decisions, and for call 5 the affected recommendations and the change summary, whose lines are a closed list. Each record kind has its header and lines; a text field that could start a line of its own is a JSON string, and the delimiter escape applies once. A removed excerpt is `(excerpt not sent)`, a blocked or matching one `(excerpt withheld)`. Records and excerpts are scanned before numbering, and a withheld record gets no alias. `F` numbers the known facts sent in call 1 first, with their call-1 aliases in every call, a withheld fact's alias left unused; facts left out of call 1 are never sent. This closes the §3.9 open point on numbering. Other records are numbered without gaps by the `seq` of their first revision. The calls 3–5 excerpt reductions record the evidence ID, path and bytes. Paths follow the tree-name rule. Call 2's manifest describes its own known-facts section (§1.13).
+- **Known facts (§3.2.5, §3.9).** A name or path holding U+2028 or U+2029 gives no fact, as one holding a control character doesn't, so facts render the same in every call. This closes the §3.9 open point.
+- **Call-1 records (§3.3.3).** Call 2's `F` and `C` records are the current, aliased ones: the known facts sent in call 1, the accepted call-1 findings and the deterministic gaps, and the current call-1 conflicts. A record withheld before call 2 isn't among them, and gets no outcome.
+- **Change summary (§3.3.6).** It counts the `target_changed` recommendations, which have no alias, rather than naming them.
+- **Caching (§1.2, §3.9).** Prompt caching is off for every call, provisionally, instead of optional for call 2.
 
 ### Changes from v0.60
 
@@ -466,7 +474,7 @@ Rules:
 - Deterministic validation ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.2, §9.1, and §1.11 below) runs after every call. Calls 2–5 receive **only validated material**. Rejected output is recorded on the model call and never passed forward.
 - Calls 3, 4 and 5 do not receive the raw initial context. Their source content is limited to excerpts cited by validated evidence, plus the destination blocks.
 - Every call passes through the secret scan (§1.7) and the token check (§1.10) before it is sent.
-- Prompt caching may be used for the repeated initial context in call 2. It does not change what is sent.
+- Requests set no cache breakpoint or lifetime, so prompt caching is off (provisional, §3.9). Each call has its own system prompt and schema, so only repeated sends of one call could share a prefix; calls 3–5 send the sections that change least first (§3.2.6), so that stays possible.
 
 ### 1.3 Construction order and determinism
 
@@ -1040,7 +1048,7 @@ Details:
 
 - Tiers are listed 1 to 5. Tiers 1, 2, 3 and 5 also record `budgetBytes`: the cap plus bytes passed down. Tier 4 records `capBytes`, `usedBytes` and `treeDepth`.
 - `budget.usedBytes` is the rendered context's size, known-facts section and tree included.
-- `knownFacts` records the section's cap, its rendered bytes, frame included, and how many facts were sent and left out (§3.2.5).
+- `knownFacts` records the section's cap, its rendered bytes, frame included, and how many facts were sent and left out (§3.2.5). In call 2 it describes the section as rendered again (§3.2.6): its bytes, the facts sent and, as left out, those left out of call 1 plus those withheld since. `contextHash` is of call 2's own rendered context.
 - `ignoreRules` is the snapshot's record: `{ "state": "applied" }`, or `{ "state": "not_applied", "reason": … }` with the git reason (§1.4). `ignored` lists the snapshot's `ignored` entries in path order: files, and wholly ignored directories as one path each.
 - `excluded` lists the snapshot's excluded entries with their rule, in path order, then secret-blocked files with `secret-scan:<rule ID>`, in path order. Secret-blocked files include files whose path matches, whether or not a tier selected them.
 - A path that matches the secret scan is recorded as `pathHash` instead of `path` (§1.7).
@@ -1531,7 +1539,7 @@ The model refers to records only by short aliases. Code maps each alias to a rea
 | `R-<n>` | Existing recommendations | Call 5 |
 | `B-<n>` | Destination Guidance Blocks | Calls 1–5 |
 
-**Alias tables.** Code builds one table per call and records it on the model call ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §13.1). `T` aliases are the item IDs as rendered (`T5-007`, §1.6). The others are numbered from 1 without padding, in an order the caller fixes, so the same input always gives the same table: `B` in document order (§1.6), `E` in expansion order (§1.8), and records in the order of §3.2.6, except that `F` numbers the known facts sent first, in their order (§3.2.5). A table holds only the kinds its call accepts, except that call 1's holds the `F` aliases of the known facts sent, which no call-1 field accepts: using one fails `ALIAS-003`.
+**Alias tables.** Code builds one table per call and records it on the model call ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §13.1). `T` aliases are the item IDs as rendered (`T5-007`, §1.6). The others are numbered from 1 without padding, in an order code fixes, so the same input always gives the same table: `B` in document order (§1.6), `E` in expansion order (§1.8), and records in the order of §3.2.6, where `F` numbers the known facts sent in call 1 first, with their call-1 aliases (§3.2.5). A table holds only the kinds its call accepts, except that call 1's holds the `F` aliases of the known facts sent, which no call-1 field accepts: using one fails `ALIAS-003`.
 
 New items in a response use response-local keys: `f1`, `g1`, `a1`, `c1`, `q1`, `r1`. A local key is valid only inside that response, and is never in the alias table.
 
@@ -1647,7 +1655,7 @@ Before call 1, code extracts facts it can determine without a model, and records
 - **`justfile`**: a root file named `justfile`, compared the same way (*recipe*). Lines starting with `mod` or `import`, with an optional `?`, followed by a space or tab, are not recipes. A recipe line starts with an optional `@` and a name of ASCII letters, digits, `_` and `-` that starts with a letter or `_`, then optional parameters after whitespace, then the first `:` after the name, which must not be followed by `=`. A recipe whose name starts with `_` is left out, and so is one directly after a run of attribute lines (lines starting with `[`) one of which holds `private` with no ASCII letter, digit, `_` or `-` next to it. Any other line, blank or comment included, ends the run.
 - **Taskfile**: a root file named `taskfile.yml` or `taskfile.yaml`, compared the same way (*task*). After a line `tasks:` at the start of a line, with optional trailing spaces and comment, the tasks are the keys at the indentation of the first following line that isn't blank or a comment, written `name:` and followed by the end of the line, a space or a tab: plain, holding no `:` or `#` and not ending with whitespace, or quoted without escapes. The merge key `<<` is not a task, and deeper lines are not keys. The mapping ends at the next such line with no indentation.
 
-A name or path that is empty, starts or ends with whitespace, or holds a backtick or a control character (Unicode `Cc`) can't be written as one inline code span, so it gives no fact: no command with that name, and no fact naming that entry or importer. Each name gives one fact per file, at its first defining line except in `package.json`. Outside `package.json`, the evidence is that one line: no recipe body, and only the first line of a continued line. Commands always have the status `found_not_run`.
+A name or path that is empty, starts or ends with whitespace, or holds a backtick, a control character (Unicode `Cc`), U+2028 or U+2029 can't be written as one inline code span on one line, so it gives no fact: no command with that name, and no fact naming that entry or importer. Each name gives one fact per file, at its first defining line except in `package.json`. Outside `package.json`, the evidence is that one line: no recipe body, and only the first line of a continued line. Commands always have the status `found_not_run`.
 
 **Gaps.** Deterministic `gap` findings, `gapType: other`:
 
@@ -1680,16 +1688,96 @@ The model must not restate them as new findings; restatements are dropped as dup
 
 #### 3.2.6 Rendering validated records
 
-Calls 2–5 receive validated records in a compact, fixed format:
+Calls 2–5 receive validated records in a compact, fixed format. Each record follows the known-facts format (§3.2.5): a header line at column 0 starting with its alias, then lines indented by at least five spaces. Code writes the structure, aliases, labels, excerpts and absence wording; the record's own text fields, such as statements, descriptions, prompts and rationale, are the validated text as recorded.
+
+**Text fields.** A field holding a control character (Unicode `Cc`, line breaks included), U+2028 or U+2029, or starting with `"`, is written as a JSON string, as tree names are (§1.6), so model text can never start a line of its own. Paths, in `scope:`, `related:`, `glob:` and `evidence:`, follow the tree-name rule (§1.6): one holding a control character, U+2028 or U+2029 is written as a JSON string. The delimiter escape (§1.6) is then applied once to every line of record text, the excerpt lines included. Every line ends with a line break.
+
+**Call 2** receives the context call 1 sent, as its token check left it (`fits.context`, §1.10), with these changes:
+
+- the items of each file in the expansion round's `blocked` list are left out, the tree marks those files `[S]`, and the manifest lists them in `excluded` with `secret-scan:<rule ID>` (§1.8);
+- the known-facts section is rendered again from the facts sent in call 1, leaving out each fact that is now withheld (§1.7, §1.8). The others keep their call-1 aliases, so a withheld fact's alias is unused; it is never given to another record.
+
+Then come, in this order: a section framed `<<<CALL 1 RESULTS>>>` and `<<<END CALL 1 RESULTS>>>` with the `F` records other than known facts, then the `C` records (the call-1 records of §3.3.3); the expansion status block (§1.8); and the `E` items.
+
+**Calls 3–5** receive these sections, in this order, each framed `<<<NAME>>>` and `<<<END NAME>>>` and rendered with its frame even when empty. Within one call's repeated sends, such as the regeneration calls of a session, the first sections change least, so a later cache prefix stays possible (§3.9):
+
+| # | Section | Calls | Holds |
+|---|---|---|---|
+| 1 | `DESTINATION` | 3–5 | The active destination rendered as the destination item of §1.6, every line included, with its own escaping and its `BLOCKS` and `CONTENT` sections, under the header `<<<DESTINATION path="CLAUDE.md" totalLines=<n>>>>`. An absent destination is the header `<<<DESTINATION path="CLAUDE.md" absent>>>` and the end frame. |
+| 2 | `TREE` | 3–5 | The tree call 1 sent, at the depth its token check left, with its markers, except `[S]` for files blocked since (§1.8). It keeps its own frame and escaping (§1.6). |
+| 3 | `LIMITS` | 3–5 | One `name: value` line per limit: in call 3 first `questionBudget`, then the call schema's collection limits (§3.3), in schema order, named by their field. |
+| 4 | `FINDINGS` | 3–5 | Every `F` record, in alias order. |
+| 5 | `CONFLICTS` | 3–5 | Every `C` record, in alias order. |
+| 6 | `QUESTIONS` | 4–5 | Every `Q` record, in alias order. |
+| 7 | `DECISIONS` | 4–5 | Every `D` record, in alias order. |
+| 8 | `RECOMMENDATIONS` | 5 | The affected recommendations, as `R` records. |
+| 9 | `CHANGES` | 5 | The code-generated summary of what changed (§3.3.6). |
+
+**Records.** The parts of a header are separated by two spaces, and lists are joined with `, `. Inside brackets, the label words and the values are each joined with `, `, and the two groups with ` · `, as in `[documented, observed · documentation, code_observation]` (§3.2.5).
 
 ```text
+F-2  [observed · code_observation]  scope: repository
+     `package.json` defines the script `test`.
+     evidence: package.json:5-5
+       | "test": "vitest run",
 F-3  [observed · code_observation]  scope: apps/web
      Some components in apps/web call fetch directly.
      evidence: apps/web/src/features/search/useSearch.ts:14-22
        | const res = await fetch(`/api/search?q=${q}`);
+F-4  [documented · documentation]  scope: repository  mode: prescriptive
+     Use pnpm for every install.
+     uncertainty: The guide may predate the lockfile.
+     evidence: docs/setup.md:3-4 (excerpt not sent)
+F-5  [gap · no_command · not inspected]  related: scripts/, Makefile
+     No test command is declared.
+F-6  [absence]  glob: docs/**/*.md
+     No files matched `docs/**/*.md` within the inspected scope.
+C-1  [resolved · D-1]  members: F-3, F-4
+     The guide and the code disagree on fetching.
+Q-1  [answered · D-1]  resolves: F-5, C-1  scope: repository
+     Which command runs the tests?
+D-1  [answered]  question: Q-1  scope: repository
+     Run the tests with `pnpm test`.
+     except: Integration tests run in CI only.
+R-1  [add · fact]  target: after B-3  scope: repository
+     support: F-2
+     reference: path "package.json" (F-2)
+     rationale: Where the scripts live isn't documented.
+       | The scripts are defined in `package.json`.
 ```
 
-Records are ordered by alias. Excerpts are code-extracted and pass the secret scan before each call (§1.7).
+- **Claims** (`F`): the known-facts header (§3.2.5), with `  mode: prescriptive` after the scope for a prescriptive claim; a descriptive claim says nothing, so known facts render as in call 1. Then the statement, `uncertainty:` when the model gave one, and one `evidence:` line per evidence as in §3.2.5. An excerpt the token check removed (§1.10) is `path:a-b (excerpt not sent)`, and a withheld one (below) `path:a-b (excerpt withheld)`, each with no excerpt lines.
+- **Gaps** (`F`): `[gap · <gapType>]`, with ` · not inspected` added when the gap's coverage is `not_inspected` (§1.11), then `related:` and its shown paths; withheld paths are left out (§1.7). Then the statement.
+- **Absence claims** (`F`): `[absence]` and `glob:` with the glob as written, then the statement code wrote (§1.11). The model's reason is not sent.
+- **Conflicts** (`C`): `[unresolved]`, or `[resolved · D-<n>]` naming the current decision that resolves it when it has an alias, otherwise `[resolved]`; then `members:`; then the description.
+- **Questions** (`Q`): the status `[open]`, `[skipped]`, `[unreached]`, or `[answered · D-<n>]` naming its current decision when it has an alias, otherwise `[answered]`; then `resolves:` and the scope. Then the prompt. Options are not sent.
+- **Decisions** (`D`): `[answered]` for an answered question, `[correction]` for a developer correction; then `question:` and `conflict:`, and the scope. Then the statement, and one `except:` line per exception.
+- **Recommendations** (`R`): the operation and kind; the target, written `block B-<n>`, `after B-<n>`, `section B-<n>`, or `new section "<heading>"`, the heading as a JSON string, with ` after B-<n>` when it has one; and the scope. Then `support:`, one `reference:` line per reference, written as its kind, its value as a JSON string and, in parentheses, its supporting finding's alias, then `rationale:`, and the content, each line after `       | `. A `remove` has no content lines.
+- **References to records with no alias.** An alias list (`members:`, `resolves:`, `support:`, `question:`, `conflict:`) names only records with an alias in the call; a label whose list would be empty is left out, and so is a reference's parenthesis. An affected recommendation's support can name findings that are no longer current; that is what the change summary reports.
+- **Changes** (call 5), one line each, in this order:
+  1. per changed decision with an alias, in alias order: `- D-<n> replaces an earlier decision, which is no longer sent.` when it supersedes one, otherwise `- D-<n> is new.`;
+  2. `- <k> findings that the recommendations below cite are no longer current.` (`1 finding … is`), counting the distinct findings in the sent recommendations' support that have no alias, when there is any;
+  3. `- <k> recommendations were withdrawn because their target changed.` (`1 recommendation was`), counting the `target_changed` invalidations of §3.3.6, when there is any.
+  An empty summary is the frame alone.
+
+**What is sent.** Only current records (§4.4.2) with an alias. Findings a developer marked wrong are never sent (§4.5).
+
+**Withholding before aliases** (§1.7). Before the table is numbered, code scans each record's text fields and, separately, each of its excerpts, without the labels or aliases code would add:
+
+- an excerpt that matches, or that `blockedEvidenceIds` names (§1.8), is withheld: it renders `(excerpt withheld)`. A finding left with no excerpt that isn't withheld gets a `secret_withheld` record, as in §1.7; one with another excerpt keeps its alias;
+- a record whose text fields match gets a `secret_withheld` record;
+- a record with a `secret_withheld` record gets no alias, and is left out of the call and every later one.
+
+The scan of the complete request before it is sent (§1.7) still runs, and covers matches that span records.
+
+**Alias order** (§3.2.1):
+
+- `F`: the known facts sent in call 1 keep their call-1 aliases, `F-1` to `F-k`, in every call, and a withheld fact's alias stays unused; then every other current finding, deterministic gaps included, from `F-<k+1>` without gaps, in the `seq` order of its first revision. Known facts left out of call 1 are not sent in any call.
+- `C`, `Q`, `D`: in the `seq` order of each record's first revision (for a decision, the record itself), without gaps.
+- `R`: in recommendation order, the `seq` of each recommendation's first revision (§3.3.6).
+- `B`: document order of the active destination (§1.6).
+
+**Token check.** For calls 3–5, the removable parts are the excerpts and the tree depth (§1.10 step 4). An excerpt's entry for `excerptReductions` is its evidence record ID, its path, the bytes of its rendered excerpt lines, and the `F` aliases of the findings citing it, in rendering order. A removed excerpt renders `(excerpt not sent)`, and its `reductions` entry (§1.13) records `step: "excerpt"`, the evidence record ID as `id`, its path or `pathHash`, and those bytes. A lower tree depth renders the tree at that depth, with `step: "tree_depth"`.
 
 ### 3.3 Calls
 
@@ -1786,7 +1874,7 @@ Steps 7 and 8 are the cross-item stage (§3.5), in that order; the others are it
 
 #### 3.3.3 `analyse_expansion`
 
-**Input:** everything from `analyse`, plus validated call-1 records as `F-*` and `C-*`, plus expansion items `E-*`.
+**Input:** everything from `analyse`, as §3.2.6 renders it again, plus validated call-1 records as `F-*` and `C-*`, plus expansion items `E-*`.
 
 **Output:**
 
@@ -1810,7 +1898,7 @@ type AnalyseExpansionOutput = {
 
 There is no `expansionRequests` field; one expansion round only.
 
-**Validation:** as for `analyse`, with these additions. The call-1 records are a required input: every `F` record the call-1 validation accepted and every known fact, in alias order, each with its kind (claim, gap or absence claim) and `producedBy`; and every call-1 conflict with its members. Validation can't run without them, so the duplicate and revision rules never depend on what a caller chose to pass. The records must be exactly the `F` and `C` aliases of the call's table; a mismatch is a bug in the caller, and validation refuses to run.
+**Validation:** as for `analyse`, with these additions. The call-1 records are a required input: every `F` record of the call's table, in alias order: the known facts sent in call 1, then the current findings the call-1 validation accepted and the current deterministic gaps, each with its kind (claim, gap or absence claim) and `producedBy`; and every current call-1 conflict with its members. Records withheld before the call (§1.7, §1.8) have no alias and are not among them, and nor is the gap call 2's own token check records (§1.10), which is appended after the table is built. Validation can't run without them, so the duplicate and revision rules never depend on what a caller chose to pass. The records must be exactly the `F` and `C` aliases of the call's table; a mismatch is a bug in the caller, and validation refuses to run.
 
 - Citations may target both `T*` and `E*` items.
 - Conflict members are `f` keys or `F` aliases of claims. An `F` alias of a gap or an absence claim fails `ALIAS-003`, because it has no evidence to compare. An `F` member's sources, for `SUP-005`, are the paths of its validated evidence.
@@ -1823,7 +1911,7 @@ There is no `expansionRequests` field; one expansion round only.
 - Withdrawn and replaced records are kept for history with their status, and are no longer passed forward. A call-1 conflict a surviving revision withdraws has the reason `withdrawn_by_model` ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.5).
 - Members are carried through the revisions that survived `REV-003`, for the new conflicts (before `CONF-001`) and for the call-1 conflicts no surviving revision withdraws or replaces: a withdrawn member is lost, and a replaced member's place goes to its replacement when that replacement is a surviving finding; otherwise the member is kept, since `REV-001` will keep the original.
 - Any change to a call-1 conflict's member set, a member lost or replaced, runs `CONF-001` and then `SUP-005` on the new set. Failing `CONF-001` withdraws the conflict with reason `member_withdrawn` when a member was withdrawn, and `members_merged` when none was and one replacement now stands for several members; failing `SUP-005` withdraws it with reason `sources_not_distinct`. A conflict that passes both is revised: a new conflict revision with the new members supersedes the old one ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §6.5).
-- Validation returns one outcome for every call-1 conflict, in alias order, the order in which the call-1 records must be given; a response that fails the schema accepts nothing, so every conflict is `kept`. The outcomes are: `kept` when nothing touches it; `revised`, with its new members; `replaced`, with the key of the new conflict that replaces it; or `withdrawn`, with its reason (`withdrawn_by_model` for a surviving `withdraw` revision). These are outcomes for call-1 records, not rejections of the response, so they are returned with the result rather than as validation events. The records themselves are created with persistence (§4.5).
+- Validation returns one outcome for every call-1 conflict of the table, in alias order, the order in which the call-1 records must be given; a response that fails the schema accepts nothing, so every conflict is `kept`. The outcomes are: `kept` when nothing touches it; `revised`, with its new members; `replaced`, with the key of the new conflict that replaces it; or `withdrawn`, with its reason (`withdrawn_by_model` for a surviving `withdraw` revision). These are outcomes for call-1 records, not rejections of the response, so they are returned with the result rather than as validation events. The records themselves are created with persistence (§4.5).
 
 #### 3.3.4 `generate_questions`
 
@@ -1951,7 +2039,7 @@ Two recommendations targeting the same block, or the same section, are allowed i
 
 **When:** a decision is added, corrected or superseded after recommendations exist; or a refresh withdraws findings or changes blocks that recommendations depend on; or an item they depend on is withheld for a secret match (§1.7).
 
-**Affected set**, computed by code: current recommendations whose support includes a changed, superseded or withheld decision, a finding that is no longer current (withdrawn, corrected, withheld or of an earlier snapshot, §4.4.2, §4.5), or a finding that the changed decision's question resolves, directly or through a conflict it resolves, or that is a member of the conflict the decision resolves ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §12). The changed decisions are the new one and every one it supersedes. Before the call, code invalidates every current recommendation whose target no longer resolves in the active snapshot (§4.4.2), or that, resolved there, no longer passes alone: `REC-002`'s rule that a destination without blocks to anchor to takes only a new section at the end, and `REC-003`. Its reason is `target_changed`; these are not sent, and the summary of the next regeneration call that completes names them, so a retry or a failed call names them again. After a refresh this check runs on every current revision, re-anchored or not, since a changed neighbour can make an unchanged target fail alone. Code then scans the content of the rest of the affected set (§1.7): a recommendation that matches is invalidated with the reason `secret_match`, is not sent, and is left out of the affected set and of the summary. This happens before an affected set is split, and an invalidated recommendation isn't sent again by a retry. Unaffected recommendations are not sent, and their selections are unchanged. A new decision with an empty affected set calls the model only if it unblocks a held-back entry that was current just before the decision was appended: its question is one the entry's `blockedBy` names, or its own `conflictId` is. A conflict the question merely covers is still unresolved, so it doesn't count. Otherwise no call is made. An answer therefore appends its decision before the question's `answered` revision, both in one save (`answerQuestion`), so the records before the decision still show the question open or skipped. An affected set larger than 30, the schema's `actions` ceiling, is split by code into calls of at most 30, in recommendation order; each call is validated on its own, and `REGEN-001` applies to the part each call was sent.
+**Affected set**, computed by code: current recommendations whose support includes a changed, superseded or withheld decision, a finding that is no longer current (withdrawn, corrected, withheld or of an earlier snapshot, §4.4.2, §4.5), or a finding that the changed decision's question resolves, directly or through a conflict it resolves, or that is a member of the conflict the decision resolves ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) §12). The changed decisions are the new one and every one it supersedes. Before the call, code invalidates every current recommendation whose target no longer resolves in the active snapshot (§4.4.2), or that, resolved there, no longer passes alone: `REC-002`'s rule that a destination without blocks to anchor to takes only a new section at the end, and `REC-003`. Its reason is `target_changed`; these are not sent, and the summary of the next regeneration call that completes counts them (§3.2.6), so a retry or a failed call counts them again. After a refresh this check runs on every current revision, re-anchored or not, since a changed neighbour can make an unchanged target fail alone. Code then scans the content of the rest of the affected set (§1.7): a recommendation that matches is invalidated with the reason `secret_match`, is not sent, and is left out of the affected set and of the summary. This happens before an affected set is split, and an invalidated recommendation isn't sent again by a retry. Unaffected recommendations are not sent, and their selections are unchanged. A new decision with an empty affected set calls the model only if it unblocks a held-back entry that was current just before the decision was appended: its question is one the entry's `blockedBy` names, or its own `conflictId` is. A conflict the question merely covers is still unresolved, so it doesn't count. Otherwise no call is made. An answer therefore appends its decision before the question's `answered` revision, both in one save (`answerQuestion`), so the records before the decision still show the question open or skipped. An affected set larger than 30, the schema's `actions` ceiling, is split by code into calls of at most 30, in recommendation order; each call is validated on its own, and `REGEN-001` applies to the part each call was sent.
 
 **Input:** everything `recommend` receives, plus the affected recommendations as `R-*` (target, content, support), plus a code-generated summary of what changed.
 
@@ -2158,6 +2246,20 @@ A change to any prompt, schema, validator or detector requires the fixture suite
 - after a refresh, a re-anchored revision that no longer passes `REC-003` alone is invalidated as `target_changed`, and so is one whose target is unchanged but whose section's last block changed;
 - a destination whose round trip failed, with a new section appended: the original bytes are an unchanged prefix.
 
+**Rendering validated records** (§3.2.6), with no model involved:
+
+- call 2's layout: call 1's reduced context, blocked files left out and marked `[S]`, a withheld known fact left out with its alias unused, then the call-1 results, the status block and the `E` items;
+- calls 3–5 sections in order, each framed even when empty, for each call's set;
+- each record kind's lines, `mode: prescriptive` only on a prescriptive claim, gap coverage, absence wording, statuses with and without a decision alias, every target form, references with and without a supporting alias, and a `remove` without content;
+- a text field with a line break, a control character or a leading `"` written as a JSON string, so no line of model text starts at column 0, and the delimiter escape applied once, with the destination and tree keeping their own;
+- `(excerpt not sent)` and `(excerpt withheld)`, for a token-check removal, a blocked file and a matching excerpt; a finding left with no excerpt withheld, and one with another excerpt kept;
+- a matching record gets a `secret_withheld` record and no alias, and later records are numbered without a gap; an empty alias list leaves its label out;
+- `F` numbers the known facts sent in call 1 with their call-1 aliases in every call, and facts left out of call 1 are never sent;
+- the change summary's lines, order and singular forms, and an empty summary;
+- `LIMITS` names and values for each call;
+- the `excerptReductions` entries in rendering order, and the manifest's `excerpt` and `tree_depth` reductions;
+- the same records and settings render identical bytes, and no assembled request sets a cache breakpoint, with every estimate passing `cachesInput: false`.
+
 **Evidence basis and known facts** (§3.2.4–§3.2.5), with no model involved:
 
 - each tier gives its basis, for files that are and aren't candidates, including `listed_only` files and imports that only count for basis;
@@ -2207,6 +2309,7 @@ A change to any prompt, schema, validator or detector requires the fixture suite
 - `reservedOutputTokens` per call (§1.10, §1.14), against the truncation rate per call recorded in the live runs.
 - `effort` of `medium` (§3.7), which the M6 calibration compares with `high` on one development repository.
 - The retry backoff of 1, 2 and 4 seconds, and the 5-minute limit on a `retry-after` wait (§3.6).
+- Prompt caching off for every call (§1.2, §4.6). Revisit with the share of sessions in which call 2 ran, which the live-run rates record (M6).
 
 **Other open points.**
 
@@ -2219,8 +2322,6 @@ A change to any prompt, schema, validator or detector requires the fixture suite
 - `REF-003` rejects a command seen only in a code excerpt unless it is a known command, and manifests, CI workflows, Dockerfiles and Makefile recipes are all `code_observation` (§3.2.4). So `cargo test` quoted from `.github/workflows/ci.yml`, or `go test ./...` from a recipe line, is rejected. This fails closed by decision (v0.48); measure how often it rejects real commands in the M6 live runs.
 - `SUP-002` misses counts outside its lists, such as *once*, *twice*, *a couple* and ordinals.
 - `SUP-001` matches a token in an excerpt as a substring, so `./format.ts` is anchored by an excerpt holding `../format.ts`, which names another file. A path-aware excerpt match would be stricter.
-- Which known facts calls 2–5 number first: those sent in call 1, or every known fact, including those left out (§3.2.1). Settle when the alias tables are built.
-- A command name holding a line or paragraph separator (U+2028, U+2029) gives a statement that spans lines, because only `Cc` is refused (§3.2.5). Calibrate with the rendering of known facts.
 - The justfile reader is line-based, so a column-0 `name:` inside a multi-line string (`'''`, `"""`) reads as a recipe (§3.2.5).
 - The justfile `private` test matches the word anywhere in an attribute line, so `[doc('private builds')]` hides a public recipe (§3.2.5).
 - Documentation outside the tier 2 locations, such as `documentation/` or `wiki/`, is `code_observation` (§3.2.4). This is conservative: it can't support a `prescriptive` finding. Watch how often it happens in the M6 live runs.
