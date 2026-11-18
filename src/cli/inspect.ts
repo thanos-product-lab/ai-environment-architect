@@ -196,8 +196,7 @@ function row(
 
 /** One summary row: label, count, size, then notes wrapped at whole notes. */
 function cells(label: string, counted: string, used: number, notes: readonly string[]): string[] {
-  const left =
-    `  ${label.padEnd(LABEL_WIDTH)}${counted.padEnd(COUNT_WIDTH)}` + kb(used).padStart(SIZE_WIDTH);
+  const left = `  ${label.padEnd(LABEL_WIDTH)}${counted.padEnd(COUNT_WIDTH)}${kb(used).padStart(SIZE_WIDTH)}`;
   if (notes.length === 0) return [left];
   // Whole notes move to the next line, so "2 not read (budget)" is never split.
   const lines: string[] = [];

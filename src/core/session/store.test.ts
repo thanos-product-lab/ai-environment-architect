@@ -235,11 +235,11 @@ describe('append then save, in one place (IMPL §4.7 "Writing")', () => {
     const { store, session } = await held();
     const saved = store.sessionFile;
     await expect(
-      // biome-ignore lint/suspicious/noExplicitAny: the type refuses this; the runtime must too.
+      // The type refuses an async apply; the runtime must refuse it too.
       session.change((async (log: SessionLog) => {
         await Promise.resolve();
         log.revise("session_state", "session_state", { status: "awaiting_user" });
-      }) as any),
+      }) as unknown as Parameters<typeof session.change>[0]),
     ).rejects.toThrow(/synchronous/);
     expect(store.sessionFile).toEqual(saved);
     expect(plain(session.records)).toEqual(await savedRecords(store));

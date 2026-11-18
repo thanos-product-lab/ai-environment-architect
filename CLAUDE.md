@@ -44,7 +44,7 @@ Dependency commands (`corepack pnpm install`, `add` and `remove`) can't run insi
 
 - `corepack pnpm install --frozen-lockfile`: install exactly what the lockfile says
 - `corepack pnpm typecheck`: `tsc --noEmit` over sources and tests
-- `corepack pnpm lint`: Biome lint and format check, no writes
+- `corepack pnpm lint`: Biome lint and format check, no writes; a warning fails it
 - `corepack pnpm format`: apply Biome fixes and formatting
 - `corepack pnpm test`: the full Vitest suite
 - `corepack pnpm test:related <file>`: only the tests affected by a file
