@@ -4,7 +4,12 @@ import type { ReadyContext } from "../context/select.js";
 import { withBlockedFiles } from "../context/select.js";
 import { checkTokens, type TokenCheckResult } from "../context/token-check.js";
 import { callAliasTable, callLimits, type RecordCall, recordCallPlan } from "../requests/build.js";
-import { type NumberedRecords, numberRecords, withholdForCall } from "../requests/records.js";
+import {
+  type ChangeLines,
+  type NumberedRecords,
+  numberRecords,
+  withholdForCall,
+} from "../requests/records.js";
 import { recordGenerateQuestions } from "../session/questions.js";
 import { recordRecommend } from "../session/recommendations.js";
 import type { SessionRecord } from "../session/records.js";
@@ -66,20 +71,32 @@ export type RecordCallOutcome<V> =
       readonly check: Exclude<TokenCheckResult, { state: "fits" }>;
     };
 
-interface Prepared {
+export interface Prepared {
   readonly numbered: NumberedRecords;
   readonly aliases: AliasTable;
   readonly records: readonly SessionRecord[];
 }
 
-async function runRecordCall<V>(
+/** Call 5's part of a call: the recommendations it is sent, and what changed. */
+export interface RegenerationPart {
+  /** By `recommendationId`, in recommendation order. */
+  readonly recommendations: readonly string[];
+  readonly changes: (numbered: NumberedRecords, records: readonly SessionRecord[]) => ChangeLines;
+}
+
+export async function runRecordCall<V>(
   session: HeldSession,
   deps: RunDeps,
   call: RecordCall,
   run: RecordCallRun,
   finish: (prepared: Prepared) => Pick<CallPlan<V>, "validate" | "resultOf" | "extrasOf">,
+  part?: RegenerationPart,
 ): Promise<{ outcome: RecordCallOutcome<V>; prepared?: Prepared }> {
-  const numbering = { call, knownFactsSent: run.inspection.knownFactsSent };
+  const numbering = {
+    call,
+    knownFactsSent: run.inspection.knownFactsSent,
+    ...(part === undefined ? {} : { recommendations: part.recommendations }),
+  };
   const { withheldExcerpts, excerptRules } = await session.change((log) =>
     withholdForCall(log, numbering),
   );
@@ -95,6 +112,7 @@ async function runRecordCall<V>(
       excerptRules,
       base,
       limits: callLimits(call, config.questionBudget),
+      ...(part === undefined ? {} : { changes: part.changes(numbered, records) }),
       knownFacts: {
         sentInCallOne: run.inspection.knownFactsSent.length,
         leftOutOfCallOne: run.sent.parts.factsLeftOut,

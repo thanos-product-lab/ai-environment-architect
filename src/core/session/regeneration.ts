@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import type { AssemblyDestination } from "../assembly/assemble.js";
+import { scanText } from "../context/secrets.js";
 import { parseGuidanceBlocks } from "../destination/guidance-blocks.js";
 import type { AliasTable } from "../validation/aliases.js";
 import { aloneFailure } from "../validation/recommend.js";
@@ -109,6 +110,40 @@ export function invalidateChangedTargets(
         destination,
       ) !== undefined;
     if (fails) invalidated.push(invalidate(log, revision.recommendationId, "target_changed"));
+  }
+  return invalidated;
+}
+
+/**
+ * The scan of what call 5 would resend (IMPL §3.3.6, §1.7): for each of `recommendationIds`, its
+ * content, a new section's heading, its rationale and its reference values. One that matches is
+ * invalidated as `secret_match`, by code and so with no `revisedBy`, with the rule and never the
+ * matched text; it isn't sent, and leaves the affected set before the set is split.
+ */
+export function scanAffectedRecommendations(
+  log: SessionLog,
+  recommendationIds: readonly string[],
+): Revision[] {
+  const current = currentState(log.records).recommendations;
+  const invalidated: Revision[] = [];
+  for (const id of recommendationIds) {
+    const revision = current.get(id);
+    if (revision === undefined) continue;
+    const texts = [
+      revision.content ?? "",
+      revision.target.kind === "newSection" ? revision.target.heading : "",
+      revision.rationale,
+      ...revision.references.map((reference) => reference.value),
+    ];
+    const rule = texts.map((text) => scanText(text)).find((r) => r !== undefined);
+    if (rule === undefined) continue;
+    invalidated.push(
+      log.revise("recommendation_revision", id, {
+        status: "invalidated",
+        invalidatedReason: "secret_match",
+        secretRuleId: rule,
+      }),
+    );
   }
   return invalidated;
 }

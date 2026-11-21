@@ -21,6 +21,7 @@ import {
   planRegeneration,
   recordRegenerate,
   regenerationInput,
+  scanAffectedRecommendations,
 } from "./regeneration.js";
 import { exclusions, select } from "./selections.js";
 
@@ -929,5 +930,67 @@ describe("a corrected decision, then proposing (M5, DM §9.4, §12)", () => {
     });
     expect(currentState(s.log.records).selections.has(r.recommendationId)).toBe(false);
     expect(proposeArtifact(s.log, s.bytes).kind).toBe("nothing_accepted");
+  });
+});
+
+describe("the scan of the affected set before the call (IMPL §3.3.6, §1.7)", () => {
+  const key = ["AKIA", "IOSFODNN7EXAMPLE"].join("");
+
+  it("invalidates as secret_match, with the rule and no matched text, each recommendation whose resent text matches", () => {
+    const s = session();
+    const f = finding(s);
+    const clean = recommend(s, [onFinding(f)]);
+    const leaky = recommend(s, [onFinding(f)], { content: `Use the key ${key}.` });
+    const heading = recommend(s, [onFinding(f)], {
+      target: { kind: "newSection", heading: `Keys ${key}` },
+    });
+    const invalidated = scanAffectedRecommendations(s.log, [
+      clean.recommendationId,
+      leaky.recommendationId,
+      heading.recommendationId,
+    ]);
+    expect(invalidated.map((r) => r.recommendationId)).toEqual([
+      leaky.recommendationId,
+      heading.recommendationId,
+    ]);
+    expect(invalidated[0]).toMatchObject({
+      status: "invalidated",
+      invalidatedReason: "secret_match",
+      secretRuleId: "aws-access-key-id",
+    });
+    expect(invalidated[0]).not.toHaveProperty("revisedBy");
+    // A revision repeats the stored content; the match itself is recorded only as the rule.
+    const { status, invalidatedReason, secretRuleId, ...rest } = invalidated[0] as Record<
+      string,
+      unknown
+    >;
+    const { status: _s, ...before } = leaky as unknown as Record<string, unknown>;
+    const same = (r: Record<string, unknown>) => {
+      const { id, seq, createdAt, revision, supersedes, ...fields } = r;
+      return fields;
+    };
+    expect(same(rest)).toEqual(same(before));
+    expect([...currentState(s.log.records).recommendations.keys()]).toEqual([
+      clean.recommendationId,
+    ]);
+  });
+
+  it("scans the rationale and reference values too, which call 5 resends", () => {
+    const s = session();
+    const f = finding(s);
+    const r = s.log.start({
+      type: "recommendation_revision",
+      kind: "fact",
+      operation: "add",
+      target: { kind: "after", ...block(s, "Guide/paragraph-1") },
+      content: "Code is in one module.",
+      rationale: `Because of ${key}.`,
+      support: [onFinding(f)],
+      references: [],
+      scope: { kind: "repository" },
+      producedBy: s.callId,
+      status: "valid",
+    });
+    expect(scanAffectedRecommendations(s.log, [r.recommendationId])).toHaveLength(1);
   });
 });
