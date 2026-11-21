@@ -83,6 +83,7 @@ export interface HarnessOptions {
   readonly maxInputTokens?: number;
   /** The session's `maxExpansionRequests`; the schema's ceiling, 5, by default. */
   readonly maxExpansionRequests?: number;
+  readonly questionBudget?: number;
 }
 
 export interface Harness {
@@ -132,7 +133,7 @@ export async function harness(
       expansionBytes: 50_000,
       expansionEntryBytes: 20_000,
     },
-    questionBudget: 5,
+    questionBudget: options.questionBudget ?? 5,
     retainModelInputs: true,
   });
   const session = new HeldSession(new MemorySession(), HEADER, log);
