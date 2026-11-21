@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { type Answer, response } from "../../../test/support/run-harness.js";
 import { throughRecommend } from "../../../test/support/run-scripts.js";
+import { correctDecision } from "../session/answers.js";
 import type { Revised } from "../session/log.js";
 import type { RecordOf } from "../session/records.js";
 import { runRegeneration } from "./regenerate.js";
@@ -10,19 +11,15 @@ import { runRegeneration } from "./regenerate.js";
 
 /** The developer corrects their answer: a new decision that supersedes it (DM §8.2). */
 async function correct(t: Awaited<ReturnType<typeof throughRecommend>>) {
-  return t.h.session.change(
-    (log) =>
-      log.append({
-        type: "decision",
-        statement: "The tests run in CI only.",
-        scope: { kind: "repository" },
-        exceptions: [],
-        questionId: t.questionId,
-        origin: "answered_question",
-        actor: "developer",
-        decidedAt: "2026-11-01T10:40:00.000Z",
-        supersedes: [t.decisionId],
-      }) as RecordOf<"decision">,
+  return t.h.session.change((log) =>
+    correctDecision(log, {
+      supersedes: t.decisionId,
+      statement: "The tests run in CI only.",
+      scope: { kind: "repository" },
+      exceptions: [],
+      actor: "developer",
+      decidedAt: "2026-11-01T10:40:00.000Z",
+    }),
   );
 }
 

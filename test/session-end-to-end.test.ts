@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { recordInspection, runAnalyse, runExpansionStep } from "../src/core/run/analysis.js";
 import { runGenerateQuestions, runRecommend } from "../src/core/run/clarify.js";
 import { runRegeneration } from "../src/core/run/regenerate.js";
-import { answerQuestion } from "../src/core/session/answers.js";
+import { answerQuestion, correctDecision } from "../src/core/session/answers.js";
 import { applyArtifact } from "../src/core/session/apply.js";
 import { proposeArtifact, recordReview } from "../src/core/session/artifacts.js";
 import { estimateCall } from "../src/core/session/cost.js";
@@ -76,19 +76,15 @@ async function fullSession() {
 
   // Recommend, then the developer corrects the answer and the recommendation is regenerated.
   const four = await runRecommend(session, deps, run);
-  const correction = await session.change(
-    (log) =>
-      log.append({
-        type: "decision",
-        statement: "The tests run in CI only.",
-        scope: { kind: "repository" },
-        exceptions: [],
-        questionId: question.questionId,
-        origin: "answered_question",
-        actor: "developer",
-        decidedAt: "2026-11-01T10:40:00.000Z",
-        supersedes: [decision.id],
-      }) as RecordOf<"decision">,
+  const correction = await session.change((log) =>
+    correctDecision(log, {
+      supersedes: decision.id,
+      statement: "The tests run in CI only.",
+      scope: { kind: "repository" },
+      exceptions: [],
+      actor: "developer",
+      decidedAt: "2026-11-01T10:40:00.000Z",
+    }),
   );
   const five = await runRegeneration(session, deps, run, {
     kind: "decision",

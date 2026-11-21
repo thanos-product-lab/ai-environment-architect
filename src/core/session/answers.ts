@@ -49,3 +49,40 @@ export function answerQuestion(log: SessionLog, request: AnswerRequest): Answer 
   const question = log.revise("question", request.questionId, { status: "answered" });
   return { decision, question };
 }
+
+export interface CorrectionRequest {
+  /** The decision being corrected, by record ID. */
+  readonly supersedes: string;
+  readonly statement: string;
+  readonly scope: Decision["scope"];
+  readonly exceptions: readonly string[];
+  readonly actor: string;
+  readonly decidedAt: string;
+}
+
+/**
+ * Appends a correction of a decision (DM §8.2): a new decision that names the one it supersedes,
+ * and answers what it answered, with its question, conflict, finding and origin. Decisions have
+ * no lineage, so the new one is a record of its own (IMPL §4.4.1). A withheld decision may be
+ * corrected, as the developer is asked to (IMPL §2.12); a decision already superseded may not,
+ * nor anything that isn't a decision. Call it inside one `HeldSession.change`.
+ */
+export function correctDecision(log: SessionLog, request: CorrectionRequest): Decision {
+  const old = log.get(request.supersedes);
+  if (old === undefined) throw new Error(`no decision ${request.supersedes}`);
+  if (old.type !== "decision") throw new Error(`${request.supersedes} isn't a decision`);
+  if (log.isSuperseded(old.id)) throw new Error(`${old.id} is already superseded`);
+  return log.append({
+    type: "decision",
+    statement: request.statement,
+    scope: request.scope,
+    exceptions: request.exceptions,
+    ...(old.questionId === undefined ? {} : { questionId: old.questionId }),
+    ...(old.conflictId === undefined ? {} : { conflictId: old.conflictId }),
+    ...(old.findingId === undefined ? {} : { findingId: old.findingId }),
+    origin: old.origin,
+    actor: request.actor,
+    decidedAt: request.decidedAt,
+    supersedes: [old.id],
+  });
+}
