@@ -8,7 +8,7 @@ import {
 import type { Hash } from "../hash.js";
 import { blockAlias } from "../validation/aliases.js";
 import { cutLabel, findDeclarations } from "./declarations.js";
-import { escapeDelimiters } from "./escape.js";
+import { escapeDelimiters, jsonString } from "./escape.js";
 
 // Excerpting and item rendering (IMPL §1.6).
 //
@@ -246,7 +246,7 @@ function formatRanges(ranges: readonly LineRange[]): string {
 }
 
 function quote(value: string): string {
-  return escapeDelimiters(JSON.stringify(value));
+  return escapeDelimiters(jsonString(value));
 }
 
 /** Line texts and the byte sizes of their rendered forms. */

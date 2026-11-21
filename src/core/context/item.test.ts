@@ -519,6 +519,17 @@ describe("destination blocks (IMPL §1.5, §1.6)", () => {
   });
 });
 
+describe("quoted attribute values (IMPL §1.6)", () => {
+  it("escape U+2028 and U+2029 too, so a header never spans lines", () => {
+    const item = render(input("docs/a\u2028b.md", "x\n"), "none");
+    expect(item?.text).toContain('path="docs/a\\u2028b.md"');
+    expect(item?.text).not.toMatch(/[\u2028\u2029]/);
+    expect(renderDestinationSection("CLAUDE\u2029.md", undefined, [])).toBe(
+      '<<<DESTINATION path="CLAUDE\\u2029.md" absent>>>\n<<<END DESTINATION>>>\n',
+    );
+  });
+});
+
 describe("the DESTINATION section of calls 3–5 (IMPL §3.2.6)", () => {
   const blocks = [
     { first: 1, last: 1, alias: "B-1" },
