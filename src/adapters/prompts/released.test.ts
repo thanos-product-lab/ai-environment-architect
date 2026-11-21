@@ -104,6 +104,12 @@ describe("the released prompts (IMPL §3.7)", () => {
     }
   });
 
+  it("are self-contained: none refers to another call's prompt or to earlier steps", () => {
+    const crossReference =
+      /\b(as before|same (format|rules) as|as in the \w+ (step|call)|(first|previous|earlier|last) (call|step|prompt|analysis)|(first|earlier)-analysis|call[- ](one|two|three|four|five)|(has|have) been analysed|already answered|reviewed again)\b/gi;
+    for (const call of CALLS) expect(rendered(call).match(crossReference) ?? [], call).toEqual([]);
+  });
+
   for (const { item, heading, calls } of REQUIRED)
     it(`cover item ${item}, "${heading}", in ${calls.join(", ")}`, () => {
       for (const call of calls) expect(sections(rendered(call)).has(heading), call).toBe(true);
@@ -209,36 +215,36 @@ const HISTORY: Record<
   analyse: [
     {
       version: "1.0.0",
-      template: "sha256:240153abd8115cdd3a7a3aac47b978389e6c30a3c680577571b9b89c296b3594",
-      rendered: "sha256:a61961bd16ef2fd3e358013875a80249843d977574d94fd9d03ad9ddc51ed02c",
+      template: "sha256:79efb077e47c0890c7f9e16d43e48319ee45ecb1bd8b26871e7bd618875f2e5c",
+      rendered: "sha256:c6e81833a11190dacd0ec5568c0b5aa5e9e80768e4f5aafecaca818c7df4adc7",
     },
   ],
   analyse_expansion: [
     {
       version: "1.0.0",
-      template: "sha256:e853fb27a7b090e6cd08928e7336e81211d129935fec4099d2a5d96b31a5132b",
-      rendered: "sha256:d3f02f8b5d9f6a65639850230da2acb2bf0d0f7c1472588b5bd8527f5dad4f42",
+      template: "sha256:488ec45e3f4b6055bbbcda18092048254aeecc33ce6e1ffdf420e8586c72fcae",
+      rendered: "sha256:6aebec78cb1cb169e77d23b539fa35654d45453725fb1a12bb1ed5526c4750ec",
     },
   ],
   generate_questions: [
     {
       version: "1.0.0",
-      template: "sha256:7df6e7e8cc1290fc0f4a219e97182abba3b16e2d4f4464c565eed10e9306ad37",
-      rendered: "sha256:0dcb0d17357806d7c05a3284c51a14350cde156d19ea2d0055d8c7a91a18e821",
+      template: "sha256:0fd386a9124a692a893036f94e61e5ddf42a86cff34e7fa39ce8f798dc7df436",
+      rendered: "sha256:ea35475d2788490c14ed47504e7e71a221ca7843c56aeb2d242c530ce957ce07",
     },
   ],
   recommend: [
     {
       version: "1.0.0",
-      template: "sha256:e6057681b0dfd697893c4897555e25ab87dbde50c18c9a8f0a047862fc85fb81",
-      rendered: "sha256:403d85747f562d19884ec168472fb8046513fd30cb2944393cc3a0c89a604cdb",
+      template: "sha256:2c6fe76d7beb8df2aee5f59ad4148e9a9d83bafc2d942d4ec6d1dc8be67117bf",
+      rendered: "sha256:5e8e81b98a6d53c72558176280bb2e33acf6f300dfae8c196fa0351b985e4de3",
     },
   ],
   regenerate_recommendations: [
     {
       version: "1.0.0",
-      template: "sha256:e6e7fc33088bec7d36d46451e21e5a755c6fd0d20f1144bc5d3a2c892c4b1acb",
-      rendered: "sha256:0fc953ff99e62fb93b5e7ffcb218bcb1f5c5da52d7f1375690aa9033dfd88b2a",
+      template: "sha256:5ff6e935be200244ec9ba8581b735ca16a61020bcd355ec5d8c7f98f504c2500",
+      rendered: "sha256:56a91421c9ef9771b946f52245c9afc18c0af9df5860972abc5ea703e0b72e6a",
     },
   ],
 };

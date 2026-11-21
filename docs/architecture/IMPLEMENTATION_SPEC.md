@@ -2,8 +2,12 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 21 November 2026  
-**Version:** 0.66  
+**Version:** 0.67  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.66
+
+- **Self-contained prompts (§3.7).** Every prompt is self-contained: it never refers to another call's prompt or to earlier steps. A test rejects such references.
 
 ### Changes from v0.65
 
@@ -2212,6 +2216,8 @@ Every prompt must state:
 7. for recommendations: the difference between `fact` and `policy`, that skipped questions and unresolved conflicts go in `heldBack`, and that no change is an acceptable answer;
 8. the output limits;
 9. for recommendations: every command and path in the content is written as inline code, because a plain-text command runs to the end of its clause and `REF-003` accepts arguments only from code (§3.3.5, §3.4).
+
+Every prompt is self-contained: it never refers to another call's prompt or to earlier steps. Each prompt describes its own input, such as the `CALL 1 RESULTS` section of call 2, and states every rule its call is validated by; a test rejects phrases that point elsewhere, such as "as before".
 
 Each item has a heading of its own in every prompt it applies to, and a test checks the headings and what each section must name: the `contentNotices` field, the quote rules' limits, the alias kinds of the call's table, the code-owned fields, the counted-quantity and universal word lists, every collection limit of the call's schema, and, for items 7 and 9, `heldBack`, `noChangeReason` and inline code.
 
