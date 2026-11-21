@@ -21,6 +21,7 @@ import {
   freshRetry,
   MAX_RETRY_AFTER_MS,
   type ModelSender,
+  resendTruncated,
   runCall,
   type SendDeps,
   schemaRetryMessage,
@@ -1030,5 +1031,47 @@ describe("the outcome of a step", () => {
     ]);
     await expect(runCall(session, deps, plan())).rejects.toThrow("boom");
     expect(calls(session).map((c) => c.state)).toEqual(["started"]);
+  });
+});
+
+describe("resending a truncated call (IMPL §4.6 'Raising the output limit')", () => {
+  const raised = { ...REQUEST, maxTokens: 4000 };
+
+  it("sends the call again as a new model call whose retryOf names the truncated one", async () => {
+    const { session, sent, deps } = await setup([stopped("max_tokens"), ok()]);
+    const first = await runCall(session, deps, plan());
+    expect(first).toMatchObject({ kind: "failed", error: { kind: "truncated" } });
+    const again = await resendTruncated(
+      session,
+      deps,
+      { ...plan(), request: raised },
+      first.kind === "failed" ? first.modelCallId : "",
+    );
+    expect(again.kind).toBe("completed");
+    expect(sent.map((r) => r.maxTokens)).toEqual([REQUEST.maxTokens, 4000]);
+    const last = calls(session).at(-1);
+    expect(last).toMatchObject({
+      attempt: 2,
+      retryOf: first.kind === "failed" ? first.modelCallId : "",
+      state: "completed",
+    });
+  });
+
+  it("refuses a call that wasn't truncated, isn't the last send, or is of another purpose", async () => {
+    const done = await setup([ok()]);
+    const completed = await runCall(done.session, done.deps, plan());
+    const id = completed.kind === "completed" ? completed.modelCallId : "";
+    await expect(resendTruncated(done.session, done.deps, plan(), id)).rejects.toThrow(/truncated/);
+
+    const cut = await setup([stopped("max_tokens"), ok()]);
+    const failed = await runCall(cut.session, cut.deps, plan());
+    const cutId = failed.kind === "failed" ? failed.modelCallId : "";
+    await expect(resendTruncated(cut.session, cut.deps, plan("recommend"), cutId)).rejects.toThrow(
+      /generate_questions/,
+    );
+    await runCall(cut.session, cut.deps, plan());
+    await expect(resendTruncated(cut.session, cut.deps, plan(), cutId)).rejects.toThrow(
+      /last send/,
+    );
   });
 });

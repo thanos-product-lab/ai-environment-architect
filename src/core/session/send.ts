@@ -170,6 +170,44 @@ export async function freshRetry<V>(
   });
 }
 
+/**
+ * The resend of a truncated call after the developer raised its output limit (§4.6): a new model
+ * call whose `retryOf` names the truncated one, with the request built again under the new
+ * limit. Refuses any call but the session's last send, a call that wasn't truncated, and another
+ * purpose. The step's refusal and schema retries stay used.
+ */
+export async function resendTruncated<V>(
+  session: HeldSession,
+  deps: SendDeps,
+  plan: CallPlan<V>,
+  modelCallId: string,
+): Promise<CallOutcome<V>> {
+  const latest = latestCalls(session);
+  const previous = latest.get(modelCallId);
+  if (previous === undefined) throw new Error(`no model call ${modelCallId}`);
+  if ([...latest.keys()].at(-1) !== modelCallId)
+    throw new Error(`${modelCallId} isn't the last send, so it can't be resent`);
+  if (previous.state !== "failed" || previous.error?.kind !== "truncated")
+    throw new Error(`${modelCallId} wasn't truncated`);
+  if (plan.purpose !== previous.purpose)
+    throw new Error(`${modelCallId} is ${previous.purpose}, not ${plan.purpose}`);
+  const step: RecordOf<"model_call">[] = [previous];
+  for (let call: RecordOf<"model_call"> = previous; call.retryOf !== undefined; ) {
+    const before = latest.get(call.retryOf);
+    if (before === undefined) throw new Error(`no model call ${call.retryOf}`);
+    step.push(before);
+    call = before;
+  }
+  const used = (kind: ErrorKind) =>
+    step.some((call) => call.state === "failed" && call.error?.kind === kind);
+  return sendStep(session, deps, plan, {
+    attempt: previous.attempt + 1,
+    retryOf: modelCallId,
+    refusalRetried: used("refusal"),
+    schemaRetried: used("schema"),
+  });
+}
+
 /** The schema retry's message: each issue's path and code, never a value (§3.6, §3.5). */
 export function schemaRetryMessage(issues: readonly SchemaIssue[]): string {
   const lines = issues.map(

@@ -13,7 +13,7 @@ import {
 import { recordGenerateQuestions } from "../session/questions.js";
 import { recordRecommend } from "../session/recommendations.js";
 import type { SessionRecord } from "../session/records.js";
-import { type CallOutcome, type CallPlan, runCall } from "../session/send.js";
+import type { CallOutcome, CallPlan } from "../session/send.js";
 import type { HeldSession } from "../session/store.js";
 import type { AliasTable } from "../validation/aliases.js";
 import {
@@ -26,6 +26,8 @@ import {
   callModel,
   type Inspection,
   type RunDeps,
+  type RunOptions,
+  send,
   startedFields,
 } from "./analysis.js";
 import { questionValidationContext, recommendValidationContext } from "./contexts.js";
@@ -91,6 +93,7 @@ export async function runRecordCall<V>(
   run: RecordCallRun,
   finish: (prepared: Prepared) => Pick<CallPlan<V>, "validate" | "resultOf" | "extrasOf">,
   part?: RegenerationPart,
+  options?: RunOptions,
 ): Promise<{ outcome: RecordCallOutcome<V>; prepared?: Prepared }> {
   const numbering = {
     call,
@@ -119,17 +122,18 @@ export async function runRecordCall<V>(
       },
     },
     deps.prompts.prompt(call),
-    callModel(config, call),
+    callModel(config, call, options?.tokens),
   );
   const checked = await checkTokens(call, plan.plan, {
     counter: deps.counter,
     models: deps.models,
-    tokens: config.settings.tokens,
+    tokens: options?.tokens ?? config.settings.tokens,
   });
   if (checked.state !== "fits") return { outcome: { kind: "stopped", check: checked } };
+  await options?.resend?.beforeSend();
   const aliases = callAliasTable(call, numbered, { records, destination: run.destination });
   const prepared = { numbered, aliases, records };
-  const outcome = await runCall(session, deps, {
+  const outcome = await send(session, deps, options, {
     purpose: call,
     request: checked.request,
     inputTokens: checked.tokenCheck.inputTokens,
@@ -144,6 +148,7 @@ export async function runGenerateQuestions(
   session: HeldSession,
   deps: RunDeps,
   run: RecordCallRun,
+  options?: RunOptions,
 ): Promise<RecordCallOutcome<QuestionsValidation>> {
   const budget = activeConfig(session.records).questionBudget;
   const { outcome, prepared } = await runRecordCall<QuestionsValidation>(
@@ -162,6 +167,8 @@ export async function runGenerateQuestions(
             : {},
       };
     },
+    undefined,
+    options,
   );
   if (outcome.kind === "completed" && prepared !== undefined)
     await session.change((log) => {
@@ -178,6 +185,7 @@ export async function runRecommend(
   session: HeldSession,
   deps: RunDeps,
   run: RecordCallRun,
+  options?: RunOptions,
 ): Promise<RecordCallOutcome<RecommendValidation>> {
   const { outcome, prepared } = await runRecordCall<RecommendValidation>(
     session,
@@ -197,6 +205,8 @@ export async function runRecommend(
         resultOf: (validation) => validation.result,
       };
     },
+    undefined,
+    options,
   );
   if (outcome.kind === "completed" && prepared !== undefined)
     await session.change((log) => {

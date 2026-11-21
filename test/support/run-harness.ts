@@ -84,10 +84,16 @@ export interface HarnessOptions {
   /** The session's `maxExpansionRequests`; the schema's ceiling, 5, by default. */
   readonly maxExpansionRequests?: number;
   readonly questionBudget?: number;
+  /** The generation budget (§4.6); none by default. */
+  readonly budget?: { readonly maxTokens?: number; readonly maxCostUsd?: number };
+  /** The model's `max_tokens` in the Models API; 64,000 by default. */
+  readonly maxOutputTokens?: number | null;
 }
 
 export interface Harness {
   readonly session: HeldSession;
+  /** Where the session is saved, to load it again. */
+  readonly store: MemorySession;
   readonly deps: RunDeps;
   readonly fs: MemoryFs;
   readonly context: ReadyContext;
@@ -127,7 +133,7 @@ export async function harness(
     settingsHash: settingsHash(settings),
     requestedModel: "claude-test",
     effort: "medium",
-    budget: {},
+    budget: { ...options.budget },
     expansion: {
       maxExpansionRequests: options.maxExpansionRequests ?? 5,
       expansionBytes: 50_000,
@@ -136,7 +142,8 @@ export async function harness(
     questionBudget: options.questionBudget ?? 5,
     retainModelInputs: true,
   });
-  const session = new HeldSession(new MemorySession(), HEADER, log);
+  const store = new MemorySession();
+  const session = new HeldSession(store, HEADER, log);
   await session.save();
 
   const sent: ModelRequest[] = [];
@@ -172,7 +179,7 @@ export async function harness(
         return {
           state: "known",
           maxInputTokens: options.maxInputTokens ?? 200_000,
-          maxOutputTokens: 64_000,
+          maxOutputTokens: options.maxOutputTokens === undefined ? 64_000 : options.maxOutputTokens,
         };
       },
     },
@@ -183,5 +190,5 @@ export async function harness(
   };
   const destination =
     snapshot.destination.state === "present" ? snapshot.destination.bytes : undefined;
-  return { session, deps, fs, context, destination, sent };
+  return { session, store, deps, fs, context, destination, sent };
 }

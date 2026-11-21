@@ -10,6 +10,7 @@ import {
   type ModelLimits,
   type TokenCounter,
 } from "../context/token-check.js";
+import type { TokenSettings } from "../context/token-settings.js";
 import type { ModelRequest } from "../request.js";
 import {
   type CallModel,
@@ -29,7 +30,14 @@ import { recordAnalyse, recordAnalyseExpansion, recordKnownFacts } from "../sess
 import { skipExpansion } from "../session/calls.js";
 import { recordExpansionRound, withholdBlockedFiles } from "../session/expansion.js";
 import type { RecordOf, SessionRecord } from "../session/records.js";
-import { type CallOutcome, runCall, type SendDeps, type StartedFields } from "../session/send.js";
+import {
+  type CallOutcome,
+  type CallPlan,
+  resendTruncated,
+  runCall,
+  type SendDeps,
+  type StartedFields,
+} from "../session/send.js";
 import { recordSnapshot } from "../session/snapshot.js";
 import type { HeldSession } from "../session/store.js";
 import type { RepositoryFs } from "../snapshot/repository-fs.js";
@@ -80,12 +88,42 @@ export function activeConfig(records: readonly SessionRecord[]): Config {
   return config;
 }
 
-export function callModel(config: Config, call: CallPurpose): CallModel {
+export function callModel(
+  config: Config,
+  call: CallPurpose,
+  tokens: TokenSettings = config.settings.tokens,
+): CallModel {
   return {
     model: config.requestedModel,
     effort: config.effort,
-    reservedOutputTokens: config.settings.tokens.reservedOutputTokens[call],
+    reservedOutputTokens: tokens.reservedOutputTokens[call],
   };
+}
+
+/**
+ * How a runner sends a call that was truncated, after the developer raised its output limit
+ * (§4.6): the token check and the request use `tokens`, and `resend` is set. The runner calls
+ * `beforeSend` only once the call fits, so a raise that makes it not fit appends nothing.
+ */
+export interface RunOptions {
+  readonly tokens?: TokenSettings;
+  readonly resend?: {
+    /** The truncated call, which the new send's `retryOf` names. */
+    readonly retryOf: string;
+    beforeSend(): Promise<void>;
+  };
+}
+
+/** A first send through the retry policy, or the resend of a truncated call. */
+export function send<V>(
+  session: HeldSession,
+  deps: RunDeps,
+  options: RunOptions | undefined,
+  plan: CallPlan<V>,
+): Promise<CallOutcome<V>> {
+  return options?.resend === undefined
+    ? runCall(session, deps, plan)
+    : resendTruncated(session, deps, plan, options.resend.retryOf);
 }
 
 /** The fields every call's `started` revision takes from its request and table. */
@@ -111,20 +149,50 @@ export function startedFields(
   };
 }
 
-function tokenDeps(deps: RunDeps, records: readonly SessionRecord[]) {
+export function tokenDeps(deps: RunDeps, records: readonly SessionRecord[], options?: RunOptions) {
   return {
     counter: deps.counter,
     models: deps.models,
-    tokens: activeConfig(records).settings.tokens,
+    tokens: options?.tokens ?? activeConfig(records).settings.tokens,
   };
 }
 
 /** A token check's gap (IMPL §1.10), recorded as a deterministic finding before the call. */
-async function recordGap(session: HeldSession, snapshotId: string, gap: SelectionGap | undefined) {
+async function recordGap(
+  session: HeldSession,
+  snapshotId: string,
+  found: SelectionGap | undefined,
+  options?: RunOptions,
+) {
+  const gap = resendGap(session.records, found, options);
   if (gap === undefined) return;
   await session.change((log) => {
     recordKnownFacts(log, snapshotId, [], [gap]);
   });
+}
+
+/**
+ * A resend's gap (§1.10, §4.6): the truncated call recorded the configuration its own check
+ * removed, so a resend records only what its check removes beyond that, or nothing.
+ */
+function resendGap(
+  records: readonly SessionRecord[],
+  gap: SelectionGap | undefined,
+  options: RunOptions | undefined,
+): SelectionGap | undefined {
+  if (gap === undefined || options?.resend === undefined) return gap;
+  const retryOf = options.resend.retryOf;
+  const truncated = records
+    .filter((r): r is RecordOf<"model_call"> => r.type === "model_call")
+    .filter((r) => r.modelCallId === retryOf)
+    .at(-1);
+  const before = new Set(
+    (truncated?.inputManifest.tokenCheck?.reductions ?? []).flatMap((r) =>
+      "path" in r ? [r.path] : [],
+    ),
+  );
+  const relatedPaths = gap.relatedPaths.filter((path) => !before.has(path));
+  return relatedPaths.length === 0 ? undefined : { ...gap, relatedPaths };
 }
 
 /** The count the token check settled on: unknown is never zero (§4.6). */
@@ -194,20 +262,22 @@ export async function runAnalyse(
   session: HeldSession,
   deps: RunDeps,
   input: AnalyseInput,
+  options?: RunOptions,
 ): Promise<AnalyseOutcome> {
   const config = activeConfig(session.records);
   const prompt = deps.prompts.prompt("analyse");
-  const model = callModel(config, "analyse");
+  const model = callModel(config, "analyse", options?.tokens);
   const build = (context: ReadyContext): ModelRequest =>
     modelRequest("analyse", prompt, model, context.context.text);
   const fits = await checkContextCall(
     "analyse",
     input.context,
     build,
-    tokenDeps(deps, session.records),
+    tokenDeps(deps, session.records, options),
   );
   if (fits.state !== "fits") return { kind: "stopped", stop: fits as Stop };
-  await recordGap(session, input.inspection.snapshotId, fits.gap);
+  await options?.resend?.beforeSend();
+  await recordGap(session, input.inspection.snapshotId, fits.gap, options);
 
   const sent = fits.context;
   const facts = new Map(
@@ -246,7 +316,7 @@ export async function runAnalyse(
     config.expansion.maxExpansionRequests,
     (alias) => (facts.get(alias)?.evidence ?? []).map((e) => e.path),
   );
-  const outcome = await runCall(session, deps, {
+  const outcome = await send(session, deps, options, {
     purpose: "analyse",
     request: fits.request,
     inputTokens: checkedTokens(sent),
@@ -283,7 +353,11 @@ export type ExpansionOutcome =
   /** Call 2 didn't fit and was recorded `stage_skipped` (§1.10). */
   | { readonly kind: "skipped"; readonly round: RecordOf<"expansion_round"> }
   | { readonly kind: "stopped"; readonly round: RecordOf<"expansion_round">; readonly stop: Stop }
-  | (CallOutcome<AnalyseExpansionValidation> & { readonly round: RecordOf<"expansion_round"> });
+  | (CallOutcome<AnalyseExpansionValidation> & {
+      readonly round: RecordOf<"expansion_round">;
+      /** The round as run, for a resend of call 2 after a raised output limit (§4.6). */
+      readonly recorded: RecordedRound;
+    });
 
 export interface ExpansionStepInput {
   readonly callOne: Extract<AnalyseOutcome, { kind: "completed" }>;
@@ -333,7 +407,7 @@ export async function runExpansionStep(
   };
   // The round is recorded first, then its blocked files withhold what they hold, then the
   // records to be sent are scanned before they are numbered (§1.8, §3.2.6).
-  const { record, withheldExcerpts } = await session.change((log) => {
+  const { record } = await session.change((log) => {
     const recorded = recordExpansionRound(log, round, {
       snapshotId: inspection.snapshotId,
       modelCallId: callOne.modelCallId,
@@ -342,8 +416,37 @@ export async function runExpansionStep(
     return { record: recorded, ...withholdForCall(log, numbering) };
   });
   if (round.items.length === 0) return { kind: "no_items", round: record };
+  return runCallTwo(session, deps, input, { round, record });
+}
 
+/** The recorded round call 2 follows. */
+export interface RecordedRound {
+  readonly round: ExpansionRound;
+  readonly record: RecordOf<"expansion_round">;
+}
+
+/**
+ * Call 2 after its round (§1.8, §3.3.3): the records are scanned again, which appends nothing
+ * new after the round's save, then numbered, rendered, checked and sent. A resend after a raised
+ * output limit runs this again, never the round.
+ */
+export async function runCallTwo(
+  session: HeldSession,
+  deps: RunDeps,
+  input: ExpansionStepInput,
+  recorded: RecordedRound,
+  options?: RunOptions,
+): Promise<ExpansionOutcome> {
+  const { callOne, inspection } = input;
+  const { round, record } = recorded;
+  const { snapshot } = callOne.sent.parts;
+  const numbering: RecordNumbering = {
+    call: "analyse_expansion",
+    knownFactsSent: inspection.knownFactsSent,
+  };
+  const { withheldExcerpts } = await session.change((log) => withholdForCall(log, numbering));
   const records = session.records;
+  const config = activeConfig(records);
   const numbered = numberRecords(records, numbering);
   const render = {
     records,
@@ -365,20 +468,23 @@ export async function runExpansionStep(
     items: round.items.map((item) => item.rendered.text),
   };
   const prompt = deps.prompts.prompt("analyse_expansion");
-  const model = callModel(config, "analyse_expansion");
+  const model = callModel(config, "analyse_expansion", options?.tokens);
   const fits = await checkContextCall(
     "analyse_expansion",
     base,
     (context) => modelRequest("analyse_expansion", prompt, model, expansionUser(context, parts)),
-    tokenDeps(deps, records),
+    tokenDeps(deps, records, options),
   );
   if (fits.state === "skipped") {
+    // A resend that no longer fits is refused before anything is appended (§4.6).
+    if (options?.resend !== undefined) return { kind: "skipped", round: record };
     await session.change((log) => {
       skipExpansion(log);
     });
     return { kind: "skipped", round: record };
   }
   if (fits.state !== "fits") return { kind: "stopped", round: record, stop: fits as Stop };
+  await options?.resend?.beforeSend();
 
   const sent = fits.context;
   const expansionItems: SentItem[] = round.items.map((item) => ({
@@ -405,8 +511,8 @@ export async function runExpansionStep(
     records,
   );
   // The table is built, so the gap of call 2's own check comes after it (§3.3.3).
-  await recordGap(session, inspection.snapshotId, fits.gap);
-  const outcome = await runCall(session, deps, {
+  await recordGap(session, inspection.snapshotId, fits.gap, options);
+  const outcome = await send(session, deps, options, {
     purpose: "analyse_expansion",
     request: fits.request,
     inputTokens: checkedTokens(sent),
@@ -430,5 +536,5 @@ export async function runExpansionStep(
         outcome.validation,
       );
     });
-  return { ...outcome, round: record };
+  return { ...outcome, round: record, recorded };
 }

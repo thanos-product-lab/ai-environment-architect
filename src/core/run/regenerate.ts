@@ -13,7 +13,7 @@ import {
 } from "../session/regeneration.js";
 import type { HeldSession } from "../session/store.js";
 import { type RegenerateValidation, validateRegenerate } from "../validation/regenerate.js";
-import type { RunDeps } from "./analysis.js";
+import type { RunDeps, RunOptions } from "./analysis.js";
 import { type RecordCallOutcome, type RecordCallRun, runRecordCall } from "./clarify.js";
 import { recommendValidationContext } from "./contexts.js";
 
@@ -76,49 +76,69 @@ export async function runRegeneration(
 
   const calls: RecordCallOutcome<RegenerateValidation>[] = [];
   for (const part of plan.calls) {
-    const { outcome, prepared } = await runRecordCall<RegenerateValidation>(
-      session,
-      deps,
-      "regenerate_recommendations",
-      run,
-      ({ numbered, aliases, records }) => {
-        const { affected, unaffected } = regenerationInput(
-          records,
-          run.destination,
-          aliases,
-          affectedSet,
-        );
-        const context = {
-          ...recommendValidationContext(
-            run.sent.parts.snapshot,
-            aliases,
-            numbered,
-            records,
-            run.destination,
-          ),
-          affected,
-          unaffected,
-        };
-        return {
-          validate: (text) => validateRegenerate(text, context),
-          resultOf: (validation) => validation.result,
-        };
-      },
-      {
-        recommendations: part,
-        changes: (numbered, records) =>
-          changeLines(numbered, changeSummary(records, trigger), records),
-      },
-    );
+    const outcome = await runRegenerationPart(session, deps, run, trigger, part, affectedSet);
     calls.push(outcome);
     // The later parts are left as they are: still affected, so the next run sends them again.
-    if (outcome.kind !== "completed" || prepared === undefined) break;
+    if (outcome.kind !== "completed") break;
+  }
+  return { kind: "ran", calls };
+}
+
+/**
+ * One part of a regeneration (§3.3.6): its recommendations, sent and recorded. `affectedSet` is
+ * the whole set, split or not, which DUP-004's unaffected recommendations leave out. A resend
+ * after a raised output limit runs the truncated part again with `options`.
+ */
+export async function runRegenerationPart(
+  session: HeldSession,
+  deps: RunDeps,
+  run: RecordCallRun,
+  trigger: RegenerationTrigger,
+  part: readonly string[],
+  affectedSet: readonly string[],
+  options?: RunOptions,
+): Promise<RecordCallOutcome<RegenerateValidation>> {
+  const { outcome, prepared } = await runRecordCall<RegenerateValidation>(
+    session,
+    deps,
+    "regenerate_recommendations",
+    run,
+    ({ numbered, aliases, records }) => {
+      const { affected, unaffected } = regenerationInput(
+        records,
+        run.destination,
+        aliases,
+        affectedSet,
+      );
+      const context = {
+        ...recommendValidationContext(
+          run.sent.parts.snapshot,
+          aliases,
+          numbered,
+          records,
+          run.destination,
+        ),
+        affected,
+        unaffected,
+      };
+      return {
+        validate: (text) => validateRegenerate(text, context),
+        resultOf: (validation) => validation.result,
+      };
+    },
+    {
+      recommendations: part,
+      changes: (numbered, records) =>
+        changeLines(numbered, changeSummary(records, trigger), records),
+    },
+    options,
+  );
+  if (outcome.kind === "completed" && prepared !== undefined)
     await session.change((log) => {
       recordRegenerate(
         { log, modelCallId: outcome.modelCallId, aliases: prepared.aliases },
         outcome.validation,
       );
     });
-  }
-  return { kind: "ran", calls };
+  return outcome;
 }
