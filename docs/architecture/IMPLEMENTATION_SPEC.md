@@ -2,8 +2,12 @@
 
 **AI Environment Architect · AI Product Studio**  
 **Date:** 21 November 2026  
-**Version:** 0.63  
+**Version:** 0.64  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.63
+
+- **Tree names (§1.6).** A name or link target written as a JSON string escapes U+2028 and U+2029 too, with the escape of the record format (§3.2.6), since `JSON.stringify` keeps them. The tree can change, so `algorithmVersion` is `context-select/1.9.0` (§1.13).
 
 ### Changes from v0.62
 
@@ -745,7 +749,7 @@ The example shows only the first two of lines 40–96; a real item lists every i
 - Excluded directories appear once, with an `[excluded]` marker and no children, and wholly ignored directories once, with an `[ignored]` marker and no children (§1.4).
 - Each file has a marker: `[R]` fully included, `[E]` excerpt included, `[-]` readable but not selected (a plain `read` expansion can fetch it), `[L]` `listed_only` because it is too large to excerpt (only line ranges can be read, `EXP-006`), `[N]` `listed_only` because it holds a NUL byte or isn't valid UTF-8 (never sent, not even by line range, `EXP-001`), `[X]` excluded, `[I]` an ignored file (§1.4; not sent, and no expansion can read it), `[S]` blocked by secret scan, `[>]` symbolic link, shown with its target (`name -> target`), `[U]` unreadable (a directory too, with `/`).
 
-**Format.** A header `<<<TREE depth=<d> files=<n>>>>`, one line per entry, and `<<<END TREE>>>`, each ending with a line break. `n` counts every entry except directories. Entries are indented two spaces per level, and siblings are in bytewise name order. A directory is its name and `/`; a file is its marker, a space and its name. A name containing a control character (C0, DEL, C1, U+2028 or U+2029) is written as a JSON string, and the delimiter escape applies to names and link targets. A name or link target that matches the secret scan is written `<withheld>` (§1.7).
+**Format.** A header `<<<TREE depth=<d> files=<n>>>>`, one line per entry, and `<<<END TREE>>>`, each ending with a line break. `n` counts every entry except directories. Entries are indented two spaces per level, and siblings are in bytewise name order. A directory is its name and `/`; a file is its marker, a space and its name. A name containing a control character (C0, DEL, C1, U+2028 or U+2029) is written as a JSON string, with U+2028 and U+2029 escaped as `\u2028` and `\u2029` too, as in §3.2.6, so no name spans lines; the delimiter escape applies to names and link targets. A name or link target that matches the secret scan is written `<withheld>` (§1.7).
 
 ```text
 <<<TREE depth=4 files=123>>>
@@ -975,7 +979,7 @@ Every model call records an input manifest ([`DOMAIN_MODEL.md`](DOMAIN_MODEL.md)
 ```json
 {
   "manifestVersion": 2,
-  "algorithmVersion": "context-select/1.8.0",
+  "algorithmVersion": "context-select/1.9.0",
   "secretRulesVersion": "secret-scan/1.1.0",
   "declarationPatternsVersion": "declarations/1.0.0",
   "settingsHash": "sha256:…",

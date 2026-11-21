@@ -163,6 +163,19 @@ describe("renderTree", () => {
     expect(tree.text).toContain("[>] l -> x>>\\>y\n");
   });
 
+  it("escapes U+2028 and U+2029 in a JSON name, as the record format does, so no name spans lines", () => {
+    const files = [read("a\u2028b.md"), read("c\u2029d.md"), link("l", "x\u2028y")];
+    const tree = renderTree(files, new Map(), SETTINGS, 100_000);
+    expect(tree.text).toContain('[-] "a\\u2028b.md"\n');
+    expect(tree.text).toContain('[-] "c\\u2029d.md"\n');
+    expect(tree.text).toContain('[>] l -> "x\\u2028y"\n');
+    expect(tree.text).not.toMatch(/[\u2028\u2029]/);
+    // A newline in a name stays one line too.
+    expect(renderTree([read("new\nline.md")], new Map(), SETTINGS, 100_000).text).toContain(
+      '[-] "new\\nline.md"\n',
+    );
+  });
+
   it("withholds a name or link target that matches the secret scan, and marks such files [S]", () => {
     const key = ["AKIA", "IOSFODNN7EXAMPLE"].join("");
     const files = [

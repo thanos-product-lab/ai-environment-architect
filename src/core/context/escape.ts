@@ -13,6 +13,17 @@ function isAngle(char: string): boolean {
   return char === "<" || char === ">";
 }
 
+/**
+ * A JSON string that never spans lines: `JSON.stringify` escapes the C0 controls but keeps
+ * U+2028 and U+2029, which many readers treat as line breaks, so they are escaped too
+ * (IMPL §1.6, §3.2.6).
+ */
+export function jsonString(text: string): string {
+  return JSON.stringify(text)
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
 export function escapeDelimiters(text: string): string {
   let out = "";
   let run = "";

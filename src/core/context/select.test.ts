@@ -147,8 +147,8 @@ describe("selectContext (IMPL §1.3)", () => {
     expect(destination?.rendered.text).not.toContain("Rules/heading");
   });
 
-  it("is context-select/1.8.0, since a name holding U+2028 or U+2029 gives no known fact", () => {
-    expect(ALGORITHM_VERSION).toBe("context-select/1.8.0");
+  it("is context-select/1.9.0, since tree names escape U+2028 and U+2029", () => {
+    expect(ALGORITHM_VERSION).toBe("context-select/1.9.0");
   });
 
   it("counts the block list against maxDestinationBytes", async () => {

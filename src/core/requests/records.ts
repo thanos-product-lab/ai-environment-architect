@@ -1,4 +1,4 @@
-import { escapeDelimiters } from "../context/escape.js";
+import { escapeDelimiters, jsonString } from "../context/escape.js";
 import { scanText } from "../context/secrets.js";
 import type { CitedExcerpt } from "../context/token-check.js";
 import { comparePaths } from "../paths.js";
@@ -628,12 +628,7 @@ export function renderLimits(limits: readonly (readonly [string, number])[]): st
 
 const UNSAFE = /[\p{Cc}\u2028\u2029]/u;
 
-/** JSON, with the line and paragraph separators escaped too, which `JSON.stringify` keeps. */
-function json(text: string): string {
-  return JSON.stringify(text)
-    .replace(/\u2028/g, "\\u2028")
-    .replace(/\u2029/g, "\\u2029");
-}
+const json = jsonString;
 
 /** A text field (IMPL §3.2.6): a JSON string when it could start a line of its own. */
 function field(text: string): string {

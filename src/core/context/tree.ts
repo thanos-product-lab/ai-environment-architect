@@ -1,6 +1,6 @@
 import { comparePaths } from "../paths.js";
 import type { SnapshotFile } from "../snapshot/snapshot.js";
-import { escapeDelimiters } from "./escape.js";
+import { escapeDelimiters, jsonString } from "./escape.js";
 import { isWithheldPath, scanText } from "./secrets.js";
 
 // Tier 4, the directory tree (IMPL §1.6).
@@ -201,5 +201,5 @@ function hasControl(name: string): boolean {
 /** A name that matches the secret scan is withheld; one with control characters is a JSON string. */
 function displayName(name: string): string {
   if (scanText(name) !== undefined) return WITHHELD_NAME;
-  return escapeDelimiters(hasControl(name) ? JSON.stringify(name) : name);
+  return escapeDelimiters(hasControl(name) ? jsonString(name) : name);
 }
