@@ -1,9 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { type Answer, response } from "../../../test/support/run-harness.js";
-import { throughRecommend } from "../../../test/support/run-scripts.js";
-import { correctDecision } from "../session/answers.js";
+import { fixedClock, MemoryFs } from "../../../test/support/memory-fs.js";
+import { type Answer, harness, response } from "../../../test/support/run-harness.js";
+import {
+  callOne,
+  findingAlias,
+  NODES,
+  throughRecommend,
+} from "../../../test/support/run-scripts.js";
+import { answerQuestion, correctDecision } from "../session/answers.js";
 import type { Revised } from "../session/log.js";
 import type { RecordOf } from "../session/records.js";
+import { recordSnapshot } from "../session/snapshot.js";
+import { captureSnapshot, DEFAULT_SNAPSHOT_SETTINGS } from "../snapshot/snapshot.js";
+import { recordInspection, runAnalyse } from "./analysis.js";
+import { runGenerateQuestions, runRecommend } from "./clarify.js";
 import { runRegeneration } from "./regenerate.js";
 
 // Running `regenerate_recommendations` through the core API with recorded responses
@@ -174,5 +184,217 @@ describe("call 5 (IMPL §3.3.6)", () => {
     expect(user).toContain(
       "- 1 finding that the recommendations below cite is no longer current.\n",
     );
+  });
+});
+
+/** Drops every affected recommendation the request names. */
+const dropAll: Answer = (request) => {
+  const aliases = [...request.user.matchAll(/^(R-\d+) {2}\[/gm)].map((m) => m[1] as string);
+  return response(
+    request,
+    JSON.stringify({
+      actions: aliases.map((target) => ({ target, action: "drop", reason: "No longer right." })),
+      additions: [],
+      heldBack: [],
+    }),
+  );
+};
+
+function rAliases(call: RecordOf<"model_call"> | undefined): string[] {
+  return (call?.aliases.entries ?? []).filter((e) => e.kind === "R").map((e) => e.alias);
+}
+
+describe("call 5 paths (IMPL §3.3.6, §3.2.6)", () => {
+  it("splits an affected set over 30 into calls of 30 and the rest, each naming only its part", async () => {
+    const t = await throughRecommend([dropAll, dropAll]);
+    const [first] = revisions(t);
+    if (first === undefined) throw new Error("no recommendation");
+    await t.h.session.change((log) => {
+      for (let i = 1; i <= 30; i++)
+        log.start({
+          type: "recommendation_revision",
+          kind: "policy",
+          operation: "add",
+          target: { kind: "newSection", heading: `Section ${i}` },
+          content: `Policy ${i} applies.`,
+          rationale: "The developer decided.",
+          support: first.support,
+          references: [],
+          scope: { kind: "repository" },
+          producedBy: first.producedBy,
+          status: "valid",
+        } as never);
+    });
+    const decision = await correct(t);
+    const outcome = await runRegeneration(t.h.session, t.h.deps, t.run, {
+      kind: "decision",
+      decisionId: decision.id,
+    });
+    expect(outcome).toMatchObject({
+      kind: "ran",
+      calls: [{ kind: "completed" }, { kind: "completed" }],
+    });
+    const regenerations = t.h.session.records.filter(
+      (r): r is RecordOf<"model_call"> =>
+        r.type === "model_call" &&
+        r.purpose === "regenerate_recommendations" &&
+        r.state === "completed",
+    );
+    expect(regenerations.map((c) => rAliases(c).length)).toEqual([30, 1]);
+    const dropped = revisions(t).filter((r) => r.invalidatedReason === "dropped_by_model");
+    expect(dropped).toHaveLength(31);
+  });
+
+  it("writes the change summary's lines after a refresh: a stale finding and a changed target", async () => {
+    const t = await throughRecommend([dropAll]);
+    const [first] = revisions(t);
+    if (first === undefined) throw new Error("no recommendation");
+    const snapshot = t.h.session.records.find(
+      (r): r is RecordOf<"snapshot"> => r.type === "snapshot",
+    ) as RecordOf<"snapshot">;
+    if (snapshot.destination.state !== "present") throw new Error("no destination");
+    const listItem = snapshot.destination.blocks.at(-1) as { blockId: string; hash: string };
+    const finding = t.h.session.records.find(
+      (r) => r.type === "finding" && "statement" in r && r.statement.startsWith("The rules ask"),
+    ) as { findingId: string };
+    await t.h.session.change((log) => {
+      // Anchored after the list item, which the refresh changes.
+      log.start({
+        type: "recommendation_revision",
+        kind: "policy",
+        operation: "add",
+        target: { kind: "after", blockId: listItem.blockId, blockHash: listItem.hash },
+        content: "Run the linter too.",
+        rationale: "The developer decided.",
+        support: first.support,
+        references: [],
+        scope: { kind: "repository" },
+        producedBy: first.producedBy,
+        status: "valid",
+      } as never);
+      // Supported by a finding of the first snapshot, which the refresh leaves stale.
+      log.start({
+        type: "recommendation_revision",
+        kind: "fact",
+        operation: "add",
+        target: { kind: "newSection", heading: "Pushing" },
+        content: "The tests run before pushing.",
+        rationale: "Seen in the rules.",
+        support: [{ kind: "finding", findingId: finding.findingId }],
+        references: [],
+        scope: { kind: "repository" },
+        producedBy: first.producedBy,
+        status: "valid",
+      } as never);
+    });
+    // The refresh: a new snapshot whose list item says something else.
+    const changed = "# Rules\n\n- Run the tests before every push.\n";
+    const fs = new MemoryFs({ ...NODES, "CLAUDE.md": changed });
+    const again = await captureSnapshot(
+      { fs, clock: fixedClock, ids: { next: (prefix: string) => `${prefix}_refresh` } },
+      DEFAULT_SNAPSHOT_SETTINGS,
+    );
+    await t.h.session.change((log, files) => {
+      const { content } = recordSnapshot(log, again);
+      if (content !== undefined) files.contents.push(content.bytes);
+    });
+    const destination = new TextEncoder().encode(changed);
+    await runRegeneration(t.h.session, t.h.deps, { ...t.run, destination }, { kind: "refresh" });
+    const user = t.h.sent.at(-1)?.user ?? "";
+    expect(user.slice(user.indexOf("<<<CHANGES>>>"))).toBe(
+      [
+        "<<<CHANGES>>>",
+        "- 1 finding that the recommendations below cite is no longer current.",
+        "- 1 recommendation was withdrawn because its target changed.",
+        "<<<END CHANGES>>>",
+        "",
+      ].join("\n"),
+    );
+    expect(revisions(t).filter((r) => r.invalidatedReason === "target_changed")).toHaveLength(1);
+  });
+
+  it("sends a call with no recommendations when a new decision only unblocks a held-back topic", async () => {
+    const questionsTwo: Answer = (request) =>
+      response(
+        request,
+        JSON.stringify({
+          questions: [
+            {
+              key: "q1",
+              prompt: "Do the tests also run in CI?",
+              reason: "The rules don't say.",
+              resolves: [findingAlias(request)],
+              scope: { kind: "repository" },
+              options: [],
+            },
+            {
+              key: "q2",
+              prompt: "Is CLAUDE.md the only agent configuration?",
+              reason: "Others may exist.",
+              resolves: ["F-1"],
+              scope: { kind: "repository" },
+              options: [],
+            },
+          ],
+        }),
+      );
+    const recommendWithHeldBack: Answer = (request) =>
+      response(
+        request,
+        JSON.stringify({
+          recommendations: [],
+          heldBack: [{ topic: "Where agent configuration lives", blockedBy: ["Q-2"] }],
+          noChangeReason: "The one topic waits on a skipped question.",
+        }),
+      );
+    const answers: Answer[] = [];
+    const h = await harness(NODES, answers);
+    answers.push(callOne(h), questionsTwo, recommendWithHeldBack, (request) =>
+      response(request, JSON.stringify({ actions: [], additions: [], heldBack: [] })),
+    );
+    const inspection = await recordInspection(h.session, h.context);
+    const one = await runAnalyse(h.session, h.deps, {
+      context: h.context,
+      inspection,
+      destination: h.destination,
+    });
+    if (one.kind !== "completed") throw new Error(one.kind);
+    const run = { sent: one.sent, inspection, destination: h.destination };
+    await runGenerateQuestions(h.session, h.deps, run);
+    const [q1, q2] = h.session.records.filter(
+      (r): r is Revised<"question"> => r.type === "question" && "prompt" in r,
+    );
+    if (q1 === undefined || q2 === undefined) throw new Error("two questions expected");
+    await h.session.change((log) => {
+      answerQuestion(log, {
+        questionId: q1.questionId,
+        statement: "The tests run in CI too.",
+        scope: { kind: "repository" },
+        exceptions: [],
+        actor: "developer",
+        decidedAt: "2026-11-01T10:20:00.000Z",
+      });
+      log.revise("question", q2.questionId, { status: "skipped" } as never);
+    });
+    await runRecommend(h.session, h.deps, run);
+    expect(h.session.records.filter((r) => r.type === "held_back")).toHaveLength(1);
+    const { decision } = await h.session.change((log) =>
+      answerQuestion(log, {
+        questionId: q2.questionId,
+        statement: "Only CLAUDE.md.",
+        scope: { kind: "repository" },
+        exceptions: [],
+        actor: "developer",
+        decidedAt: "2026-11-01T10:30:00.000Z",
+      }),
+    );
+    const outcome = await runRegeneration(h.session, h.deps, run, {
+      kind: "decision",
+      decisionId: decision.id,
+    });
+    expect(outcome).toMatchObject({ kind: "ran", calls: [{ kind: "completed" }] });
+    const user = h.sent.at(-1)?.user ?? "";
+    expect(user).toContain("<<<RECOMMENDATIONS>>>\n<<<END RECOMMENDATIONS>>>\n");
+    expect(user).toContain("- D-2 is new.");
   });
 });
