@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { PROMPT_HISTORY, readHistory } from "../../../test/support/history.js";
 import { sha256 } from "../../core/hash.js";
 import {
   collectionLimits,
@@ -205,49 +206,12 @@ describe("the released prompts (IMPL §3.7)", () => {
   });
 });
 
-// Every released prompt version, append-only. A released template is never edited: a change is
-// a new file and a new entry. `rendered` pins the current version's text as sent, so a schema or
-// constant change that alters it fails here until a new prompt version is added (IMPL §3.7).
-const HISTORY: Record<
-  CallPurpose,
-  readonly { version: string; template: string; rendered: string }[]
-> = {
-  analyse: [
-    {
-      version: "1.0.0",
-      template: "sha256:79efb077e47c0890c7f9e16d43e48319ee45ecb1bd8b26871e7bd618875f2e5c",
-      rendered: "sha256:c6e81833a11190dacd0ec5568c0b5aa5e9e80768e4f5aafecaca818c7df4adc7",
-    },
-  ],
-  analyse_expansion: [
-    {
-      version: "1.0.0",
-      template: "sha256:488ec45e3f4b6055bbbcda18092048254aeecc33ce6e1ffdf420e8586c72fcae",
-      rendered: "sha256:6aebec78cb1cb169e77d23b539fa35654d45453725fb1a12bb1ed5526c4750ec",
-    },
-  ],
-  generate_questions: [
-    {
-      version: "1.0.0",
-      template: "sha256:0fd386a9124a692a893036f94e61e5ddf42a86cff34e7fa39ce8f798dc7df436",
-      rendered: "sha256:ea35475d2788490c14ed47504e7e71a221ca7843c56aeb2d242c530ce957ce07",
-    },
-  ],
-  recommend: [
-    {
-      version: "1.0.0",
-      template: "sha256:2c6fe76d7beb8df2aee5f59ad4148e9a9d83bafc2d942d4ec6d1dc8be67117bf",
-      rendered: "sha256:5e8e81b98a6d53c72558176280bb2e33acf6f300dfae8c196fa0351b985e4de3",
-    },
-  ],
-  regenerate_recommendations: [
-    {
-      version: "1.0.0",
-      template: "sha256:5ff6e935be200244ec9ba8581b735ca16a61020bcd355ec5d8c7f98f504c2500",
-      rendered: "sha256:56a91421c9ef9771b946f52245c9afc18c0af9df5860972abc5ea703e0b72e6a",
-    },
-  ],
-};
+// Every released prompt version, append-only, in `history.jsonl` next to this file. A released
+// template is never edited: a change is a new file and a new line at the end, and CI fails a push
+// that edits or removes a line. `rendered` pins the version's text as sent, so a schema or
+// constant change that alters the current version's rendering fails here until a new prompt
+// version is added (IMPL §3.7).
+const HISTORY = readHistory(PROMPT_HISTORY, ["version", "template", "rendered"] as const);
 
 describe("released prompt versions (IMPL §3.7)", () => {
   const hash = (text: string) => sha256(new TextEncoder().encode(text));

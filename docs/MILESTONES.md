@@ -241,4 +241,4 @@ Maintenance checks for stale paths and commands; scoped rule files; a local web 
 - **21 November 2026:** the step for the scan of the complete request (IMPL §1.7) moves to just before the live-run tooling, so it is built before any request is sent to a live model.
 - **21 November 2026:** `correctDecision` is added to core, so the M7 clarify step records changed answers through it.
 - **21 November 2026:** `unmarkFinding` is added to core, for the M7 findings screen to take back a finding marked wrong (IMPL §4.5).
-- **21 November 2026:** M6's prompts step covers releasing and loading the prompts; passing them to the CLI's model calls moves to a new M7 step.
+- **21 November 2026:** M6's prompts step covers releasing and loading the prompts; passing them to the CLI's model calls moves to a new M7 step. The schema and prompt histories move to JSON Lines files, which a CI job keeps append-only (IMPL v0.67).

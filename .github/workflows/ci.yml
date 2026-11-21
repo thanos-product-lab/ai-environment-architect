@@ -59,3 +59,40 @@ jobs:
 
       - name: Smoke test the built CLI
         run: node dist/cli/main.js --version
+
+  # The schema and prompt histories are append-only (IMPL §3.7): compare each with the push's
+  # previous commit, or a pull request's base, and fail if an existing line changed or was removed.
+  history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+
+      - name: Append-only histories
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT" = "pull_request" ]; then
+            base="$PR_BASE"
+          else
+            base="$BEFORE"
+          fi
+          # A new branch has no previous commit, and a force push may have dropped it:
+          # compare with the parent of the pushed commit instead.
+          if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            if ! base=$(git rev-parse --verify --quiet HEAD^); then
+              echo "No earlier commit to compare with."
+              exit 0
+            fi
+            echo "Comparing with HEAD^ ($base)."
+          fi
+          node scripts/check-append-only.ts "$base"
