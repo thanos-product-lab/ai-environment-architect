@@ -1,0 +1,16 @@
+{
+  "findings": [
+    {
+      "key": "f1",
+      "statement": "Deploys go through the release script.",
+      "mode": "descriptive",
+      "scope": { "kind": "repository" },
+      "citations": [{ "item": "E-1", "lines": "1-1", "quote": "Deploys go through the release script." }]
+    }
+  ],
+  "gaps": [],
+  "absenceClaims": [],
+  "conflicts": [],
+  "revisions": [],
+  "contentNotices": []
+}

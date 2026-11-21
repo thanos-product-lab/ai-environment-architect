@@ -1,0 +1,16 @@
+{
+  "recommendations": [
+    {
+      "key": "r1",
+      "kind": "policy",
+      "operation": "add",
+      "target": { "kind": "newSection", "heading": "Testing" },
+      "rationale": "The developer decided where the tests run.",
+      "support": ["D-1"],
+      "references": [],
+      "scope": { "kind": "repository" },
+      "content": "Run the tests in CI as well as before pushing."
+    }
+  ],
+  "heldBack": []
+}

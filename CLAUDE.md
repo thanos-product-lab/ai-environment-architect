@@ -34,7 +34,7 @@ Created by the scaffold commit:
 - `src/adapters/claude/`: the only code that calls the Claude API.
 - `src/cli/`: rendering and prompts only.
 - `src/schemas/<call>.ts`, with the generated JSON Schema in `src/schemas/json/`, and `prompts/<call>/<version>.md` (IMPL §3.7).
-- `test/fixtures/repos/`: small synthetic repositories. `test/fixtures/destinations/`: `CLAUDE.md` files for block parsing. `test/fixtures/responses/<call>/`: recorded model responses.
+- `test/fixtures/repos/`: small synthetic repositories. `test/fixtures/destinations/`: `CLAUDE.md` files for block parsing. `test/fixtures/responses/<call>/`: recorded model responses, with whole-session scripts under `sessions/`. `test/fixtures/prompts/`: placeholder prompts, test-only.
 
 ## Commands
 

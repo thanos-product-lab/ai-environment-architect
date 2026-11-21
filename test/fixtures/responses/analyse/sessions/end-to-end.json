@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "key": "f1",
+      "statement": "The rules ask for the tests to run before pushing.",
+      "mode": "descriptive",
+      "scope": { "kind": "repository" },
+      "citations": [{ "item": "T1-001", "lines": "3-3", "quote": "Run the tests before pushing." }]
+    }
+  ],
+  "gaps": [],
+  "absenceClaims": [],
+  "conflicts": [],
+  "expansionRequests": [
+    { "kind": "read", "entries": [{ "path": "notes/extra.txt" }], "reason": "The notes may say how deploys work." }
+  ],
+  "contentNotices": []
+}

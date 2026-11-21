@@ -1,0 +1,21 @@
+{
+  "actions": [
+    {
+      "target": "R-1",
+      "action": "revise",
+      "reason": "The decision changed: the tests run in CI only.",
+      "revision": {
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "newSection", "heading": "Testing" },
+        "rationale": "The developer decided the tests run in CI only.",
+        "support": ["D-1"],
+        "references": [],
+        "scope": { "kind": "repository" },
+        "content": "Run the tests in CI."
+      }
+    }
+  ],
+  "additions": [],
+  "heldBack": []
+}

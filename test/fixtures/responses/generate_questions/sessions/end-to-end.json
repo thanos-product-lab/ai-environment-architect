@@ -1,0 +1,12 @@
+{
+  "questions": [
+    {
+      "key": "q1",
+      "prompt": "Do the tests also run in CI?",
+      "reason": "The rules say the tests run before pushing, not where else.",
+      "resolves": ["F-3"],
+      "scope": { "kind": "repository" },
+      "options": [{ "label": "Yes" }, { "label": "No" }]
+    }
+  ]
+}
