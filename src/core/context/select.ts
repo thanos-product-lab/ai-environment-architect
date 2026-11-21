@@ -298,6 +298,79 @@ export function reduceContext(context: ReadyContext, removed: ReadonlySet<string
   };
 }
 
+/** A known-facts section rendered again for call 2 (IMPL §3.2.6, §1.13). */
+export interface FactsSection {
+  readonly text: string;
+  readonly bytes: number;
+  readonly sent: number;
+  /** Left out of call 1, plus those withheld since. */
+  readonly leftOut: number;
+}
+
+/**
+ * Call 2's context (IMPL §3.2.6, §1.8): the context call 1 sent, without the items of each file
+ * the expansion round blocked, with those files marked `[S]` and listed in `excluded` with their
+ * rule, and with the known-facts section rendered again. The other items keep their IDs, and the
+ * token check's earlier removals stay as they were.
+ */
+export function withBlockedFiles(
+  context: ReadyContext,
+  blocked: readonly { readonly path: string; readonly ruleId: SecretRuleId }[],
+  facts: FactsSection,
+): ReadyContext {
+  const known = new Set(context.parts.blocked.map((entry) => entry.path));
+  const added = blocked.filter((entry) => !known.has(entry.path));
+  const paths = new Set(added.map((entry) => entry.path));
+  // An item the token check already removed stays, so its `token-check:` entry in `skipped`
+  // stays too (§1.13); the others leave the selection, and their tiers' counts with them.
+  const gone = context.parts.items.filter(
+    (item) => paths.has(item.path) && !context.removed.has(item.id),
+  );
+  const tiers = context.parts.tiers.map((usage) => {
+    const out = gone.filter((item) => item.tier === usage.tier);
+    if (out.length === 0) return usage;
+    const examples = out.filter((item) => item.reason === TEST_EXAMPLE_REASON).length;
+    return {
+      ...usage,
+      usedBytes: usage.usedBytes - out.reduce((n, item) => n + item.rendered.bytes, 0),
+      items: usage.items - out.length,
+      ...(usage.testExamples === undefined ? {} : { testExamples: usage.testExamples - examples }),
+    };
+  });
+  const parts: ContextParts = {
+    ...context.parts,
+    items: context.parts.items.filter((item) => !gone.includes(item)),
+    tiers,
+    blocked: [...context.parts.blocked, ...added],
+    factsText: facts.text,
+    factsBytes: facts.bytes,
+    factsSent: facts.sent,
+    factsLeftOut: facts.leftOut,
+  };
+  return { ...context, parts, ...assemble(parts, context.removed) };
+}
+
+/** The context's tree at `depth`, with its markers: the reductions of calls 3–5 (IMPL §1.10). */
+export function treeAt(context: ReadyContext, depth: number): RenderedTree {
+  const { parts } = context;
+  return renderTree(
+    parts.snapshot.files,
+    treeMarks(context.items, parts.blocked),
+    { ...parts.settings.context, treeDepth: depth },
+    Number.MAX_SAFE_INTEGER,
+  );
+}
+
+function treeMarks(
+  kept: readonly SelectedItem[],
+  blocked: ContextParts["blocked"],
+): Map<string, ContentMark> {
+  const marks = new Map<string, ContentMark>();
+  for (const item of kept) marks.set(item.path, item.rendered.excerpt ? "E" : "R");
+  for (const entry of blocked) marks.set(entry.path, "S");
+  return marks;
+}
+
 function assemble(
   parts: ContextParts,
   removed: ReadonlySet<string>,
@@ -306,10 +379,12 @@ function assemble(
   const kept = parts.items.filter((item) => !removed.has(item.id));
   const dropped = parts.items.filter((item) => removed.has(item.id));
 
-  const marks = new Map<string, ContentMark>();
-  for (const item of kept) marks.set(item.path, item.rendered.excerpt ? "E" : "R");
-  for (const entry of blocked) marks.set(entry.path, "S");
-  const tree = renderTree(snapshot.files, marks, settings.context, parts.reservedTreeBytes);
+  const tree = renderTree(
+    snapshot.files,
+    treeMarks(kept, blocked),
+    settings.context,
+    parts.reservedTreeBytes,
+  );
 
   const before = kept.filter((item) => item.tier < 4);
   const after = kept.filter((item) => item.tier > 4);

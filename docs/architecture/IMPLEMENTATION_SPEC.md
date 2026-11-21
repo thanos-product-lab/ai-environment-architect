@@ -1,9 +1,15 @@
 # Implementation Specification
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 18 November 2026  
-**Version:** 0.62  
+**Date:** 21 November 2026  
+**Version:** 0.63  
 **Status:** Proposed specification. Sections 1–4 are proposed.
+
+### Changes from v0.62
+
+- **Manifest of calls 3–5 (§1.13, §3.8).** These calls send no context items, so their manifest keeps the same shape and describes what the call rendered: tier 4 alone, no items, the known-facts counts, the removed and withheld excerpts in `skipped`, files blocked since in `excluded`, and the hash of the call's own user content. `manifestVersion` stays 2.
+- **Call 2's manifest (§1.13).** A blocked file's items leave their tier's counts; one that call 1's token check had removed keeps its `token-check:` entry in `skipped` and is in `excluded` too.
+- **Token check (§1.10).** The findings whose excerpts calls 3–5 keep are stated: those an open question resolves, directly or as members of a conflict it resolves, and the support and reference findings of every current valid recommendation, sent or not.
 
 ### Changes from v0.61
 
@@ -896,7 +902,7 @@ If the request does not fit, items are removed one at a time in this **determini
 1. tier 5 source files, last selected first (test examples last within tier 5);
 2. tier 2 documentation files, last selected first;
 3. other tier 1 agent configuration, last selected first;
-4. for calls 3–5: cited excerpts whose every citing finding is referenced by no open question or candidate recommendation, last rendered first, then the directory tree depth, one level at a time down to 0, the summary alone. In call 3 no question or recommendation exists yet, so every cited excerpt may be removed.
+4. for calls 3–5: cited excerpts whose every citing finding is referenced by no open question or candidate recommendation, last rendered first, then the directory tree depth, one level at a time down to 0, the summary alone. In call 3 no question or recommendation exists yet, so every cited excerpt may be removed. An open question references the findings and gaps it resolves and the members of the conflicts it resolves; a candidate recommendation is every current valid recommendation, sent in the call or not, and references its `support` findings and its references' supporting findings.
 
 The known-facts section (§3.2.5), tier 3 manifests, the destination and expansion results (§1.8) are never removed. If the request still does not fit, the call is not sent. For call 2, code appends a `session_state` with the reason `stage_skipped` and `unsentPurpose: analyse_expansion`, so the session is `incomplete` (§4.4.2), and it continues with call 1's results (§2.12). For any other call, the session stops with an explanation. For call 1, code counts the fully reduced request once more without the destination: if that fits, the destination is the cause, and the session stops by the destination rule in §1.5 (`destination_exceeds_input_limit`); if not, it stops with `context_exceeds_input_limit`.
 
@@ -1054,6 +1060,17 @@ Details:
 - A path that matches the secret scan is recorded as `pathHash` instead of `path` (§1.7).
 - `tokenCheck.method` is `provider_count`, or `estimate` when the byte estimate was used (§1.10). `inputTokens` is the final count. Items the token check removed follow the other `skipped` entries, in rendering order; `reductions` lists each removal in the order made: `{ "step": "tier5" | "tier2" | "tier1" | "excerpt", "id", "path" (or `pathHash`), "bytes" }`, or `{ "step": "tree_depth", "treeDepth" }` with the depth after the step.
 - `retainedInputRef` is `null` until inputs are retained for a call (§1.12), `tokenCheck` until the token check runs (§1.10), and `expansion` when there was no expansion.
+- In call 2, the items of a file the expansion round blocked leave `items` and their tier's counts, and the file is in `excluded` (§1.8). An item of that file that call 1's token check had already removed keeps its `token-check:` entry in `skipped`, since call 2's `skipped` lists every removal so far (§1.10).
+
+**Calls 3–5** send no context items, and record a manifest of the same shape, describing what the call rendered (§3.2.6):
+
+- the versions, `settingsHash`, `snapshotId`, `excluded`, `ignoreRules` and `ignored` as in call 1, with files blocked since (§1.8) in `excluded` with `secret-scan:<rule ID>`, as the tree shows them;
+- `contextHash` is the SHA-256 of the call's user content, and `budget` is `initialContextBytes` and that content's bytes;
+- `knownFacts` is the cap, `usedBytes` 0, the known facts sent as `facts`, and as `leftOut` those left out of call 1 plus those withheld since;
+- `tiers` holds only tier 4, with its cap, the tree's bytes and its final depth;
+- `items` is empty: the findings sent, their evidence and the alias table record which excerpts were sent;
+- `skipped` lists the excerpts the token check removed, in rendering order, each with its path and `token-check:excerpt`, then the excerpts withheld by the scan (§3.2.6), in rendering order, with `secret-scan:<rule ID>`; a path that matches the scan is `pathHash`;
+- `tokenCheck` holds the call's `excerpt` and `tree_depth` reductions, and `expansion` is `null`.
 
 ### 1.14 Settings
 
@@ -2258,7 +2275,8 @@ A change to any prompt, schema, validator or detector requires the fixture suite
 - the change summary's lines, order and singular forms, and an empty summary;
 - `LIMITS` names and values for each call;
 - the `excerptReductions` entries in rendering order, and the manifest's `excerpt` and `tree_depth` reductions;
-- the same records and settings render identical bytes, and no assembled request sets a cache breakpoint, with every estimate passing `cachesInput: false`.
+- the same records and settings render identical bytes, and no assembled request sets a cache breakpoint, with every estimate passing `cachesInput: false`;
+- the manifest of calls 3–5 (§1.13): tier 4 alone, no items, the known-facts counts, removed and withheld excerpts in `skipped`, files blocked since in `excluded`, and its own `contextHash`.
 
 **Evidence basis and known facts** (§3.2.4–§3.2.5), with no model involved:
 

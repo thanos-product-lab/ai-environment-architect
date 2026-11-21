@@ -19,8 +19,11 @@ import {
   type ContextResult,
   type ContextSelectionSettings,
   canonicalJson,
+  reduceContext,
   selectContext,
   settingsHash,
+  treeAt,
+  withBlockedFiles,
 } from "./select.js";
 import {
   ALGORITHM_VERSION,
@@ -616,5 +619,131 @@ describe("the known-facts section (IMPL §3.2.5)", () => {
     await expect(run(repo, { context: { knownFactsBytes: 10_001 } })).rejects.toThrow(
       /knownFactsBytes add up to 310001 bytes/,
     );
+  });
+});
+
+describe("call 2's context without blocked files (IMPL §3.2.6, §1.8)", () => {
+  const nodes: Record<string, MemoryNode> = {
+    "CLAUDE.md": "# Rules\n\n- Run the tests.\n",
+    "README.md": "# App\n\nA small app.\n",
+    "src/index.ts": "export const a = 1;\n",
+  };
+
+  it("leaves the blocked file's item out, marks it [S] and lists it in excluded with its rule", async () => {
+    const context = await ready(nodes);
+    const facts = {
+      text: "<<<KNOWN FACTS>>>\n<<<END KNOWN FACTS>>>\n",
+      bytes: 40,
+      sent: 0,
+      leftOut: 2,
+    };
+    const blocked = withBlockedFiles(
+      context,
+      [{ path: "src/index.ts", ruleId: "generic-assignment" }],
+      facts,
+    );
+    expect(blocked.items.map((item) => item.path)).not.toContain("src/index.ts");
+    expect(blocked.tree.text).toContain("[S] index.ts");
+    expect(blocked.manifest.excluded).toContainEqual({
+      path: "src/index.ts",
+      reason: "secret-scan:generic-assignment",
+    });
+    expect(blocked.manifest.skipped).toEqual(context.manifest.skipped);
+    expect(blocked.manifest.items.map((item) => item.path)).not.toContain("src/index.ts");
+    expect(blocked.context.text.startsWith(facts.text)).toBe(true);
+    expect(blocked.manifest.knownFacts).toEqual({
+      capBytes: context.manifest.knownFacts.capBytes,
+      usedBytes: 40,
+      facts: 0,
+      leftOut: 2,
+    });
+    expect(blocked.manifest.contextHash).toBe(
+      sha256(new TextEncoder().encode(blocked.context.text)),
+    );
+  });
+
+  it("keeps the token check's earlier removals and IDs", async () => {
+    const context = await ready(nodes);
+    const readme = context.items.find((item) => item.path === "README.md");
+    const reduced = reduceContext(context, new Set([readme?.id as string]));
+    const facts = {
+      text: context.parts.factsText,
+      bytes: context.parts.factsBytes,
+      sent: context.parts.factsSent,
+      leftOut: context.parts.factsLeftOut,
+    };
+    const blocked = withBlockedFiles(
+      reduced,
+      [{ path: "src/index.ts", ruleId: "generic-assignment" }],
+      facts,
+    );
+    expect(blocked.removed).toEqual(reduced.removed);
+    expect(blocked.manifest.skipped).toEqual(reduced.manifest.skipped);
+    expect(blocked.items.map((item) => item.id)).toEqual(
+      reduced.items.filter((item) => item.path !== "src/index.ts").map((item) => item.id),
+    );
+  });
+
+  it("takes a blocked file's item out of its tier's counts", async () => {
+    const context = await ready(nodes);
+    const item = context.items.find((i) => i.path === "src/index.ts");
+    const facts = {
+      text: context.parts.factsText,
+      bytes: context.parts.factsBytes,
+      sent: context.parts.factsSent,
+      leftOut: context.parts.factsLeftOut,
+    };
+    const blocked = withBlockedFiles(
+      context,
+      [{ path: "src/index.ts", ruleId: "generic-assignment" }],
+      facts,
+    );
+    const tierOf = (c: typeof context) => c.manifest.tiers.find((t) => t.tier === item?.tier);
+    const before = tierOf(context);
+    const after = tierOf(blocked);
+    if (before === undefined || after === undefined || before.tier === 4 || after.tier === 4)
+      throw new Error("no tier entry");
+    expect(after.items).toBe(before.items - 1);
+    expect(after.usedBytes).toBe(before.usedBytes - (item?.rendered.bytes ?? 0));
+    expect(after.skipped).toBe(before.skipped);
+    expect(blocked.manifest.items.filter((i) => i.path === "src/index.ts")).toEqual([]);
+  });
+
+  it("keeps a blocked file's token-check entry in skipped when call 1's check had removed it", async () => {
+    const context = await ready(nodes);
+    const readme = context.items.find((item) => item.path === "README.md");
+    const reduced = reduceContext(context, new Set([readme?.id as string]));
+    const facts = {
+      text: reduced.parts.factsText,
+      bytes: reduced.parts.factsBytes,
+      sent: reduced.parts.factsSent,
+      leftOut: reduced.parts.factsLeftOut,
+    };
+    const blocked = withBlockedFiles(
+      reduced,
+      [{ path: "README.md", ruleId: "generic-assignment" }],
+      facts,
+    );
+    expect(blocked.manifest.skipped).toEqual(reduced.manifest.skipped);
+    expect(blocked.manifest.skipped).toContainEqual({
+      path: "README.md",
+      reason: `token-check:tier${readme?.tier}`,
+    });
+    expect(blocked.manifest.excluded).toContainEqual({
+      path: "README.md",
+      reason: "secret-scan:generic-assignment",
+    });
+    expect(blocked.manifest.tiers).toEqual(reduced.manifest.tiers);
+    expect(blocked.tree.text).toContain("[S] README.md");
+  });
+
+  it("renders the tree at a lower depth with the same markers", async () => {
+    const context = await ready(nodes);
+    const tree = treeAt(context, 1);
+    expect(tree.depth).toBe(1);
+    expect(tree.text).toContain("[R] CLAUDE.md");
+    expect(tree.text).toContain("src/ (1 files)");
+    expect(treeAt(context, context.tree.depth).text).toBe(context.tree.text);
+    expect(treeAt(context, 0).depth).toBe(0);
   });
 });

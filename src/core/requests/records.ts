@@ -188,6 +188,8 @@ export interface Withholding {
   readonly withheld: readonly RecordOf<"secret_withheld">[];
   /** Evidence IDs whose excerpts render `(excerpt withheld)`, in rendering order. */
   readonly withheldExcerpts: ReadonlySet<string>;
+  /** The rule each withheld excerpt matched, or its blocked file's (§1.8). */
+  readonly excerptRules: ReadonlyMap<string, string>;
 }
 
 /**
@@ -201,7 +203,7 @@ export function withholdForCall(log: SessionLog, numbering: RecordNumbering): Wi
   const candidates = numberRecords(records, numbering);
   const evidence = evidenceById(records);
   const blocked = blockedEvidenceRules(records);
-  const withheldExcerpts = new Set<string>();
+  const excerptRules = new Map<string, string>();
   const withheld: RecordOf<"secret_withheld">[] = [];
   const withhold = (itemId: string, secretRuleId: string) => {
     withheld.push(
@@ -219,16 +221,16 @@ export function withholdForCall(log: SessionLog, numbering: RecordNumbering): Wi
     // Excerpts only: `entry` evidence sends no content. No producer mixes the two in one claim
     // (known facts are all entries or one excerpt, model claims cite lines), so this agrees
     // with `withholdBlockedFiles`, which looks at all evidence.
-    const excerptRules: (string | undefined)[] = [];
+    const rules: (string | undefined)[] = [];
     for (const id of finding.evidenceIds) {
       const item = evidence.get(id);
       if (item?.kind !== "lines") continue;
       const rule = blocked.get(id) ?? scanText(item.excerpt);
-      if (rule !== undefined) withheldExcerpts.add(id);
-      excerptRules.push(rule);
+      if (rule !== undefined && !excerptRules.has(id)) excerptRules.set(id, rule);
+      rules.push(rule);
     }
-    if (excerptRules.length > 0 && excerptRules.every((rule) => rule !== undefined))
-      withhold(finding.findingId, excerptRules[0] as string);
+    if (rules.length > 0 && rules.every((rule) => rule !== undefined))
+      withhold(finding.findingId, rules[0] as string);
   }
   for (const { record } of candidates.conflicts) {
     const rule = scanText(record.description);
@@ -242,7 +244,7 @@ export function withholdForCall(log: SessionLog, numbering: RecordNumbering): Wi
     const rule = firstMatch([record.statement, ...record.exceptions, ...scopeTexts(record.scope)]);
     if (rule !== undefined) withhold(record.id, rule);
   }
-  return { withheld, withheldExcerpts };
+  return { withheld, withheldExcerpts: new Set(excerptRules.keys()), excerptRules };
 }
 
 function firstMatch(texts: readonly string[]): string | undefined {
