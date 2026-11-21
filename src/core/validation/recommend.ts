@@ -269,7 +269,7 @@ function parseContent(content: string): ContentBlock[] | undefined {
 
 const ATX = /^ {0,3}(#{1,6})(?=[ \t]|$)/;
 const ADDABLE: ReadonlySet<BlockType> = new Set(["paragraph", "list_item", "code_block"]);
-const MAX_ADDED_BLOCKS = 5;
+export const MAX_ADDED_BLOCKS = 5;
 
 /** A list item placed directly after another: its indentation, and its bullet or delimiter. */
 function continuesList(previous: ListMarker, next: ListMarker): boolean {

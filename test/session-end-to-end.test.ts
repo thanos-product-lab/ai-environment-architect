@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { loadReleasedPrompts } from "../src/adapters/prompts/released.js";
 import { recordInspection, runAnalyse, runExpansionStep } from "../src/core/run/analysis.js";
 import { runGenerateQuestions, runRecommend } from "../src/core/run/clarify.js";
 import { runRegeneration } from "../src/core/run/regenerate.js";
@@ -18,7 +19,7 @@ import type { CallPurpose } from "../src/core/validation/aliases.js";
 import { MemoryDestination } from "./support/memory-destination.js";
 import { fixedClock, fixedIds } from "./support/memory-fs.js";
 import { TEST_PROMPT_VERSION } from "./support/prompts.js";
-import { harness, PRICES } from "./support/run-harness.js";
+import { type HarnessOptions, harness, PRICES } from "./support/run-harness.js";
 
 // A full session on a synthetic fixture repository, through the core API, with a recorded
 // response for each of the five calls (M6, IMPL §1.2): inspect, call 1, the expansion round,
@@ -46,11 +47,11 @@ const recorded = (call: CallPurpose) =>
     "utf8",
   );
 
-async function fullSession() {
+async function fullSession(options: HarnessOptions = {}) {
   const nodes = Object.fromEntries(
     files(ROOT).map((path) => [relative(ROOT, path), readFileSync(path, "utf8")]),
   );
-  const h = await harness(nodes, PURPOSES.map(recorded));
+  const h = await harness(nodes, PURPOSES.map(recorded), options);
   const { session, deps, destination } = h;
 
   // Inspect, then call 1, the round and call 2.
@@ -198,6 +199,32 @@ describe("a full session through the core API (M6, IMPL §1.2)", () => {
         cachesInput: true,
       });
       expect(call.estimatedCost).not.toEqual(cached.cost);
+    }
+  });
+
+  it("runs the same session with the released prompts, which load, render and fit the token check (IMPL §3.7)", async () => {
+    const prompts = loadReleasedPrompts();
+    const { h, outcomes, applied } = await fullSession({ prompts });
+    expect(outcomes.five).toMatchObject({ kind: "ran", calls: [{ kind: "completed" }] });
+    expect(applied.kind).toBe("succeeded");
+
+    // Each request carries the rendered prompt as its system text, and each call records it.
+    expect(h.sent.map((request) => request.system)).toEqual(
+      PURPOSES.map((purpose) => prompts.prompt(purpose).text),
+    );
+    const started = calls(h.session.records).filter((c) => c.state === "started");
+    expect(started.map((c) => c.purpose)).toEqual(PURPOSES);
+    for (const call of started) {
+      const prompt = prompts.prompt(call.purpose);
+      expect([call.promptVersion, call.promptHash]).toEqual([prompt.version, prompt.hash]);
+      // The token check counted the prompt and needed no reduction to fit.
+      const check = call.inputManifest.tokenCheck;
+      if (check === null) throw new Error(`${call.purpose}: no token check`);
+      expect(check.reductions, call.purpose).toEqual([]);
+      expect(check.inputTokens + check.reservedOutputTokens).toBeLessThanOrEqual(
+        check.contextLimit,
+      );
+      expect(check.inputTokens).toBeGreaterThan(Buffer.byteLength(prompt.text) / 4);
     }
   });
 

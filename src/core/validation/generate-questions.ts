@@ -113,9 +113,12 @@ function rank(
 
 type Items = { questions: Question };
 
+/** Valid questions are kept up to this many times the question budget (LIMIT-002). */
+export const QUESTION_BUDGET_FACTOR = 2;
+
 /** LIMIT-002: valid questions ranked beyond twice the question budget. */
 const budgetCheck: CrossItemCheck<Items, QuestionContext> = (surviving, context) => {
-  const limit = 2 * context.questions.budget;
+  const limit = QUESTION_BUDGET_FACTOR * context.questions.budget;
   return rank(surviving.questions, context.questions)
     .slice(limit)
     .map((item) => ({

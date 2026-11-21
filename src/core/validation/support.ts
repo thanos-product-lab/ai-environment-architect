@@ -116,6 +116,9 @@ const TRAILING = /[.,;:!?)"']+$/;
 const EXTENSION = /\.[A-Za-z0-9]{1,10}$/;
 /** Any Unicode decimal digit (Nd), matched as written: `５` is not `5`. */
 const DIGITS = /\p{Nd}+/gu;
+/** The directive phrase matched apart from `DIRECTIVE_WORDS`, as the prompts name it. */
+export const USE_INSTEAD_PHRASE = "use … instead";
+
 // "use … instead" counts only on one line, in that order.
 const USE_INSTEAD = new RegExp(
   `(?<!${WORD})use(?!${WORD})[^\\n]*?(?<!${WORD})instead(?!${WORD})`,

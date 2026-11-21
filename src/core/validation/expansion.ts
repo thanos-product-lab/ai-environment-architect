@@ -103,7 +103,7 @@ const failure = (rule: string, detail: string): Failure => ({ ok: false, rule, d
 const NOT_A_GLOB = /[`\p{White_Space}\p{Cc}\p{Cf}]/u;
 const CONTROL = /\p{Cc}/u;
 const ONLY_PUNCTUATION = /^[\p{White_Space}\p{P}\p{S}]*$/u;
-const MIN_LITERAL_CODE_POINTS = 3;
+export const MIN_LITERAL_CODE_POINTS = 3;
 
 function ranges(lines: string): [number, number][] {
   return lines.split(",").map((range) => range.split("-").map(Number) as [number, number]);

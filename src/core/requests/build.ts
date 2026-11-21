@@ -36,7 +36,7 @@ import {
 // system prompt, the user content and the schema; the token check counts and reduces what this
 // builds, and the retry policy sends it. Requests set no cache breakpoint (§1.2, §4.6).
 
-/** One call's prompt from the prompt set: its version, the hash of its bytes, and its text. */
+/** One call's prompt from the prompt set: its version, the hash of its rendered text, and the text. */
 export interface CallPrompt {
   readonly version: string;
   readonly hash: Hash;

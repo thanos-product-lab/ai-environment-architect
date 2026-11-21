@@ -8,7 +8,8 @@
     "ai-environment-architect": "dist/cli/main.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "prompts"
   ],
   "engines": {
     "node": ">=24"

@@ -13,6 +13,7 @@ import {
 import { DEFAULT_TOKEN_SETTINGS } from "../../src/core/context/token-settings.js";
 import type { ModelRequest, SendResult } from "../../src/core/request.js";
 import type { RunDeps } from "../../src/core/run/analysis.js";
+import type { PromptSet } from "../../src/core/run/prompts.js";
 import type { PriceTable } from "../../src/core/session/cost.js";
 import {
   SESSION_FORMAT,
@@ -88,6 +89,8 @@ export interface HarnessOptions {
   readonly budget?: { readonly maxTokens?: number; readonly maxCostUsd?: number };
   /** The model's `max_tokens` in the Models API; 64,000 by default. */
   readonly maxOutputTokens?: number | null;
+  /** The prompt set; the test-only placeholders by default. */
+  readonly prompts?: PromptSet;
 }
 
 export interface Harness {
@@ -184,7 +187,7 @@ export async function harness(
       },
     },
     fs,
-    prompts: testPromptSet(),
+    prompts: options.prompts ?? testPromptSet(),
     apiVersion: "2026-10-21",
     allowTestPrompts: true,
   };

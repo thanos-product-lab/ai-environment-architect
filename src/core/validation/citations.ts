@@ -102,7 +102,8 @@ export type CitationResult =
       readonly original?: { readonly path: string };
     };
 
-const MIN_QUOTE_CODE_POINTS = 12;
+/** The shortest quote, in counted code points (CIT-007). */
+export const MIN_QUOTE_CODE_POINTS = 12;
 /** Provisional (IMPL §3.9): the longest final range a citation may have. Excerpts are never cut. */
 export const MAX_CITED_LINES = 40;
 /** Format characters and combining marks: invisible on their own, so not counted (provisional). */
