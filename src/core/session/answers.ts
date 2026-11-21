@@ -65,7 +65,8 @@ export interface CorrectionRequest {
  * and answers what it answered, with its question, conflict, finding and origin. Decisions have
  * no lineage, so the new one is a record of its own (IMPL §4.4.1). A withheld decision may be
  * corrected, as the developer is asked to (IMPL §2.12); a decision already superseded may not,
- * nor anything that isn't a decision. Call it inside one `HeldSession.change`.
+ * nor anything that isn't a decision. A finding marked wrong stays marked: `unmarkFinding` takes
+ * that back. Call it inside one `HeldSession.change`.
  */
 export function correctDecision(log: SessionLog, request: CorrectionRequest): Decision {
   const old = log.get(request.supersedes);
@@ -81,6 +82,42 @@ export function correctDecision(log: SessionLog, request: CorrectionRequest): De
     ...(old.conflictId === undefined ? {} : { conflictId: old.conflictId }),
     ...(old.findingId === undefined ? {} : { findingId: old.findingId }),
     origin: old.origin,
+    actor: request.actor,
+    decidedAt: request.decidedAt,
+    supersedes: [old.id],
+  });
+}
+
+export interface UnmarkRequest {
+  /** The current `developer_correction` that marks the finding wrong, by record ID. */
+  readonly supersedes: string;
+  /** The developer's words, such as "The finding is right after all." */
+  readonly statement: string;
+  readonly actor: string;
+  readonly decidedAt: string;
+}
+
+/**
+ * Takes back a finding the developer marked wrong (IMPL §4.5): a new `developer_correction` that
+ * supersedes the one naming the finding and names none, so the finding is current again and the
+ * change propagates as any decision change does (DM §12). It keeps the old one's scope and
+ * conflict. Refuses a decision that names no finding, one already superseded, and anything that
+ * isn't a decision. Call it inside one `HeldSession.change`.
+ */
+export function unmarkFinding(log: SessionLog, request: UnmarkRequest): Decision {
+  const old = log.get(request.supersedes);
+  if (old === undefined) throw new Error(`no decision ${request.supersedes}`);
+  if (old.type !== "decision") throw new Error(`${request.supersedes} isn't a decision`);
+  if (old.origin !== "developer_correction" || old.findingId === undefined)
+    throw new Error(`${old.id} doesn't mark a finding wrong`);
+  if (log.isSuperseded(old.id)) throw new Error(`${old.id} is already superseded`);
+  return log.append({
+    type: "decision",
+    statement: request.statement,
+    scope: old.scope,
+    exceptions: [],
+    ...(old.conflictId === undefined ? {} : { conflictId: old.conflictId }),
+    origin: "developer_correction",
     actor: request.actor,
     decidedAt: request.decidedAt,
     supersedes: [old.id],

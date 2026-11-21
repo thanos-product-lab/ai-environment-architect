@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { newLog } from "../../../test/support/session.js";
-import { answerQuestion, correctDecision } from "./answers.js";
+import { answerQuestion, correctDecision, unmarkFinding } from "./answers.js";
 import { currentState } from "./current.js";
 import type { SessionLog } from "./log.js";
 import type { RecordOf } from "./records.js";
@@ -101,6 +101,96 @@ describe("correctDecision (DM §8.2)", () => {
     expect(() => correctDecision(log, correction(old.id))).toThrow(/already superseded/);
     expect(() => correctDecision(log, correction(q.id))).toThrow(/isn't a decision/);
     expect(() => correctDecision(log, correction("dec_9999"))).toThrow(/no decision/);
+    expect(log.records).toHaveLength(before);
+  });
+});
+
+describe("unmarkFinding (IMPL §4.5, DM §8.2)", () => {
+  function marked(log: SessionLog) {
+    const snapshot = log.append(
+      {
+        type: "snapshot",
+        capturedAt: "2026-11-01T10:15:00.000Z",
+        scope: { roots: ["."] },
+        exclusions: [],
+        files: [],
+        destination: { state: "absent" },
+        readFailures: [],
+        stability: { state: "stable" },
+        git: { state: "unknown", reason: "not_inspected" },
+        ignoreRules: { state: "applied" },
+      },
+      { id: "snap_0001" },
+    );
+    const evidence = log.append({
+      type: "evidence",
+      snapshotId: snapshot.id,
+      kind: "lines",
+      path: "src/a.ts",
+      fileHash: `sha256:${"a".repeat(64)}`,
+      lineStart: 1,
+      lineEnd: 1,
+      excerpt: "export const a = 1;",
+      basis: "code_observation",
+    });
+    const finding = log.start({
+      type: "finding",
+      snapshotId: snapshot.id,
+      producedBy: "call_0001",
+      status: "active",
+      kind: "claim",
+      statement: "Code is in one module.",
+      mode: "descriptive",
+      scope: { kind: "repository" },
+      basis: ["code_observation"],
+      evidenceIds: [evidence.id],
+    });
+    const correction = log.append({
+      type: "decision",
+      statement: "That finding is wrong.",
+      scope: { kind: "repository" },
+      exceptions: [],
+      findingId: finding.findingId,
+      origin: "developer_correction",
+      actor: "developer",
+      decidedAt: "2026-11-01T10:20:00.000Z",
+    }) as RecordOf<"decision">;
+    return { finding, correction };
+  }
+
+  const unmark = (supersedes: string) => ({
+    supersedes,
+    statement: "The finding is right after all.",
+    actor: "developer",
+    decidedAt: "2026-11-01T10:30:00.000Z",
+  });
+
+  it("supersedes the correction with one that names no finding, so the finding is current again", () => {
+    const log = newLog();
+    const { finding, correction } = marked(log);
+    expect(currentState(log.records).correctedFindings.has(finding.findingId)).toBe(true);
+    const undone = unmarkFinding(log, unmark(correction.id));
+    expect(undone).toMatchObject({
+      origin: "developer_correction",
+      scope: correction.scope,
+      supersedes: [correction.id],
+    });
+    expect(undone).not.toHaveProperty("findingId");
+    const state = currentState(log.records);
+    expect(state.findings.has(finding.findingId)).toBe(true);
+    expect(state.correctedFindings.has(finding.findingId)).toBe(false);
+  });
+
+  it("refuses an answer, a superseded correction and anything that isn't a decision", () => {
+    const log = newLog();
+    const { finding, correction } = marked(log);
+    const q = question(log);
+    const answered = answer(log, q.questionId);
+    expect(() => unmarkFinding(log, unmark(answered.id))).toThrow(/doesn't mark a finding wrong/);
+    unmarkFinding(log, unmark(correction.id));
+    const before = log.records.length;
+    expect(() => unmarkFinding(log, unmark(correction.id))).toThrow(/already superseded/);
+    expect(() => unmarkFinding(log, unmark(finding.id))).toThrow(/isn't a decision/);
     expect(log.records).toHaveLength(before);
   });
 });
