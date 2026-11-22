@@ -245,6 +245,48 @@ describe("call 5 paths (IMPL §3.3.6, §3.2.6)", () => {
     expect(dropped).toHaveLength(31);
   });
 
+  it("still sends the next part after the complete-request scan empties one (IMPL §1.7)", async () => {
+    // As JSON, the line break becomes `\n` and joins the password to the host, so each of the
+    // first part's rationales matches only in the complete request.
+    const hidden = ["Use postgres://admin:", "hunter\nx@db.internal for the tests."].join("");
+    const t = await throughRecommend([dropAll], undefined, {}, hidden);
+    const [first] = revisions(t);
+    if (first === undefined) throw new Error("no recommendation");
+    await t.h.session.change((log) => {
+      for (let i = 1; i <= 30; i++)
+        log.start({
+          type: "recommendation_revision",
+          kind: "policy",
+          operation: "add",
+          target: { kind: "newSection", heading: `Section ${i}` },
+          content: `Policy ${i} applies.`,
+          rationale: i < 30 ? hidden : "The developer decided.",
+          support: first.support,
+          references: [],
+          scope: { kind: "repository" },
+          producedBy: first.producedBy,
+          status: "valid",
+        } as never);
+    });
+    const before = t.h.sent.length;
+    const decision = await correct(t);
+    const outcome = await runRegeneration(t.h.session, t.h.deps, t.run, {
+      kind: "decision",
+      decisionId: decision.id,
+    });
+    expect(outcome).toMatchObject({
+      kind: "ran",
+      calls: [{ kind: "emptied" }, { kind: "completed" }],
+    });
+    // Only the second part was sent, naming its one recommendation.
+    expect(t.h.sent).toHaveLength(before + 1);
+    expect(rAliases(lastCall(t))).toEqual(["R-1"]);
+    const invalidated = revisions(t).filter((r) => r.invalidatedReason === "secret_match");
+    expect(invalidated).toHaveLength(30);
+    expect(invalidated.every((r) => r.secretRuleId === "connection-string")).toBe(true);
+    expect(revisions(t).filter((r) => r.invalidatedReason === "dropped_by_model")).toHaveLength(1);
+  });
+
   it("writes the change summary's lines after a refresh: a stale finding and a changed target", async () => {
     const t = await throughRecommend([dropAll]);
     const [first] = revisions(t);

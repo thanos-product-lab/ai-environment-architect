@@ -1,6 +1,6 @@
 import type { ModelRequest } from "../request.js";
 import { DESTINATION_PATH } from "../snapshot/snapshot.js";
-import { recordedPath, type SecretRuleId, scanText } from "./secrets.js";
+import { findSecret, recordedPath, type SecretMatch, type SecretRuleId } from "./secrets.js";
 import {
   type ReadyContext,
   type Reduction,
@@ -75,18 +75,40 @@ export type TokenCheckResult =
       readonly tokenCheck: TokenCheckRecord;
     }
   /** The request matched the secret scan, so it was neither counted nor sent (§1.7). */
-  | { readonly state: "secret_match"; readonly ruleId: SecretRuleId; readonly removed: number }
+  | {
+      readonly state: "secret_match";
+      readonly ruleId: SecretRuleId;
+      readonly removed: number;
+      /** The request that matched, and where: the runner leaves out the records it overlaps. */
+      readonly request: ModelRequest;
+      readonly match: RequestSecret;
+    }
   /** The call is not sent without the input limit: a guessed one could change what is sent. */
   | { readonly state: "limit_unavailable"; readonly reason: string };
 
+/** A match in a request: the part of the request it is in, and its offsets in that part. */
+export interface RequestSecret extends SecretMatch {
+  readonly part: "system" | "user" | "retryMessage" | "schema";
+}
+
+/** The first secret-scan match in what the request sends, in sending order, if any. */
+export function findRequestSecret(request: ModelRequest): RequestSecret | undefined {
+  const parts: [RequestSecret["part"], string | undefined][] = [
+    ["system", request.system],
+    ["user", request.user],
+    ["retryMessage", request.retryMessage],
+    ["schema", JSON.stringify(request.schema)],
+  ];
+  for (const [part, text] of parts) {
+    const match = text === undefined ? undefined : findSecret(text);
+    if (match !== undefined) return { part, ...match };
+  }
+  return undefined;
+}
+
 /** The rule ID of the first secret-scan match in what the request sends, if any. */
 export function scanRequest(request: ModelRequest): SecretRuleId | undefined {
-  return (
-    scanText(request.system) ??
-    scanText(request.user) ??
-    (request.retryMessage === undefined ? undefined : scanText(request.retryMessage)) ??
-    scanText(JSON.stringify(request.schema))
-  );
+  return findRequestSecret(request)?.ruleId;
 }
 
 /**
@@ -156,8 +178,9 @@ async function run(
       throw new Error(
         `the request's max_tokens (${request.maxTokens}) is not ${purpose}'s reservedOutputTokens (${limit.reservedOutputTokens})`,
       );
-    const ruleId = scanRequest(request);
-    if (ruleId !== undefined) return { state: "secret_match", ruleId, removed };
+    const match = findRequestSecret(request);
+    if (match !== undefined)
+      return { state: "secret_match", ruleId: match.ruleId, removed, request, match };
     const inputTokens = await measure.count(request);
     const tokenCheck: TokenCheckRecord = {
       model: request.model,

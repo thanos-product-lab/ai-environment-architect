@@ -483,3 +483,24 @@ describe("alias tables (IMPL §3.2.1)", () => {
     expect(table.entries.filter((e) => e.kind === "B").map((e) => e.alias)).toEqual(blockLines);
   });
 });
+
+describe("record spans for the complete-request scan (IMPL §1.7)", () => {
+  it("maps each record to exactly the lines it rendered, after any reduction", async () => {
+    const s = await session();
+    claim(s, "src/a.ts", "export const a = 1;");
+    claim(s, "src/b.ts", "export const b = 2;");
+    const built = plan(s, "generate_questions");
+    for (let removed = 0; removed <= built.plan.units.length; removed++) {
+      const user = built.plan.render(removed).user;
+      const spans = built.spans(removed);
+      expect(spans.map((span) => span.target.kind)).toEqual(["item", "item"]);
+      for (const span of spans) {
+        const text = user.slice(span.start, span.end);
+        expect(text).toMatch(/^F-\d+ {2}\[/);
+        expect(text.endsWith("\n")).toBe(true);
+      }
+      // Spans are in rendering order and don't overlap.
+      expect((spans[0]?.end ?? 0) <= (spans[1]?.start ?? 0)).toBe(true);
+    }
+  });
+});

@@ -8,7 +8,9 @@ import { recordKnownFacts } from "../session/analysis.js";
 import type { SessionLog } from "../session/log.js";
 import {
   citedExcerpts,
+  locateSpans,
   numberRecords,
+  overlappedTargets,
   type RecordNumbering,
   renderCallOneResults,
   renderChanges,
@@ -16,7 +18,10 @@ import {
   renderLimits,
   renderRecordSections,
   section,
+  spannedCallOneResults,
+  spannedRecordSections,
   withholdForCall,
+  withholdMatch,
 } from "./records.js";
 
 // Rendering validated records for calls 2–5 (IMPL §3.2.6), with no model involved (§3.8).
@@ -906,5 +911,176 @@ describe("call 2 (IMPL §3.2.6)", () => {
     expect(out).toContain("C-1  [unresolved]  members: F-4, F-5\n");
     expect(out.endsWith("<<<END CALL 1 RESULTS>>>\n")).toBe(true);
     expect(out).not.toContain("is existing agent configuration");
+  });
+});
+
+describe("record spans and the complete-request scan (IMPL §1.7)", () => {
+  /** A connection string whose raw form holds a line break, so it matches only as JSON. */
+  const hidden = ["postgres://admin:", "s3cret\nx@db.internal"].join("");
+
+  function everyKind() {
+    const s = session();
+    const block = parseGuidanceBlocks(s.bytes).blocks[0];
+    const f = claim(s, "Seen in the code.", [lines(s, "src/a.ts", "export const a = 1;").id]);
+    const g = claim(s, "Seen elsewhere.", [lines(s, "src/b.ts", "export const b = 2;").id]);
+    const c = conflict(s, [f.findingId, g.findingId]);
+    const q = question(s, [f.findingId]);
+    const d = decision(s, { questionId: q.questionId });
+    const r = s.log.start({
+      type: "recommendation_revision",
+      kind: "fact",
+      operation: "add",
+      target: { kind: "after", blockId: block?.blockId, blockHash: block?.hash },
+      content: "Use pnpm.",
+      rationale: "It's documented.",
+      support: [{ kind: "finding", findingId: f.findingId }],
+      references: [],
+      scope: { kind: "repository" },
+      producedBy: "call_0003",
+      status: "valid",
+    } as never) as { recommendationId: string };
+    return { s, f, g, c, q, d, r };
+  }
+
+  function spansOf(s: Session, recommendations: string[]) {
+    const numbered = numberRecords(
+      s.log.records,
+      numbering("regenerate_recommendations", [], recommendations),
+    );
+    const sections = spannedRecordSections(numbered, {
+      records: s.log.records,
+      destination: s.bytes,
+      withheldExcerpts: new Set(),
+      removedExcerpts: new Set(),
+    });
+    const all = [
+      sections.findings,
+      sections.conflicts,
+      sections.questions,
+      sections.decisions,
+      sections.recommendations,
+    ];
+    const user = `fixed text\n${all.map((x) => x.text).join("")}more fixed text\n`;
+    return { user, spans: locateSpans(user, all), sections };
+  }
+
+  it("names every kind of record by the ID a secret_withheld or invalidation takes", () => {
+    const { s, f, g, c, q, d, r } = everyKind();
+    const { user, spans } = spansOf(s, [r.recommendationId]);
+    expect(spans.map((span) => span.target)).toEqual([
+      { kind: "item", itemId: f.findingId },
+      { kind: "item", itemId: g.findingId },
+      { kind: "item", itemId: c.conflictId },
+      { kind: "item", itemId: q.questionId },
+      { kind: "item", itemId: d.id },
+      { kind: "recommendation", recommendationId: r.recommendationId },
+    ]);
+    for (const [span, alias] of spans.map((x, i) => [
+      x,
+      ["F-1", "F-2", "C-1", "Q-1", "D-1", "R-1"][i],
+    ]))
+      expect(user.slice((span as { start: number }).start)).toMatch(new RegExp(`^${alias} {2}\\[`));
+  });
+
+  it("gives call 2's results section the spans of its findings, then its conflicts", () => {
+    const { s, f, g, c } = everyKind();
+    const numbered = numberRecords(s.log.records, numbering("analyse_expansion"));
+    const results = spannedCallOneResults(numbered, {
+      records: s.log.records,
+      destination: s.bytes,
+      withheldExcerpts: new Set(),
+      removedExcerpts: new Set(),
+    });
+    expect(results.spans.map((span) => span.target)).toEqual([
+      { kind: "item", itemId: f.findingId },
+      { kind: "item", itemId: g.findingId },
+      { kind: "item", itemId: c.conflictId },
+    ]);
+    expect(results.text).toBe(
+      renderCallOneResults(numbered, {
+        records: s.log.records,
+        destination: s.bytes,
+        withheldExcerpts: new Set(),
+        removedExcerpts: new Set(),
+      }),
+    );
+  });
+
+  it("refuses a section that isn't in the request exactly once", () => {
+    const { s } = everyKind();
+    const { sections } = spansOf(s, []);
+    expect(() => locateSpans("nothing here", [sections.findings])).toThrow(/exactly once/);
+    const twice = sections.findings.text + sections.findings.text;
+    expect(() => locateSpans(twice, [sections.findings])).toThrow(/exactly once/);
+  });
+
+  it("finds the records a match overlaps, end exclusive, each once", () => {
+    const a = { kind: "item" as const, itemId: "fnd_a" };
+    const b = { kind: "item" as const, itemId: "fnd_b" };
+    const spans = [
+      { target: a, start: 10, end: 20 },
+      { target: b, start: 20, end: 30 },
+    ];
+    expect(overlappedTargets(spans, 0, 10)).toEqual([]);
+    expect(overlappedTargets(spans, 19, 21)).toEqual([a, b]);
+    expect(overlappedTargets(spans, 20, 25)).toEqual([b]);
+    expect(overlappedTargets(spans, 30, 40)).toEqual([]);
+    expect(overlappedTargets([...spans, { target: a, start: 40, end: 50 }], 0, 60)).toEqual([a, b]);
+  });
+
+  it("withholds an overlapped item and invalidates an overlapped recommendation, naming only the rule", () => {
+    const { s, f, g, d, r } = everyKind();
+    const { spans } = spansOf(s, [r.recommendationId]);
+    const at = (target: string) =>
+      spans.find((x) =>
+        x.target.kind === "item"
+          ? x.target.itemId === target
+          : x.target.recommendationId === target,
+      ) as { start: number; end: number };
+    const match = {
+      ruleId: "connection-string",
+      start: at(d.id).start,
+      end: at(r.recommendationId).start + 1,
+    };
+    // The match runs from the decision across the recommendation's first line.
+    const done = withholdMatch(s.log, match, spans);
+    expect(done.withheld.map((w) => [w.itemId, w.secretRuleId])).toEqual([
+      [d.id, "connection-string"],
+    ]);
+    expect(done.invalidated).toHaveLength(1);
+    expect(done.invalidated[0]).toMatchObject({
+      recommendationId: r.recommendationId,
+      status: "invalidated",
+      invalidatedReason: "secret_match",
+      secretRuleId: "connection-string",
+    });
+    expect(done.invalidated[0]).not.toHaveProperty("revisedBy");
+    // What is left is current state without them; the finding stays.
+    const again = numberRecords(s.log.records, numbering("recommend"));
+    expect(again.decisions).toHaveLength(0);
+    expect(again.findings.map((x) => x.record.findingId)).toEqual([f.findingId, g.findingId]);
+  });
+
+  it("fails as an internal error, appending nothing, when the match overlaps no record", () => {
+    const { s, r } = everyKind();
+    const { spans } = spansOf(s, [r.recommendationId]);
+    const before = s.log.records.length;
+    expect(() =>
+      withholdMatch(s.log, { ruleId: "aws-access-key-id", start: 0, end: 5 }, spans),
+    ).toThrow(/internal error: .*aws-access-key-id/);
+    expect(s.log.records).toHaveLength(before);
+  });
+
+  it("a text field that matches only once rendered as JSON is caught by its span, not by withholdForCall", () => {
+    const s = session();
+    const f = claim(s, hidden, [lines(s, "src/a.ts", "export const a = 1;").id]);
+    // The raw text holds a line break, so the per-record scan finds nothing.
+    expect(withholdForCall(s.log, numbering("generate_questions")).withheld).toEqual([]);
+    const { user, spans } = spansOf(s, []);
+    expect(user).toContain("postgres://admin:");
+    const start = user.indexOf("postgres://");
+    expect(overlappedTargets(spans, start, start + 10)).toEqual([
+      { kind: "item", itemId: f.findingId },
+    ]);
   });
 });

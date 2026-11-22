@@ -12,7 +12,7 @@ import type {
 //
 // A fixed, versioned set of patterns for known secret formats. Every rule works within one line,
 // so a rendered item can be scanned as it is: line numbers, header and outline included. A match
-// reports only the rule's ID, never the matched text or where it was.
+// reports only the rule's ID, never the matched text; `findSecret` also says where it is.
 
 /** Increase with any change to the rules or their order; a test pins the set to its version. */
 export const SECRET_RULES_VERSION = "secret-scan/1.1.0";
@@ -114,24 +114,46 @@ export const SECRET_RULES: readonly SecretRule[] = [
 
 /** The first rule that matches anywhere in `text`, or undefined. */
 export function scanText(text: string): SecretRuleId | undefined {
-  return SECRET_RULES.find((rule) => matchesRule(rule, text))?.id;
+  return findSecret(text)?.ruleId;
 }
 
-function matchesRule(rule: SecretRule, text: string): boolean {
+/**
+ * Where a match is: its rule, and the UTF-16 offsets of its first match in `text`. Only the
+ * scan of a complete request uses the offsets, to find the records a match overlaps (IMPL §1.7);
+ * nothing records them, nor the matched text.
+ */
+export interface SecretMatch {
+  readonly ruleId: SecretRuleId;
+  readonly start: number;
+  readonly end: number;
+}
+
+/** The first rule that matches anywhere in `text`, with its first counting match. */
+export function findSecret(text: string): SecretMatch | undefined {
+  for (const rule of SECRET_RULES) {
+    const found = firstMatch(rule, text);
+    if (found !== undefined)
+      return { ruleId: rule.id, start: found.index, end: found.index + found[0].length };
+  }
+  return undefined;
+}
+
+function firstMatch(rule: SecretRule, text: string): RegExpExecArray | undefined {
   const value = rule.value;
-  if (value === undefined) return rule.pattern.test(text);
-  if (!rule.pattern.test(text)) return false;
+  if (value === undefined) return rule.pattern.exec(text) ?? undefined;
+  if (!rule.pattern.test(text)) return undefined;
   // Matches don't overlap, and each is found in one pass, so this stays linear in the text.
-  for (const match of text.matchAll(new RegExp(rule.pattern.source, `${rule.pattern.flags}g`))) {
+  const all = new RegExp(rule.pattern.source, `${rule.pattern.flags}g`);
+  for (let match = all.exec(text); match !== null; match = all.exec(text)) {
     const literal = match.slice(1).find((group) => group !== undefined) ?? "";
     const unpadded = literal.replace(/=+$/, "");
     const hex = /^[0-9a-f]+$/.test(unpadded) || /^[0-9A-F]+$/.test(unpadded);
     const random = hex
       ? unpadded.length >= value.minHexLength && valueEntropy(unpadded) >= value.minHexBitsPerChar
       : valueEntropy(unpadded) >= value.minBitsPerChar;
-    if (random) return true;
+    if (random) return match;
   }
-  return false;
+  return undefined;
 }
 
 /** Shannon entropy in bits per character, over UTF-16 code units (values are ASCII). */

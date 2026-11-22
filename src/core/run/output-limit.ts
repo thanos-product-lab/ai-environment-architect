@@ -91,8 +91,9 @@ export async function raiseOutputLimit<O>(
     },
   });
   if (revision !== undefined) return { kind: "resent", revision, outcome };
-  // Nothing was appended. Only a call that doesn't fit refuses the value; any other stop, such
-  // as a failed input-limit lookup or a secret match, is the runner's to report (§1.10).
+  // Only a call that doesn't fit refuses the value; any other stop, such as a failed input-limit
+  // lookup, is the runner's to report (§1.10). A match in the complete request is not a stop:
+  // the runner withholds what it overlaps and builds the call again (§1.7).
   return doesNotFit(outcome)
     ? { kind: "refused", reason: "the call wouldn't fit its token check with that limit" }
     : { kind: "not_sent", outcome };

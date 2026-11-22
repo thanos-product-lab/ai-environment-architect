@@ -11,6 +11,7 @@ import { sha256 } from "../hash.js";
 import { captureSnapshot, DEFAULT_SNAPSHOT_SETTINGS } from "../snapshot/snapshot.js";
 import {
   applySecretScan,
+  findSecret,
   GAP_WITHHELD,
   importWithheld,
   type ScannedSelection,
@@ -178,6 +179,46 @@ async function selectedAfterScan(
   if (result.state !== "selected") throw new Error(`expected a selection, got ${result.state}`);
   return result;
 }
+
+describe("findSecret", () => {
+  for (const fixture of SECRET_FIXTURES) {
+    it.each(fixture.matches.map((line, index) => [index, line]))(
+      `${fixture.rule}: agrees with scanText and locates fixture %i inside the line`,
+      (_, line) => {
+        const text = `before\n  12 | ${line}\nafter\n`;
+        const found = findSecret(text);
+        expect(found?.ruleId).toBe(scanText(text));
+        // The span lies within the fixture's line, and the fixture's text contains it.
+        const lineStart = text.indexOf(line);
+        expect(found?.start).toBeGreaterThanOrEqual(lineStart);
+        expect(found?.end).toBeLessThanOrEqual(lineStart + line.length);
+        expect((found?.end ?? 0) > (found?.start ?? 0)).toBe(true);
+      },
+    );
+  }
+
+  it("reports the first counting match of the first rule, in rule order", () => {
+    const text = `a: ${awsKey}\nb: ${awsKey}\n`;
+    expect(findSecret(text)).toEqual({
+      ruleId: "aws-access-key-id",
+      start: 3,
+      end: 3 + awsKey.length,
+    });
+  });
+
+  it("skips a low-entropy assignment and locates a later one on the same line", () => {
+    const low = "token = aaaaaaaaaaaaaaaaaaaa1";
+    const high = `api_key = "${["q7Wm2Lp9", "Zx4Rt8Nv", "3Kb6"].join("")}"`;
+    const text = `${low}; ${high}`;
+    const found = findSecret(text);
+    expect(found?.ruleId).toBe("generic-assignment");
+    expect(found?.start).toBeGreaterThanOrEqual(low.length);
+  });
+
+  it("returns undefined when no rule matches", () => {
+    expect(findSecret("export const x = 1;\n")).toBeUndefined();
+  });
+});
 
 describe("applySecretScan", () => {
   it("removes each blocked file and records its path, tier and rule", async () => {

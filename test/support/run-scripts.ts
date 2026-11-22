@@ -72,8 +72,10 @@ export const questions: Answer = (request) =>
 
 export const RECOMMENDED = "Run the tests in CI as well as before pushing.";
 
+export const RATIONALE = "The developer decided where the tests run.";
+
 export const recommendation =
-  (content = RECOMMENDED): Answer =>
+  (content = RECOMMENDED, rationale = RATIONALE): Answer =>
   (request) =>
     response(
       request,
@@ -84,7 +86,7 @@ export const recommendation =
             kind: "policy",
             operation: "add",
             target: { kind: "newSection", heading: "Testing" },
-            rationale: "The developer decided where the tests run.",
+            rationale,
             support: ["D-1"],
             references: [],
             scope: { kind: "repository" },
@@ -107,10 +109,11 @@ export async function throughRecommend(
   later: Answer[],
   content = RECOMMENDED,
   options: Parameters<typeof harness>[2] = {},
+  rationale = RATIONALE,
 ): Promise<ThroughRecommend> {
   const answers: Answer[] = [];
   const h = await harness(NODES, answers, options);
-  answers.push(callOne(h), questions, recommendation(content), ...later);
+  answers.push(callOne(h), questions, recommendation(content, rationale), ...later);
   const inspection = await recordInspection(h.session, h.context);
   const one = await runAnalyse(h.session, h.deps, {
     context: h.context,

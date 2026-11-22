@@ -25,11 +25,13 @@ import { type AliasTable, type CallPurpose, createAliasTable } from "../validati
 import {
   type ChangeLines,
   citedExcerpts,
+  locateSpans,
   type NumberedRecords,
+  type RecordSpan,
   type RenderContext,
   renderChanges,
   renderLimits,
-  renderRecordSections,
+  spannedRecordSections,
 } from "./records.js";
 
 // Building each call's complete request (IMPL §1.10, §1.13, §3.2.6, §3.7). Code assembles the
@@ -119,6 +121,8 @@ export interface RecordCallPlan {
   readonly plan: ReductionPlan;
   /** The manifest of the request with the first `removed` units made (IMPL §1.13). */
   manifest(removed: number, tokenCheck: TokenCheckRecord): InputManifest;
+  /** Each record's span in that request's user content, for the complete-request scan (§1.7). */
+  spans(removed: number): RecordSpan[];
 }
 
 /** The limits each call's `LIMITS` section sends (IMPL §3.2.6), in schema order. */
@@ -162,24 +166,32 @@ export function recordCallPlan(
   };
   const user = (n: number) => {
     const { removedExcerpts, depth } = removedBy(n);
-    const sections = renderRecordSections(numbered, { ...input.render, removedExcerpts });
+    const sections = spannedRecordSections(numbered, { ...input.render, removedExcerpts });
     const tree = depth === base.tree.depth ? base.tree : treeAt(base, depth);
+    const sent = [
+      sections.findings,
+      sections.conflicts,
+      ...(input.call === "generate_questions" ? [] : [sections.questions, sections.decisions]),
+      ...(input.call === "regenerate_recommendations" ? [sections.recommendations] : []),
+    ];
     const text = [
       destination,
       tree.text,
       limits,
-      sections.findings,
-      sections.conflicts,
-      ...(input.call === "generate_questions" ? [] : [sections.questions, sections.decisions]),
+      ...sent.map((section) => section.text),
       ...(input.call === "regenerate_recommendations"
-        ? [sections.recommendations, renderChanges(input.changes ?? NO_CHANGES)]
+        ? [renderChanges(input.changes ?? NO_CHANGES)]
         : []),
     ].join("");
-    return { text, tree, removedExcerpts };
+    return { text, tree, removedExcerpts, sections: sent };
   };
 
   return {
     plan: { units, render: (n) => modelRequest(input.call, prompt, model, user(n).text) },
+    spans(removed) {
+      const { text, sections } = user(removed);
+      return locateSpans(text, sections);
+    },
     manifest(removed, tokenCheck) {
       const { text, tree, removedExcerpts } = user(removed);
       const bytes = new TextEncoder().encode(text);

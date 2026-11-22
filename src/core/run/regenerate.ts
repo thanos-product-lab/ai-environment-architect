@@ -79,7 +79,8 @@ export async function runRegeneration(
     const outcome = await runRegenerationPart(session, deps, run, trigger, part, affectedSet);
     calls.push(outcome);
     // The later parts are left as they are: still affected, so the next run sends them again.
-    if (outcome.kind !== "completed") break;
+    // A part the complete-request scan emptied sent nothing, so the next part still goes (§1.7).
+    if (outcome.kind !== "completed" && outcome.kind !== "emptied") break;
   }
   return { kind: "ran", calls };
 }

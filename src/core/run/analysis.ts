@@ -20,11 +20,14 @@ import {
   modelRequest,
 } from "../requests/build.js";
 import {
+  locateSpans,
   numberRecords,
   type RecordNumbering,
-  renderCallOneResults,
   renderKnownFactsAgain,
+  spannedCallOneResults,
+  unsendable,
   withholdForCall,
+  withholdMatch,
 } from "../requests/records.js";
 import { recordAnalyse, recordAnalyseExpansion, recordKnownFacts } from "../session/analysis.js";
 import { skipExpansion } from "../session/calls.js";
@@ -240,7 +243,7 @@ export async function recordInspection(
 
 // --- Call 1 ----------------------------------------------------------------------------------
 
-type Stop = Exclude<ContextCallResult, { state: "fits" | "skipped" }>;
+type Stop = Exclude<ContextCallResult, { state: "fits" | "skipped" | "secret_match" }>;
 
 export type AnalyseOutcome =
   | (Extract<CallOutcome<AnalyseValidation>, { kind: "completed" }> & {
@@ -275,6 +278,9 @@ export async function runAnalyse(
     build,
     tokenDeps(deps, session.records, options),
   );
+  // Call 1 sends no validated record: every item was scanned as it was selected, so a match in
+  // the complete request is in code's fixed text, an internal error (§1.7).
+  if (fits.state === "secret_match") throw unsendable(fits.ruleId);
   if (fits.state !== "fits") return { kind: "stopped", stop: fits as Stop };
   await options?.resend?.beforeSend();
   await recordGap(session, input.inspection.snapshotId, fits.gap, options);
@@ -462,8 +468,9 @@ export async function runCallTwo(
     sent: facts.facts,
     leftOut: callOne.sent.parts.factsLeftOut + (k - facts.facts),
   });
+  const results = spannedCallOneResults(numbered, render);
   const parts = {
-    results: renderCallOneResults(numbered, render),
+    results: results.text,
     status: renderExpansionStatus(round),
     items: round.items.map((item) => item.rendered.text),
   };
@@ -483,7 +490,17 @@ export async function runCallTwo(
     });
     return { kind: "skipped", round: record };
   }
-  if (fits.state !== "fits") return { kind: "stopped", round: record, stop: fits as Stop };
+  if (fits.state === "secret_match") {
+    // The complete request still matches (§1.7): leave out the call-1 records it overlaps, then
+    // build and check call 2 again. A match in no record, such as in a context or `E` item,
+    // which were scanned as they were read, is in code's fixed text: an internal error.
+    const { match } = fits;
+    if (match.part !== "user") throw unsendable(match.ruleId);
+    const spans = locateSpans(fits.request.user, [facts, results]);
+    await session.change((log) => withholdMatch(log, match, spans));
+    return runCallTwo(session, deps, input, recorded, options);
+  }
+  if (fits.state !== "fits") return { kind: "stopped", round: record, stop: fits };
   await options?.resend?.beforeSend();
 
   const sent = fits.context;

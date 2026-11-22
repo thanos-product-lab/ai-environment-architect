@@ -201,7 +201,12 @@ describe("checkTokens (IMPL §1.10)", () => {
       { units: units(1), render: () => request(`id = ${awsKey}\n`) },
       { counter, models: limits(400), tokens: TOKENS },
     );
-    expect(result).toEqual({ state: "secret_match", ruleId: "aws-access-key-id", removed: 0 });
+    expect(result).toMatchObject({
+      state: "secret_match",
+      ruleId: "aws-access-key-id",
+      removed: 0,
+      match: { part: "user", start: 5, end: 5 + awsKey.length },
+    });
     expect(counted).toHaveLength(0);
   });
 
@@ -212,7 +217,7 @@ describe("checkTokens (IMPL §1.10)", () => {
       { units: [], render: () => request("x", { system: `key ${awsKey}` }) },
       { counter, models: limits(400), tokens: TOKENS },
     );
-    expect(result.state).toBe("secret_match");
+    expect(result).toMatchObject({ state: "secret_match", match: { part: "system", start: 4 } });
     expect(counted).toHaveLength(0);
   });
 
@@ -223,7 +228,13 @@ describe("checkTokens (IMPL §1.10)", () => {
       plan(3, (r) => (r === 2 ? `${awsKey}\n` : "x".repeat(100 * r))),
       { counter, models: limits(250), tokens: TOKENS },
     );
-    expect(result).toEqual({ state: "secret_match", ruleId: "aws-access-key-id", removed: 1 });
+    expect(result).toMatchObject({
+      state: "secret_match",
+      ruleId: "aws-access-key-id",
+      removed: 1,
+    });
+    // The request returned is the one that matched, so the runner can map the match to records.
+    expect(result.state === "secret_match" && result.request.user).toBe(`${awsKey}\n`);
     expect(counted).toHaveLength(1);
   });
 

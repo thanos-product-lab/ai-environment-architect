@@ -8,8 +8,11 @@ import {
   type ChangeLines,
   type NumberedRecords,
   numberRecords,
+  unsendable,
   withholdForCall,
+  withholdMatch,
 } from "../requests/records.js";
+import { currentState } from "../session/current.js";
 import { recordGenerateQuestions } from "../session/questions.js";
 import { recordRecommend } from "../session/recommendations.js";
 import type { SessionRecord } from "../session/records.js";
@@ -70,8 +73,13 @@ export type RecordCallOutcome<V> =
   /** The token check stopped the call before it was sent (§1.10, §2.12). */
   | {
       readonly kind: "stopped";
-      readonly check: Exclude<TokenCheckResult, { state: "fits" }>;
-    };
+      readonly check: Exclude<TokenCheckResult, { state: "fits" | "secret_match" }>;
+    }
+  /**
+   * Call 5 only: the complete-request scan invalidated every recommendation the part was sent,
+   * so there was nothing left to send and no call was made (§1.7, §3.3.6).
+   */
+  | { readonly kind: "emptied" };
 
 export interface Prepared {
   readonly numbered: NumberedRecords;
@@ -95,10 +103,19 @@ export async function runRecordCall<V>(
   part?: RegenerationPart,
   options?: RunOptions,
 ): Promise<{ outcome: RecordCallOutcome<V>; prepared?: Prepared }> {
+  // A recommendation the complete-request scan invalidated leaves the part (§1.7). Before the
+  // first build, `runRegeneration` plans parts from current recommendations only, so a part
+  // can lose one only to this scan's recursion below.
+  const current = currentState(session.records).recommendations;
+  const sending =
+    part === undefined ? undefined : part.recommendations.filter((id) => current.has(id));
+  // A part sent only to unblock a held-back entry is empty from the start, and still goes.
+  if (sending !== undefined && sending.length === 0 && part?.recommendations.length !== 0)
+    return { outcome: { kind: "emptied" } };
   const numbering = {
     call,
     knownFactsSent: run.inspection.knownFactsSent,
-    ...(part === undefined ? {} : { recommendations: part.recommendations }),
+    ...(sending === undefined ? {} : { recommendations: sending }),
   };
   const { withheldExcerpts, excerptRules } = await session.change((log) =>
     withholdForCall(log, numbering),
@@ -129,6 +146,15 @@ export async function runRecordCall<V>(
     models: deps.models,
     tokens: options?.tokens ?? config.settings.tokens,
   });
+  if (checked.state === "secret_match") {
+    // The complete request still matches (§1.7): leave out the records the match overlaps, then
+    // build and check the call again. Each round leaves out at least one record, so this ends.
+    const { match } = checked;
+    if (match.part !== "user") throw unsendable(match.ruleId);
+    const spans = plan.spans(checked.removed);
+    await session.change((log) => withholdMatch(log, match, spans));
+    return runRecordCall(session, deps, call, run, finish, part, options);
+  }
   if (checked.state !== "fits") return { outcome: { kind: "stopped", check: checked } };
   await options?.resend?.beforeSend();
   const aliases = callAliasTable(call, numbered, { records, destination: run.destination });
