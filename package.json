@@ -23,7 +23,9 @@
     "test:related": "vitest related --run --passWithNoTests",
     "schemas:update": "vitest run src/schemas/schemas.test.ts --update",
     "build": "tsc -p tsconfig.build.json",
-    "check": "tsc --noEmit && biome ci . && vitest run && tsc -p tsconfig.build.json"
+    "check": "tsc --noEmit && biome ci . && vitest run && tsc -p tsconfig.build.json",
+    "live-run": "node --import ./test/support/ts-resolve.mjs scripts/live-run.ts",
+    "live-rates": "node --import ./test/support/ts-resolve.mjs scripts/live-rates.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.4.0",

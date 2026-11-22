@@ -1,6 +1,7 @@
 // Lets a plain `node` child process run this repository's TypeScript sources, whose imports end
 // in `.js` (ADR 0002): Node strips the types, and this hook maps a missing relative `.js` import
-// to its `.ts` file. Used only by tests that need a real separate process.
+// to its `.ts` file. Used by tests that need a real separate process, and by the live-run
+// scripts (`pnpm live-run`, `pnpm live-rates`).
 import { registerHooks } from "node:module";
 
 registerHooks({

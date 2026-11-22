@@ -35,6 +35,8 @@ Created by the scaffold commit:
 - `src/cli/`: rendering and prompts only.
 - `src/schemas/<call>.ts`, with the generated JSON Schema in `src/schemas/json/`, and `prompts/<call>/<version>.md` (IMPL §3.7).
 - `test/fixtures/repos/`: small synthetic repositories. `test/fixtures/destinations/`: `CLAUDE.md` files for block parsing. `test/fixtures/responses/<call>/`: recorded model responses, with whole-session scripts under `sessions/`. `test/fixtures/prompts/`: placeholder prompts, test-only.
+- `test/fixtures/live/<repo>/<run-id>/`: one live run's export: `<seq>-<call>.request.json` and `.response.json`, `content/`, `manifest.json`, `session.json` (root replaced by the repository's name) and `setup.json`, all written by `pnpm live-run`; and `answers.json`, which it writes empty and the developer fills in. Licences in `test/fixtures/live/NOTICE`.
+- `scripts/live-run.ts` and `scripts/live-rates.ts`, with `scripts/live/`: the live-run tooling (M6 live-run protocol). `docs/LIVE_RUNS.md` is written by `pnpm live-rates`.
 
 ## Commands
 
