@@ -21,6 +21,7 @@ import {
   type SessionFile,
 } from "../../src/core/session/records.js";
 import { HeldSession } from "../../src/core/session/store.js";
+import type { RepositoryFs } from "../../src/core/snapshot/repository-fs.js";
 import { captureSnapshot, DEFAULT_SNAPSHOT_SETTINGS } from "../../src/core/snapshot/snapshot.js";
 import { fixedClock, fixedIds, MemoryFs, type MemoryNode } from "./memory-fs.js";
 import { MemorySession } from "./memory-store.js";
@@ -149,6 +150,21 @@ export async function harness(
   const session = new HeldSession(store, HEADER, log);
   await session.save();
 
+  const { deps, sent } = scriptedRunDeps(fs, script, options);
+  const destination =
+    snapshot.destination.state === "present" ? snapshot.destination.bytes : undefined;
+  return { session, store, deps, fs, context, destination, sent };
+}
+
+/**
+ * The ports a run needs, with a sender that answers each send from `script`, in order, and a
+ * clock that ticks one second per reading. `sent` collects every request sent.
+ */
+export function scriptedRunDeps(
+  fs: RepositoryFs,
+  script: readonly Answer[],
+  options: Pick<HarnessOptions, "count" | "maxInputTokens" | "maxOutputTokens" | "prompts"> = {},
+): { readonly deps: RunDeps; readonly sent: ModelRequest[] } {
   const sent: ModelRequest[] = [];
   let now = Date.UTC(2026, 10, 1, 11, 0, 0);
   const deps: RunDeps = {
@@ -191,7 +207,5 @@ export async function harness(
     apiVersion: "2026-10-21",
     allowTestPrompts: true,
   };
-  const destination =
-    snapshot.destination.state === "present" ? snapshot.destination.bytes : undefined;
-  return { session, store, deps, fs, context, destination, sent };
+  return { deps, sent };
 }
