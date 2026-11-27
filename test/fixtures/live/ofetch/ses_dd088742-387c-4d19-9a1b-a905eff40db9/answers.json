@@ -1,0 +1,74 @@
+{
+  "runId": "ses_dd088742-387c-4d19-9a1b-a905eff40db9",
+  "questions": [
+    {
+      "questionId": "q_b9f05a80-3c24-4d88-8c6d-cb84e9aed722",
+      "prompt": "Should DELETE requests get JSON body serialization and default JSON headers, as the code does, or should guidance follow the README's PUT/PATCH/POST list?",
+      "reason": "The README lists PUT, PATCH and POST for JSON body handling, but `payloadMethods` in src/utils.ts also includes DELETE. The evidence can't tell whether the README is stale or the code is unintended.",
+      "options": [
+        "Code is right: DELETE is a payload method; README should be updated",
+        "README is right: DELETE inclusion is a bug"
+      ],
+      "answer": {
+        "statement": "Code is right: DELETE is a payload method; README should be updated",
+        "scope": { "kind": "repository" },
+        "exceptions": []
+      }
+    },
+    {
+      "questionId": "q_805a72e5-ecf8-4113-8a1d-627b94d7ce6a",
+      "prompt": "How should README sections inside `automd` markers be regenerated (e.g. `pnpm automd`, or manually)?",
+      "reason": "`automd` is a devDependency and the README has automd markers, but no package.json script runs it, so the intended regeneration step is unclear.",
+      "options": [
+        "Run `pnpm automd` after README-affecting changes",
+        "Generated blocks are updated in release tooling; don't edit",
+        "Edit manually"
+      ],
+      "answer": {
+        "statement": "Run pnpm automd after README-affecting changes",
+        "scope": { "kind": "repository" },
+        "exceptions": []
+      }
+    },
+    {
+      "questionId": "q_c81ebab6-97e5-4378-bcbf-5f591c752c85",
+      "prompt": "How should contributors type-check the code? Is there a command to run (e.g. `tsc --noEmit`), or is the build enough?",
+      "reason": "No script runs a type check; whether types are verified outside `obuild` or in CI is not established by the evidence.",
+      "options": [
+        "Run `pnpm tsc --noEmit`",
+        "`pnpm build` is sufficient",
+        "Not checked separately"
+      ],
+      "answer": {
+        "statement": "Run `pnpm tsc --noEmit`",
+        "scope": { "kind": "repository" },
+        "exceptions": []
+      }
+    },
+    {
+      "questionId": "q_f6977391-2a62-437d-b353-3fcc31193958",
+      "prompt": "What commit message style and branching workflow should contributors follow?",
+      "reason": "No contributing guide exists; conventional commits are only implied by `changelogen` and the autofix commit message `chore: apply automated updates`.",
+      "options": [
+        "Conventional commits (feat:, fix:, chore:) on PRs to main",
+        "No enforced convention"
+      ],
+      "answer": null
+    },
+    {
+      "questionId": "q_f7b8953e-d7f9-461a-9fa6-32c243b342d1",
+      "prompt": "Should new relative imports in `src` always use explicit `.ts` extensions, as in the cited files?",
+      "reason": "The cited src files use `.ts` extensions enabled by tsconfig, but whether this is a rule for new code or incidental isn't documented.",
+      "options": [
+        "Yes, required",
+        "Preferred but not required"
+      ],
+      "answer": {
+        "statement": "Yes, required",
+        "scope": { "kind": "paths", "paths": ["src"] },
+        "exceptions": []
+      }
+    }
+  ],
+  "correction": null
+}

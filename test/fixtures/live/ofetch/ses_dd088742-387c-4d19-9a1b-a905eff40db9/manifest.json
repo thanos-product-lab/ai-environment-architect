@@ -1,0 +1,310 @@
+{
+  "repository": "ofetch",
+  "commit": "1dbc37fd1ceab832fc7c90cad81b1091c95ba563",
+  "sessionId": "ses_dd088742-387c-4d19-9a1b-a905eff40db9",
+  "calls": [
+    {
+      "seq": 18,
+      "modelCallId": "call_c1db8186-f96b-4e2a-96ca-25fc52a6b394",
+      "purpose": "analyse",
+      "attempt": 1,
+      "state": "completed",
+      "request": "0018-analyse.request.json",
+      "response": "0018-analyse.response.json",
+      "retainedInputRef": "inputs/sha256-209104893c4cf7103b1802296a95ca4ffd2567fe7e34873caa65e485bf6c20f2.json",
+      "retainedResponseRef": "responses/sha256-02619201ce02d8a36a7af159721e2977cb834a35846f2ebb6fb489388003af3f.json",
+      "versions": {
+        "prompt": "1.0.0 sha256:c6e81833a11190dacd0ec5568c0b5aa5e9e80768e4f5aafecaca818c7df4adc7",
+        "schema": "analyse/1.1.0 sha256:5df6b0adc41c3f69ca335bec41394d1cbf0cda469f22ba024be1eaafa5d34518",
+        "validator": "validate/0.18.0",
+        "detector": "references/1.2.0",
+        "apiVersion": "2026-10-21",
+        "priceTable": {
+          "version": "prices/1.0.0",
+          "date": "2026-11-15"
+        }
+      },
+      "requestedModel": "claude-opus-5-5",
+      "returnedModel": {
+        "state": "known",
+        "value": "claude-opus-5-5"
+      },
+      "counts": {
+        "proposed": {
+          "state": "known",
+          "value": 33
+        },
+        "accepted": 21,
+        "corrected": 0,
+        "relabelled": 3,
+        "rejectedByRule": {
+          "CONF-001": 1,
+          "SUP-001": 8,
+          "SUP-003": 3
+        }
+      },
+      "validationEvents": [
+        {
+          "itemKey": "f1",
+          "stage": "item",
+          "rule": "SUP-003",
+          "outcome": "rejected",
+          "detail": "universal quantifier \"only\" from code observations only"
+        },
+        {
+          "itemKey": "f3",
+          "stage": "item",
+          "rule": "SUP-001",
+          "outcome": "rejected",
+          "detail": "inline code not in a cited excerpt or the file list"
+        },
+        {
+          "itemKey": "f5",
+          "stage": "item",
+          "rule": "SUP-003",
+          "outcome": "rejected",
+          "detail": "universal quantifier \"only\" from code observations only"
+        },
+        {
+          "itemKey": "f6",
+          "stage": "item",
+          "rule": "SUP-003",
+          "outcome": "rejected",
+          "detail": "universal quantifier \"only\" from code observations only"
+        },
+        {
+          "itemKey": "f8",
+          "stage": "item",
+          "rule": "SUP-001",
+          "outcome": "rejected",
+          "detail": "inline code not in a cited excerpt or the file list"
+        },
+        {
+          "itemKey": "f9",
+          "stage": "item",
+          "rule": "SUP-001",
+          "outcome": "rejected",
+          "detail": "inline code not in a cited excerpt or the file list"
+        },
+        {
+          "itemKey": "f11",
+          "stage": "item",
+          "rule": "SUP-001",
+          "outcome": "rejected",
+          "detail": "inline code not in a cited excerpt or the file list"
+        },
+        {
+          "itemKey": "f14",
+          "stage": "item",
+          "rule": "SUP-001",
+          "outcome": "rejected",
+          "detail": "inline code not in a cited excerpt or the file list"
+        },
+        {
+          "itemKey": "f15",
+          "stage": "item",
+          "rule": "SUP-001",
+          "outcome": "rejected",
+          "detail": "inline code not in a cited excerpt or the file list"
+        },
+        {
+          "itemKey": "f16",
+          "stage": "item",
+          "rule": "SUP-001",
+          "outcome": "rejected",
+          "detail": "inline code not in a cited excerpt or the file list"
+        },
+        {
+          "itemKey": "f18",
+          "stage": "item",
+          "rule": "SUP-001",
+          "outcome": "rejected",
+          "detail": "inline code not in a cited excerpt or the file list"
+        },
+        {
+          "itemKey": "g1",
+          "stage": "item",
+          "rule": "GAP-002",
+          "outcome": "relabelled",
+          "detail": "not inspected: 1 entry not sent in full, 0 directories not entered"
+        },
+        {
+          "itemKey": "g2",
+          "stage": "item",
+          "rule": "GAP-002",
+          "outcome": "relabelled",
+          "detail": "not inspected: 1 entry not sent in full, 0 directories not entered"
+        },
+        {
+          "itemKey": "g4",
+          "stage": "item",
+          "rule": "GAP-002",
+          "outcome": "relabelled",
+          "detail": "not inspected: 1 entry not sent in full, 0 directories not entered"
+        },
+        {
+          "itemKey": "c1",
+          "stage": "cross_item",
+          "rule": "CONF-001",
+          "outcome": "rejected",
+          "detail": "fewer than two member findings survived"
+        }
+      ]
+    },
+    {
+      "seq": 73,
+      "modelCallId": "call_3abf6280-3b4e-4ec3-b3bc-fbfb77eb6c3a",
+      "purpose": "analyse_expansion",
+      "attempt": 1,
+      "state": "completed",
+      "request": "0073-analyse_expansion.request.json",
+      "response": "0073-analyse_expansion.response.json",
+      "retainedInputRef": "inputs/sha256-0fafb175dc78826ffab159e8b3b62170715841d3c0d48977bf71fd8774cdee62.json",
+      "retainedResponseRef": "responses/sha256-d717f5050fbefebbc9c6041b8c8efd57f819d1b958282da65e8efd7f350ddff6.json",
+      "versions": {
+        "prompt": "1.0.0 sha256:6aebec78cb1cb169e77d23b539fa35654d45453725fb1a12bb1ed5526c4750ec",
+        "schema": "analyse_expansion/1.0.0 sha256:032802a5e0a9d16c14a740f670b29b7c38ab95eb96e724d20da32c133d9d42b6",
+        "validator": "validate/0.18.0",
+        "detector": "references/1.2.0",
+        "apiVersion": "2026-10-21",
+        "priceTable": {
+          "version": "prices/1.0.0",
+          "date": "2026-11-15"
+        }
+      },
+      "requestedModel": "claude-opus-5-5",
+      "returnedModel": {
+        "state": "known",
+        "value": "claude-opus-5-5"
+      },
+      "counts": {
+        "proposed": {
+          "state": "known",
+          "value": 4
+        },
+        "accepted": 2,
+        "corrected": 0,
+        "relabelled": 0,
+        "rejectedByRule": {
+          "SUP-001": 2
+        }
+      },
+      "validationEvents": [
+        {
+          "itemKey": "f1",
+          "stage": "item",
+          "rule": "SUP-001",
+          "outcome": "rejected",
+          "detail": "inline code not in a cited excerpt or the file list"
+        },
+        {
+          "itemKey": "f2",
+          "stage": "item",
+          "rule": "SUP-001",
+          "outcome": "rejected",
+          "detail": "inline code not in a cited excerpt or the file list"
+        }
+      ]
+    },
+    {
+      "seq": 82,
+      "modelCallId": "call_fd4315c9-9233-4944-9298-86180997e9a6",
+      "purpose": "generate_questions",
+      "attempt": 1,
+      "state": "completed",
+      "request": "0082-generate_questions.request.json",
+      "response": "0082-generate_questions.response.json",
+      "retainedInputRef": "inputs/sha256-2aea0243e8b78c76b4e864ef7a417560f19706f26c718fa3612e05fa0a264860.json",
+      "retainedResponseRef": "responses/sha256-157ec479842c9b0e5dcb462e9ca210e4ca24e8a2a0f198bcb40875a4c03df673.json",
+      "versions": {
+        "prompt": "1.0.0 sha256:ea35475d2788490c14ed47504e7e71a221ca7843c56aeb2d242c530ce957ce07",
+        "schema": "generate_questions/1.0.0 sha256:a9944c89b648209b38642fb3e33a649383cc811d7428d029db1947c6fc7093d0",
+        "validator": "validate/0.18.0",
+        "detector": "references/1.2.0",
+        "apiVersion": "2026-10-21",
+        "priceTable": {
+          "version": "prices/1.0.0",
+          "date": "2026-11-15"
+        }
+      },
+      "requestedModel": "claude-opus-5-5",
+      "returnedModel": {
+        "state": "known",
+        "value": "claude-opus-5-5"
+      },
+      "counts": {
+        "proposed": {
+          "state": "known",
+          "value": 7
+        },
+        "accepted": 7,
+        "corrected": 0,
+        "relabelled": 0,
+        "rejectedByRule": {}
+      },
+      "validationEvents": []
+    },
+    {
+      "seq": 99,
+      "modelCallId": "call_e1a0f7f5-db4a-4fa3-a7ba-df5bd2570499",
+      "purpose": "recommend",
+      "attempt": 1,
+      "state": "completed",
+      "request": "0099-recommend.request.json",
+      "response": "0099-recommend.response.json",
+      "retainedInputRef": "inputs/sha256-a25f91114b61aabba615af81af02079698925f7b98265486d9bcf541ee20df72.json",
+      "retainedResponseRef": "responses/sha256-9ea56625591003089aafd329ec2d9a33cf1776ae52c19e325048ec447001224e.json",
+      "versions": {
+        "prompt": "1.0.0 sha256:5e8e81b98a6d53c72558176280bb2e33acf6f300dfae8c196fa0351b985e4de3",
+        "schema": "recommend/1.1.0 sha256:5910184ac7655fefa4eedbfb0153e256e7809f28c37e0c023761b626cd42d4a7",
+        "validator": "validate/0.18.0",
+        "detector": "references/1.2.0",
+        "apiVersion": "2026-10-21",
+        "priceTable": {
+          "version": "prices/1.0.0",
+          "date": "2026-11-15"
+        }
+      },
+      "requestedModel": "claude-opus-5-5",
+      "returnedModel": {
+        "state": "known",
+        "value": "claude-opus-5-5"
+      },
+      "counts": {
+        "proposed": {
+          "state": "known",
+          "value": 7
+        },
+        "accepted": 4,
+        "corrected": 0,
+        "relabelled": 0,
+        "rejectedByRule": {
+          "REF-001": 3
+        }
+      },
+      "validationEvents": [
+        {
+          "itemKey": "r1",
+          "stage": "item",
+          "rule": "REF-001",
+          "outcome": "rejected",
+          "detail": "a declared reference is not in the content"
+        },
+        {
+          "itemKey": "r2",
+          "stage": "item",
+          "rule": "REF-001",
+          "outcome": "rejected",
+          "detail": "a declared reference is not in the content"
+        },
+        {
+          "itemKey": "r3",
+          "stage": "item",
+          "rule": "REF-001",
+          "outcome": "rejected",
+          "detail": "a path or command in the content is not declared"
+        }
+      ]
+    }
+  ]
+}

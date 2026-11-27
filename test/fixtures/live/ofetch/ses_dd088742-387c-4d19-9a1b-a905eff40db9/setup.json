@@ -1,0 +1,130 @@
+{
+  "phases": [
+    {
+      "phase": "analyse",
+      "startedAt": "2026-11-27T11:07:11.800Z",
+      "productCommit": "0850fac15aea4e94d444fa39a69f95e5bd02b854",
+      "productTreeClean": true,
+      "prompts": {
+        "analyse": {
+          "version": "1.0.0",
+          "hash": "sha256:c6e81833a11190dacd0ec5568c0b5aa5e9e80768e4f5aafecaca818c7df4adc7"
+        },
+        "analyse_expansion": {
+          "version": "1.0.0",
+          "hash": "sha256:6aebec78cb1cb169e77d23b539fa35654d45453725fb1a12bb1ed5526c4750ec"
+        },
+        "generate_questions": {
+          "version": "1.0.0",
+          "hash": "sha256:ea35475d2788490c14ed47504e7e71a221ca7843c56aeb2d242c530ce957ce07"
+        },
+        "recommend": {
+          "version": "1.0.0",
+          "hash": "sha256:5e8e81b98a6d53c72558176280bb2e33acf6f300dfae8c196fa0351b985e4de3"
+        },
+        "regenerate_recommendations": {
+          "version": "1.0.0",
+          "hash": "sha256:56a91421c9ef9771b946f52245c9afc18c0af9df5860972abc5ea703e0b72e6a"
+        }
+      },
+      "schemas": {
+        "analyse": {
+          "version": "analyse/1.1.0",
+          "hash": "sha256:5df6b0adc41c3f69ca335bec41394d1cbf0cda469f22ba024be1eaafa5d34518"
+        },
+        "analyse_expansion": {
+          "version": "analyse_expansion/1.0.0",
+          "hash": "sha256:032802a5e0a9d16c14a740f670b29b7c38ab95eb96e724d20da32c133d9d42b6"
+        },
+        "generate_questions": {
+          "version": "generate_questions/1.0.0",
+          "hash": "sha256:a9944c89b648209b38642fb3e33a649383cc811d7428d029db1947c6fc7093d0"
+        },
+        "recommend": {
+          "version": "recommend/1.1.0",
+          "hash": "sha256:5910184ac7655fefa4eedbfb0153e256e7809f28c37e0c023761b626cd42d4a7"
+        },
+        "regenerate_recommendations": {
+          "version": "regenerate_recommendations/1.1.0",
+          "hash": "sha256:a295c4b308797c9973491d4b4995fdb9d9d3ece6688571759e55cca22f5aa045"
+        }
+      },
+      "validatorVersion": "validate/0.18.0",
+      "detectorVersion": "references/1.2.0",
+      "model": "claude-opus-5-5",
+      "effort": "medium",
+      "apiVersion": "2026-10-21",
+      "priceTable": {
+        "version": "prices/1.0.0",
+        "date": "2026-11-15"
+      },
+      "retainModelInputs": true,
+      "budget": {
+        "maxCostUsd": 5
+      }
+    },
+    {
+      "phase": "recommend",
+      "startedAt": "2026-11-27T11:15:17.089Z",
+      "productCommit": "0850fac15aea4e94d444fa39a69f95e5bd02b854",
+      "productTreeClean": true,
+      "prompts": {
+        "analyse": {
+          "version": "1.0.0",
+          "hash": "sha256:c6e81833a11190dacd0ec5568c0b5aa5e9e80768e4f5aafecaca818c7df4adc7"
+        },
+        "analyse_expansion": {
+          "version": "1.0.0",
+          "hash": "sha256:6aebec78cb1cb169e77d23b539fa35654d45453725fb1a12bb1ed5526c4750ec"
+        },
+        "generate_questions": {
+          "version": "1.0.0",
+          "hash": "sha256:ea35475d2788490c14ed47504e7e71a221ca7843c56aeb2d242c530ce957ce07"
+        },
+        "recommend": {
+          "version": "1.0.0",
+          "hash": "sha256:5e8e81b98a6d53c72558176280bb2e33acf6f300dfae8c196fa0351b985e4de3"
+        },
+        "regenerate_recommendations": {
+          "version": "1.0.0",
+          "hash": "sha256:56a91421c9ef9771b946f52245c9afc18c0af9df5860972abc5ea703e0b72e6a"
+        }
+      },
+      "schemas": {
+        "analyse": {
+          "version": "analyse/1.1.0",
+          "hash": "sha256:5df6b0adc41c3f69ca335bec41394d1cbf0cda469f22ba024be1eaafa5d34518"
+        },
+        "analyse_expansion": {
+          "version": "analyse_expansion/1.0.0",
+          "hash": "sha256:032802a5e0a9d16c14a740f670b29b7c38ab95eb96e724d20da32c133d9d42b6"
+        },
+        "generate_questions": {
+          "version": "generate_questions/1.0.0",
+          "hash": "sha256:a9944c89b648209b38642fb3e33a649383cc811d7428d029db1947c6fc7093d0"
+        },
+        "recommend": {
+          "version": "recommend/1.1.0",
+          "hash": "sha256:5910184ac7655fefa4eedbfb0153e256e7809f28c37e0c023761b626cd42d4a7"
+        },
+        "regenerate_recommendations": {
+          "version": "regenerate_recommendations/1.1.0",
+          "hash": "sha256:a295c4b308797c9973491d4b4995fdb9d9d3ece6688571759e55cca22f5aa045"
+        }
+      },
+      "validatorVersion": "validate/0.18.0",
+      "detectorVersion": "references/1.2.0",
+      "model": "claude-opus-5-5",
+      "effort": "medium",
+      "apiVersion": "2026-10-21",
+      "priceTable": {
+        "version": "prices/1.0.0",
+        "date": "2026-11-15"
+      },
+      "retainModelInputs": true,
+      "budget": {
+        "maxCostUsd": 5
+      }
+    }
+  ]
+}
