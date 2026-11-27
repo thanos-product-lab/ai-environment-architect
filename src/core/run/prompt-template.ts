@@ -32,7 +32,7 @@ export const RELEASED_PROMPTS: Readonly<Record<CallPurpose, string>> = {
   analyse: "1.0.0",
   analyse_expansion: "1.0.0",
   generate_questions: "1.0.0",
-  recommend: "1.0.0",
+  recommend: "1.0.1",
   regenerate_recommendations: "1.0.0",
 };
 
