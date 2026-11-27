@@ -69,3 +69,8 @@ Calibration candidates, to weigh once all three development repositories have ru
 ## Prompt versions for the next runs
 
 `recommend` 1.0.1 adds one thing to 1.0.0: a command reference may name a `D` alias when that decision's statement contains the command in inline code (`REF-003`, IMPL v0.70). The other prompts stay at 1.0.0. The ofetch run above used `recommend` 1.0.0; the kutt and claude-code-action runs use `recommend` 1.0.1, so their `recommend` rates aren't directly comparable with ofetch's on that point.
+
+Caveats for those runs:
+
+- `regenerate_recommendations` 1.0.0 still says a reference's `support` is one `F` alias, but call 5 now shows the model a decision-supported command with its `D` alias (IMPL §3.2.6). A regeneration may drop such a command, or move it to an `F` alias, which fails `REF-004`. Watch call 5 for this; a matching `regenerate_recommendations` 1.0.1 is not released.
+- `recommend` 1.0.1 says "whose statement contains", without "current" or "not its exceptions". A command cited from a decision's exceptions fails `REF-003`; count it if it happens.
