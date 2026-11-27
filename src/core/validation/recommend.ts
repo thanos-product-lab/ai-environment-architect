@@ -30,7 +30,12 @@ import {
   type ValidationResult,
   validateResponse,
 } from "./pipeline.js";
-import { type DetectedReference, detectWithSources, walkBlocks } from "./references.js";
+import {
+  type DetectedReference,
+  detectWithSources,
+  inlineCodeSpans,
+  walkBlocks,
+} from "./references.js";
 import { hasDirective, isListed, type SupportContext } from "./support.js";
 
 // `recommend` (IMPL §3.3.5). Each recommendation is validated on its own: aliases and currency
@@ -43,15 +48,26 @@ type Response = z.infer<typeof recommend.response>;
 export type Recommendation = Response["recommendations"][number];
 export type HeldBack = Response["heldBack"][number];
 
-/** A reference with what code adds: the evidence that holds it, and its verification (DM §9.1). */
-export interface ResolvedReference {
-  readonly kind: "path" | "command";
-  readonly value: string;
-  /** The `F` alias of its supporting finding. */
-  readonly support: string;
-  readonly evidenceId: string;
-  readonly verification: "exists_in_snapshot" | "found_not_run";
-}
+/**
+ * A reference with what code adds (DM §9.1): the evidence that holds it and its verification, or,
+ * for a command a current decision states in inline code, that the developer stated it (REF-003).
+ */
+export type ResolvedReference =
+  | {
+      readonly kind: "path" | "command";
+      readonly value: string;
+      /** The `F` alias of its supporting finding. */
+      readonly support: string;
+      readonly evidenceId: string;
+      readonly verification: "exists_in_snapshot" | "found_not_run";
+    }
+  | {
+      readonly kind: "command";
+      readonly value: string;
+      /** The `D` alias of the decision that states it. */
+      readonly support: string;
+      readonly verification: "stated_by_developer";
+    };
 
 /**
  * A recommendation as the checks pass it on: code attaches the target's block (REC-002), and the
@@ -153,7 +169,7 @@ const aliasCheck: Check = (value, context, response) => {
     if (!resolved.ok) return reject(resolved.rule, resolved.detail);
   }
   for (const reference of value.references) {
-    const resolved = resolve(reference.support, ["F"]);
+    const resolved = resolve(reference.support, ["F", "D"]);
     if (!resolved.ok) return reject(resolved.rule, resolved.detail);
   }
   for (const alias of targetAliases(value.target)) {
@@ -599,8 +615,20 @@ function holdingEvidence(
   return undefined;
 }
 
+const namesByIndex = new WeakMap<CoverageContext["coverage"], ReadonlySet<string>>();
+
+/** The snapshot's entries and the directories that hold them, any status (§3.4, 1.3.0). */
+function listedNames(context: RecommendContext): ReadonlySet<string> {
+  let names = namesByIndex.get(context.coverage);
+  if (names === undefined) {
+    names = new Set(context.coverage.listed);
+    namesByIndex.set(context.coverage, names);
+  }
+  return names;
+}
+
 const referenceCheck: Check = (value, context) => {
-  const detection = detectWithSources(value.content ?? "");
+  const detection = detectWithSources(value.content ?? "", { names: listedNames(context) });
   const detected = detection.references;
   const declared = value.references;
   const same = (d: DetectedReference, r: (typeof declared)[number]) =>
@@ -617,7 +645,13 @@ const referenceCheck: Check = (value, context) => {
     if (r.kind === "path" && !isListed(r.value, context))
       return reject("REF-002", "a path not in the file list");
 
-  // REF-003: commands are known commands of their fact, or in an excerpt as written.
+  // REF-003: commands are known commands of their fact, in an excerpt as written, or stated in
+  // inline code, exactly, by the current decision that supports them.
+  const stated = declared.map((r) => {
+    if (r.kind !== "command") return false;
+    const decision = context.input.decisions.get(r.support);
+    return decision !== undefined && inlineCodeSpans(decision.statement).includes(r.value);
+  });
   const known = declared.map((r) => {
     if (r.kind !== "command") return false;
     const finding = context.input.findings.get(r.support);
@@ -626,18 +660,31 @@ const referenceCheck: Check = (value, context) => {
     return isKnownCommand(r.value, finding, !fromProse);
   });
   for (const [index, r] of declared.entries()) {
-    if (r.kind !== "command" || known[index]) continue;
+    if (r.kind !== "command" || known[index] || stated[index]) continue;
     const evidence = context.input.findings.get(r.support)?.evidence ?? [];
     if (!evidence.some((e) => commandExcerpt(e, r.value)))
       return reject(
         "REF-003",
-        "a command that is neither a known command nor in a documentation or guidance excerpt",
+        "a command that is not a known command, in a documentation or guidance excerpt, or stated by its decision",
       );
   }
 
   // REF-004: the supporting finding is in support, and has evidence holding the value.
   const resolvedReferences: ResolvedReference[] = [];
   for (const [index, r] of declared.entries()) {
+    if (context.input.decisions.has(r.support)) {
+      if (!value.support.includes(r.support))
+        return reject("REF-004", `${r.support} is not in the recommendation's support`);
+      if (r.kind === "path") return reject("REF-004", `a path supported by ${r.support}`);
+      // REF-003 accepted it, so the decision states it.
+      resolvedReferences.push({
+        kind: "command",
+        value: r.value,
+        support: r.support,
+        verification: "stated_by_developer",
+      });
+      continue;
+    }
     const finding = context.input.findings.get(r.support);
     if (finding === undefined || !value.support.includes(r.support))
       return reject("REF-004", `${r.support} is not in the recommendation's support`);

@@ -331,7 +331,10 @@ export function regenerationInput(
     }
     const references: RecommendationBody["references"] = [];
     for (const reference of revision.references) {
-      const alias = findingAlias.get(reference.supportingFindingId);
+      const alias =
+        "supportingFindingId" in reference
+          ? findingAlias.get(reference.supportingFindingId)
+          : decisionAlias.get(reference.supportingDecisionId);
       if (alias === undefined) return undefined;
       references.push({ kind: reference.kind, value: reference.value, support: alias });
     }

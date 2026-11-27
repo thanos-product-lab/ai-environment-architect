@@ -1,8 +1,8 @@
 # Domain Model
 
 **AI Environment Architect · AI Product Studio**  
-**Date:** 15 November 2026  
-**Version:** 0.34 — consolidated specification  
+**Date:** 27 November 2026  
+**Version:** 0.35 — consolidated specification  
 **Status:** Proposed specification for the first implementation slice. Not implemented code.
 
 **Supersedes:** the earlier Data Model and Review Decisions v0.1 and Domain Model v0.2 design drafts, which are not kept in this repository. This is the single authoritative domain model.
@@ -10,6 +10,10 @@
 **Authorities:** [Product Thesis](../product/PRODUCT_THESIS.md) v0.1, [Product Evaluation Requirements](../product/EVALUATION_REQUIREMENTS.md) (5 October 2026), [ADR 0001: Standalone TypeScript CLI](../decisions/0001-standalone-typescript-cli.md) (5 October 2026). The evaluation requirements are a product-facing document outside the frozen evaluation materials; their export requirements are adopted directly in §14.
 
 **Companion:** [Implementation Specification](IMPLEMENTATION_SPEC.md).
+
+### Changes from v0.34
+
+- **Commands a decision states (§9.1).** A command reference may be supported by a current decision whose statement holds it in inline code, instead of a finding. It records `supportingDecisionId`, no `evidenceId`, and the verification `stated_by_developer` ([`IMPLEMENTATION_SPEC.md`](IMPLEMENTATION_SPEC.md) §3.3.5, `REF-003`).
 
 ### Changes from v0.33
 
@@ -494,7 +498,8 @@ A revision's `status` is `valid`, `failed_validation`, or `invalidated` with a r
 | `value` | As written in `content`, for example `src/lib/api/client.ts`, or `pnpm test` |
 | `supportingFindingId` | The finding whose evidence contains the value; it is in the recommendation's `support` |
 | `evidenceId` | The first evidence of that finding that contains the value, chosen by code |
-| `verification` | Paths: `exists_in_snapshot`, recorded when created. `missing` is derived, never written: a path a later snapshot or the freshness check (§11.1) no longer finds. Commands: `found_not_run` in the first slice |
+| `supportingDecisionId` | Instead of the two above, for a command only: the current decision whose statement holds the command as an inline code span, exactly; it is in the recommendation's `support` |
+| `verification` | Paths: `exists_in_snapshot`, recorded when created. `missing` is derived, never written: a path a later snapshot or the freshness check (§11.1) no longer finds. Commands: `found_not_run` in the first slice, or `stated_by_developer` for a command a decision supports. Neither means the command was run |
 
 Deterministic validation runs on every revision:
 

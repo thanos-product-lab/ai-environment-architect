@@ -95,10 +95,21 @@ function scenario() {
   const other = claim(log, snap.id, "src/a.ts", "export const b = 2;");
   const skipped = question(log, other.finding.findingId, "skipped");
   const answered = question(log, other.finding.findingId, "answered");
+  const typecheck = log.append({
+    type: "decision",
+    statement: "Type-check with `pnpm tsc --noEmit`.",
+    scope: { kind: "repository" },
+    exceptions: [],
+    origin: "answered_question",
+    questionId: answered.questionId,
+    actor: "developer",
+    decidedAt: "2026-11-01T10:20:00.000Z",
+  } as never) as { id: string };
   const parsed = parseGuidanceBlocks(DESTINATION);
   const aliases = createAliasTable("recommend", {
     findings: [code.finding.id, script.finding.id, other.finding.id],
     questions: [skipped.id, answered.id],
+    decisions: [typecheck.id],
     blocks: parsed.blocks.map((b) => ({ blockId: b.blockId, hash: b.hash })),
   });
   const files = ["package.json", "src/a.ts"].map(
@@ -166,7 +177,12 @@ function scenario() {
           },
         ],
       ]),
-      decisions: new Map(),
+      decisions: new Map([
+        [
+          "D-1",
+          { current: true, statement: "Type-check with `pnpm tsc --noEmit`.", exceptions: [] },
+        ],
+      ]),
       conflicts: new Map(),
       questions: new Map([
         ["Q-1", { status: "skipped", resolves: ["F-3"] }],
@@ -174,7 +190,17 @@ function scenario() {
       ]),
     },
   };
-  return { log, code, script, skipped, answered, aliases, context, blocks: parsed.blocks };
+  return {
+    log,
+    code,
+    script,
+    skipped,
+    answered,
+    typecheck,
+    aliases,
+    context,
+    blocks: parsed.blocks,
+  };
 }
 
 const recommendation = (extra: Record<string, unknown> = {}) => ({
@@ -246,6 +272,34 @@ describe("recording recommend output (IMPL §3.3.5, §4.4.1, §4.4.3)", () => {
     });
     expect(revision).not.toHaveProperty("supersedes");
     expect(revision).not.toHaveProperty("revisedBy");
+  });
+
+  it("records a command its decision states as stated_by_developer, with no evidence", () => {
+    const s = scenario();
+    record(s, {
+      recommendations: [
+        recommendation({
+          kind: "policy",
+          content: "Type-check with `pnpm tsc --noEmit`.",
+          support: ["D-1"],
+          references: [{ kind: "command", value: "pnpm tsc --noEmit", support: "D-1" }],
+        }),
+      ],
+      heldBack: [],
+    });
+    const [revision] = ofType(
+      s.log,
+      "recommendation_revision",
+    ) as Revised<"recommendation_revision">[];
+    expect(revision?.support).toEqual([{ kind: "decision", decisionId: s.typecheck.id }]);
+    expect(revision?.references).toEqual([
+      {
+        kind: "command",
+        value: "pnpm tsc --noEmit",
+        supportingDecisionId: s.typecheck.id,
+        verification: "stated_by_developer",
+      },
+    ]);
   });
 
   it("records held-back entries by lineage ID, and failed items in pipeline order", () => {

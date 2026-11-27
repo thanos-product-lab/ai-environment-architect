@@ -763,6 +763,52 @@ describe("recording a regeneration (IMPL §3.3.6, §4.4.1, §4.4.3, §4.11)", ()
     expect(currentState(s.log.records).selections.get(r.recommendationId)?.revisionId).toBe(r.id);
   });
 
+  it("a keep revalidates a command its decision states with the decision's alias", () => {
+    const s = session();
+    const f = finding(s);
+    const q = question(s, { findingIds: [f.findingId] });
+    const stated = s.log.append({
+      type: "decision",
+      statement: "Type-check with `pnpm tsc --noEmit`.",
+      scope: { kind: "repository" },
+      exceptions: [],
+      origin: "answered_question",
+      actor: "developer",
+      decidedAt: "2026-11-01T10:20:00.000Z",
+    });
+    const r = s.log.start({
+      type: "recommendation_revision",
+      kind: "policy",
+      operation: "add",
+      target: { kind: "after", ...block(s, "Guide/paragraph-1") },
+      content: "Type-check with `pnpm tsc --noEmit`.",
+      rationale: "The developer said so.",
+      support: [onFinding(f), onDecision(stated)],
+      references: [
+        {
+          kind: "command",
+          value: "pnpm tsc --noEmit",
+          supportingDecisionId: stated.id,
+          verification: "stated_by_developer",
+        },
+      ],
+      scope: { kind: "repository" },
+      producedBy: s.callId,
+      status: "valid",
+    });
+    accept(s, r);
+    const d = decision(s, { questionId: q.questionId });
+    const batch = affectedRecommendations(s.log.records, [d.id]);
+    expect(batch).toEqual([r.recommendationId]);
+    const { validation } = regenerate(s, batch, {
+      actions: [{ target: "R-1", action: "keep", reason: "Still right." }],
+      additions: [],
+      heldBack: [],
+    });
+    expect(validation.result.events).toEqual([]);
+    expect(currentState(s.log.records).selections.get(r.recommendationId)?.revisionId).toBe(r.id);
+  });
+
   it("failed keep, drop and revise actions: their failed records, then not_reconsidered", () => {
     const { s, recs, batch } = affected();
     const long = "x".repeat(201);

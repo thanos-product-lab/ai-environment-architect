@@ -14,8 +14,8 @@ const ref = (kind: "path" | "command", value: string, match = value) => ({ kind,
 const id = (value: string, match = value) => ({ value, match });
 
 describe("detector version and lists", () => {
-  it("is references/1.2.0", () => {
-    expect(DETECTOR_VERSION).toBe("references/1.2.0");
+  it("is references/1.3.0", () => {
+    expect(DETECTOR_VERSION).toBe("references/1.3.0");
   });
 
   it("has the runners, extensions and file names of §3.4", () => {
@@ -74,7 +74,7 @@ describe("classifySpan", () => {
     ["src/a.ts"],
     ["src/"],
     ["README.md"],
-    [".md"],
+    [".eslintrc.json"],
     ["Makefile"],
     ["python/setup.py"],
     ["go/"],
@@ -97,9 +97,37 @@ describe("classifySpan", () => {
     [""],
     ["useState"],
     ["./ build"],
+    [".md"],
+    ["*.ts"],
+    ["*.test.ts"],
+    ["src"],
   ])("%j is an identifier", (span) => {
     expect(classifySpan(span)).toBe("identifier");
   });
+
+  // 1.3.0: a span that names a snapshot entry or directory exactly is a path, from the ofetch run
+  // ses_dd088742 (r1–r3), where `src`, `test` and `examples` were declared but not detected.
+  const names = new Set(["examples", "src", "src/index.ts", "test", ".npmrc", "*.ts", "go"]);
+
+  it.each([["src"], ["test"], ["examples"], [".npmrc"], ["*.ts"], ["go"]])(
+    "%j is a path when the snapshot lists it",
+    (span) => {
+      expect(classifySpan(span, names)).toBe("path");
+    },
+  );
+
+  it("gives a fenced runner line a command although a directory has its name", () => {
+    expect(detectReferences("```sh\ngo\n```\n", { names }).references).toEqual([
+      ref("command", "go"),
+    ]);
+  });
+
+  it.each([["Src"], ["src."], ["tests"], [".ts"], ["*.md"], ["src index"], ["go test"]])(
+    "%j is not a snapshot path",
+    (span) => {
+      expect(classifySpan(span, names)).not.toBe("path");
+    },
+  );
 });
 
 describe("detectReferences", () => {

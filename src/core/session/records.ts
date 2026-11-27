@@ -864,6 +864,13 @@ export const structuredReference = z.union([
     evidenceId: recordId("evidence"),
     verification: z.literal("found_not_run"),
   }),
+  // A command a current decision states in inline code (IMPL §3.3.5, REF-003): no evidence.
+  z.strictObject({
+    kind: z.literal("command"),
+    value: z.string(),
+    supportingDecisionId: recordId("decision"),
+    verification: z.literal("stated_by_developer"),
+  }),
 ]);
 
 export const invalidatedReason = z.enum([

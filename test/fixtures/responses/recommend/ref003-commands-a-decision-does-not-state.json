@@ -1,0 +1,87 @@
+{
+  "description": "Rejected: commands supported by a decision that doesn't state them in inline code exactly: D-7 has it only in plain text, D-6 without the added arguments, D-6 only as an exception's span, and D-1 not at all (REF-003); D-6 named by a reference but not in support, and as a path's support (REF-004).",
+  "section": "IMPL §3.3.5 step 7 (REF-003 decision route, REF-004), §3.8",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Type-check with `pnpm tsc --noEmit` before pushing.",
+        "rationale": "The developer said so.",
+        "support": ["D-7"],
+        "references": [{ "kind": "command", "value": "pnpm tsc --noEmit", "support": "D-7" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r2",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Type-check with `pnpm tsc --noEmit --pretty` before pushing.",
+        "rationale": "The developer said so.",
+        "support": ["D-6"],
+        "references": [{ "kind": "command", "value": "pnpm tsc --noEmit --pretty", "support": "D-6" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r3",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Drafts run `pnpm typecheck` instead.",
+        "rationale": "The developer said so.",
+        "support": ["D-6"],
+        "references": [{ "kind": "command", "value": "pnpm typecheck", "support": "D-6" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r4",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "New HTTP calls are tested with `pnpm test`.",
+        "rationale": "The developer said so.",
+        "support": ["D-1"],
+        "references": [{ "kind": "command", "value": "pnpm test", "support": "D-1" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r5",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Type-check with `pnpm tsc --noEmit` before pushing.",
+        "rationale": "The developer said so.",
+        "support": ["D-5"],
+        "references": [{ "kind": "command", "value": "pnpm tsc --noEmit", "support": "D-6" }],
+        "scope": { "kind": "repository" }
+      },
+      {
+        "key": "r6",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Type-check `src/index.ts` before pushing.",
+        "rationale": "The developer said so.",
+        "support": ["D-6"],
+        "references": [{ "kind": "path", "value": "src/index.ts", "support": "D-6" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [
+      { "itemKey": "r1", "stage": "item", "rule": "REF-003", "outcome": "rejected" },
+      { "itemKey": "r2", "stage": "item", "rule": "REF-003", "outcome": "rejected" },
+      { "itemKey": "r3", "stage": "item", "rule": "REF-003", "outcome": "rejected" },
+      { "itemKey": "r4", "stage": "item", "rule": "REF-003", "outcome": "rejected" },
+      { "itemKey": "r5", "stage": "item", "rule": "REF-004", "outcome": "rejected" },
+      { "itemKey": "r6", "stage": "item", "rule": "REF-004", "outcome": "rejected" }
+    ],
+    "accepted": { "recommendations": [], "heldBack": [], "noChangeReason": [] }
+  }
+}

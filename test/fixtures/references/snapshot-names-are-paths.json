@@ -1,0 +1,20 @@
+{
+  "content": "Lint `src` and `docs`, run `scripts`, and leave `config` alone. `tests`, `Src` and `src.` name nothing, and bare src is a word.\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "src" },
+      { "kind": "path", "value": "docs" },
+      { "kind": "path", "value": "scripts" },
+      { "kind": "path", "value": "config" }
+    ],
+    "identifiers": ["tests", "Src", "src."]
+  },
+  "listed": {
+    "src": true,
+    "docs": true,
+    "scripts": true,
+    "config": true
+  },
+  "section": "IMPL §3.4",
+  "note": "references/1.3.0, from the ofetch run ses_dd088742 (r1, r2): an inline code span that is exactly a directory of the snapshot is a path, without a `/` or an extension. A near miss in case or punctuation, or a name the snapshot lacks, is an identifier, and bare text is unchanged."
+}

@@ -151,6 +151,13 @@ const DECISIONS: Record<string, RecommendDecision> = {
   "D-1": { current: true, statement: "Use pnpm for every script.", exceptions: [] },
   "D-2": { current: false, statement: "Use npm.", exceptions: [] },
   "D-3": { current: true, statement: "Keep the old client.", exceptions: ["legacyClient stays."] },
+  "D-4": {
+    current: true,
+    statement: "Type-check with `pnpm tsc --noEmit` before pushing.",
+    exceptions: ["Drafts skip `pnpm typecheck`."],
+  },
+  "D-5": { current: true, statement: "Type-check with pnpm tsc --noEmit.", exceptions: [] },
+  "D-6": { current: false, statement: "Type-check with `pnpm tsc`.", exceptions: [] },
 };
 
 const CONFLICTS = {
@@ -255,12 +262,12 @@ describe("recommend validation (IMPL §3.3.5)", () => {
       expect(one(base({ target: { kind: "after", block: "B-99" } }))).toEqual(["r1:ALIAS-001"]);
     });
 
-    it("accepts only F aliases as a reference's support (ALIAS-003)", () => {
+    it("accepts only F or D aliases as a reference's support (ALIAS-003)", () => {
       expect(
         one(
           base({
-            support: ["F-1", "D-1"],
-            references: [{ kind: "path", value: "src/a.ts", support: "D-1" }],
+            support: ["F-1", "C-1"],
+            references: [{ kind: "path", value: "src/a.ts", support: "C-1" }],
           }),
         ),
       ).toEqual(["r1:ALIAS-003"]);
@@ -706,7 +713,9 @@ describe("recommend validation (IMPL §3.3.5)", () => {
         ),
       ]);
       expect(events(outcome)).toEqual([]);
-      expect(accepted(outcome)[0]?.value.resolvedReferences?.[0]?.evidenceId).toBe("ev_doc");
+      expect(accepted(outcome)[0]?.value.resolvedReferences?.[0]).toMatchObject({
+        evidenceId: "ev_doc",
+      });
     });
 
     it("REF-003 accepts a command found as written in an excerpt of its finding", () => {
@@ -753,6 +762,63 @@ describe("recommend validation (IMPL §3.3.5)", () => {
           evidenceId: "ev_package.json",
           verification: "found_not_run",
         },
+      ]);
+    });
+
+    it("REF-003 accepts a command its current decision states in inline code, exactly", () => {
+      const outcome = run([
+        withRefs(
+          "The type check is `pnpm tsc --noEmit`.",
+          [command("pnpm tsc --noEmit", "D-4")],
+          ["D-4"],
+        ),
+      ]);
+      expect(events(outcome)).toEqual([]);
+      expect(accepted(outcome)[0]?.value.resolvedReferences).toEqual([
+        {
+          kind: "command",
+          value: "pnpm tsc --noEmit",
+          support: "D-4",
+          verification: "stated_by_developer",
+        },
+      ]);
+    });
+
+    it("REF-003 rejects a decision's command not in its statement's inline code as written", () => {
+      const stated = (content: string, value: string, decision = "D-4") =>
+        one(withRefs(content, [command(value, decision)], [decision]));
+      // In plain text in the statement.
+      expect(stated("The check is `pnpm tsc --noEmit`.", "pnpm tsc --noEmit", "D-5")).toEqual([
+        "r1:REF-003",
+      ]);
+      // With arguments the decision didn't state.
+      expect(stated("The check is `pnpm tsc --noEmit -p .`.", "pnpm tsc --noEmit -p .")).toEqual([
+        "r1:REF-003",
+      ]);
+      // A prefix of the stated span.
+      expect(stated("The check is `pnpm tsc`.", "pnpm tsc")).toEqual(["r1:REF-003"]);
+      // In an exception, not the statement.
+      expect(stated("Drafts use `pnpm typecheck`.", "pnpm typecheck")).toEqual(["r1:REF-003"]);
+    });
+
+    it("REC-001 rejects a command stated by a decision that is no longer current", () => {
+      expect(
+        one(withRefs("The check is `pnpm tsc`.", [command("pnpm tsc", "D-6")], ["F-1"])),
+      ).toEqual(["r1:REC-001"]);
+    });
+
+    it("REF-004 rejects a decision's command whose decision isn't in support, and a path", () => {
+      expect(
+        one(
+          withRefs(
+            "The type check is `pnpm tsc --noEmit`.",
+            [command("pnpm tsc --noEmit", "D-4")],
+            ["F-1"],
+          ),
+        ),
+      ).toEqual(["r1:REF-004"]);
+      expect(one(withRefs("Code is in `src/a.ts`.", [path("src/a.ts", "D-4")], ["D-4"]))).toEqual([
+        "r1:REF-004",
       ]);
     });
 

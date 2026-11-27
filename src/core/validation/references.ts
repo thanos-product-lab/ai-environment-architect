@@ -6,7 +6,7 @@ import { barePathToken, stripTokenPunctuation } from "./support.js";
 // rejected recommendation, under-detection lets an unchecked reference into the developer's file.
 
 /** Changes whenever what the detector finds changes, including any of the lists below. */
-export const DETECTOR_VERSION = "references/1.2.0";
+export const DETECTOR_VERSION = "references/1.3.0";
 
 /** Words that start a command in code, each matched as a whole word, case-insensitively. */
 export const RUNNERS = [
@@ -155,11 +155,16 @@ function trim(text: string): string {
   return text.replace(EDGES, "");
 }
 
-function isPathLike(span: string): boolean {
+/** No snapshot names: fenced lines, and callers without a snapshot. */
+const NO_NAMES: ReadonlySet<string> = new Set();
+
+/**
+ * A span names a file or directory of the snapshot exactly, contains `/`, or is a known file as
+ * in bare text, so `.ts` and `*.ts` are not paths unless a file has that name (1.3.0).
+ */
+function isPathLike(span: string, names: ReadonlySet<string>): boolean {
   if (WHITESPACE.test(span) || span.includes("://")) return false;
-  if (span.includes("/") || FILE_NAMES.has(span)) return true;
-  const dot = span.lastIndexOf(".");
-  return dot >= 0 && EXTENSIONS.has(span.slice(dot + 1));
+  return names.has(span) || span.includes("/") || isKnownFile(span);
 }
 
 /**
@@ -189,15 +194,26 @@ function isKnownFile(token: string): boolean {
   return dot > 0 && !last.includes("*") && EXTENSIONS.has(last.slice(dot + 1));
 }
 
-/** Classifies an inline code span, or a fenced line, after trimming it (§3.4). */
-export function classifySpan(span: string): ReferenceKind | "identifier" {
+/**
+ * Classifies an inline code span, or a fenced line, after trimming it (§3.4). `names` are the
+ * snapshot's entries and the directories that hold them, any status; fenced lines pass none.
+ */
+export function classifySpan(
+  span: string,
+  names: ReadonlySet<string> = NO_NAMES,
+): ReferenceKind | "identifier" {
   const text = trim(span);
   if (RUNNER.test(text) || DOT_SLASH.test(text)) {
     // Trimmed, so any whitespace follows the runner.
     if (WHITESPACE.test(text)) return "command";
-    return isPathLike(text) ? "path" : "command";
+    return isPathLike(text, names) ? "path" : "command";
   }
-  return isPathLike(text) ? "path" : "identifier";
+  return isPathLike(text, names) ? "path" : "identifier";
+}
+
+/** The contents of a text's inline code spans, untrimmed, paired from the left (§3.2.3). */
+export function inlineCodeSpans(text: string): string[] {
+  return [...text.matchAll(INLINE_CODE)].map((span) => span[1] ?? "");
 }
 
 /** Lines with their line endings, so prose keeps its text as written. */
@@ -252,8 +268,8 @@ interface Event {
  * lines give commands only, indented code blocks give nothing, and bare text gives link targets,
  * plain-text commands, and path-like tokens and known file names that aren't URLs.
  */
-export function detectReferences(content: string): Detection {
-  const { references, identifiers } = detectWithSources(content);
+export function detectReferences(content: string, options: DetectOptions = {}): Detection {
+  const { references, identifiers } = detectWithSources(content, options);
   return { references, identifiers };
 }
 
@@ -263,7 +279,16 @@ export interface SourcedDetection extends Detection {
   readonly proseCommands: ReadonlySet<DetectedReference>;
 }
 
-export function detectWithSources(content: string): SourcedDetection {
+export interface DetectOptions {
+  /**
+   * The snapshot's entries and the directories that hold them, any status (§1.11). An inline code
+   * span that is exactly one of them is a path (1.3.0).
+   */
+  readonly names?: ReadonlySet<string>;
+}
+
+export function detectWithSources(content: string, options: DetectOptions = {}): SourcedDetection {
+  const names = options.names ?? NO_NAMES;
   const references: DetectedReference[] = [];
   const proseCommands = new Set<DetectedReference>();
   const identifiers: DetectedIdentifier[] = [];
@@ -322,7 +347,7 @@ export function detectWithSources(content: string): SourcedDetection {
       const value = span[1] ?? "";
       const match = trim(value);
       if (match === "") continue;
-      const kind = classifySpan(match);
+      const kind = classifySpan(match, names);
       events.push(
         kind === "identifier"
           ? { at: start, identifier: { value, match } }

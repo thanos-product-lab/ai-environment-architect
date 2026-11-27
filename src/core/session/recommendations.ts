@@ -178,6 +178,16 @@ function recordedTarget(target: AssemblyTarget): Revised<"recommendation_revisio
 }
 
 function recordedReference(reference: ResolvedReference, resolve: (alias: string) => Resolved) {
+  if (reference.verification === "stated_by_developer") {
+    const decision = resolve(reference.support);
+    if (decision.type !== "decision") throw new Error(`${reference.support} isn't a decision`);
+    return {
+      kind: "command" as const,
+      value: reference.value,
+      supportingDecisionId: decision.id,
+      verification: "stated_by_developer" as const,
+    };
+  }
   const finding = resolve(reference.support);
   if (finding.type !== "finding") throw new Error(`${reference.support} isn't a finding`);
   const fields = {

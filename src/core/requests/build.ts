@@ -264,7 +264,7 @@ function referencedFindings(
   // Every current valid recommendation is a candidate, sent or not (§1.10 step 4).
   for (const record of state.recommendations.values()) {
     for (const s of record.support) if (s.kind === "finding") add(s.findingId);
-    for (const r of record.references) add(r.supportingFindingId);
+    for (const r of record.references) if ("supportingFindingId" in r) add(r.supportingFindingId);
   }
   return aliases;
 }

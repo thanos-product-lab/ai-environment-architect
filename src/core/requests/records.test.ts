@@ -414,7 +414,7 @@ describe("record lines (IMPL §3.2.6)", () => {
     );
   });
 
-  it("renders each target form, references with and without a supporting alias, and a remove without content", () => {
+  it("renders each target form, references with and without a supporting alias, a decision's command, and a remove without content", () => {
     const s = session();
     const blocks = parseGuidanceBlocks(s.bytes).blocks;
     const ref = (i: number) => ({
@@ -471,6 +471,20 @@ describe("record lines (IMPL §3.2.6)", () => {
       ],
     });
     rec({ target: { kind: "section", ...ref(0) }, content: "Line one.\nLine two." });
+    const stated = decision(s, { statement: "Type-check with `pnpm tsc --noEmit`." });
+    rec({
+      kind: "policy",
+      content: "Type-check with `pnpm tsc --noEmit`.",
+      support: [{ kind: "decision", decisionId: stated.id }],
+      references: [
+        {
+          kind: "command",
+          value: "pnpm tsc --noEmit",
+          supportingDecisionId: stated.id,
+          verification: "stated_by_developer",
+        },
+      ],
+    });
     rec({ target: { kind: "newSection", heading: "Testing", after: ref(0) } });
     rec({ target: { kind: "newSection", heading: "Notes" } });
     const out = rendered(s, numbering("regenerate_recommendations", [], recs)).recommendations;
@@ -491,12 +505,17 @@ describe("record lines (IMPL §3.2.6)", () => {
         "     rationale: Where the scripts live isn't documented.",
         "       | Line one.",
         "       | Line two.",
-        'R-4  [add · fact]  target: new section "Testing" after B-1  scope: repository',
+        "R-4  [add · policy]  target: after B-2  scope: repository",
+        "     support: D-1",
+        '     reference: command "pnpm tsc --noEmit" (D-1)',
+        "     rationale: Where the scripts live isn't documented.",
+        "       | Type-check with `pnpm tsc --noEmit`.",
+        'R-5  [add · fact]  target: new section "Testing" after B-1  scope: repository',
         "     support: F-1",
         '     reference: path "package.json" (F-1)',
         "     rationale: Where the scripts live isn't documented.",
         "       | The scripts are defined in `package.json`.",
-        'R-5  [add · fact]  target: new section "Notes"  scope: repository',
+        'R-6  [add · fact]  target: new section "Notes"  scope: repository',
         "     support: F-1",
         '     reference: path "package.json" (F-1)',
         "     rationale: Where the scripts live isn't documented.",

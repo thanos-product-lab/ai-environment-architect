@@ -1,0 +1,26 @@
+{
+  "description": "Accepted: a command the current decision D-6 states as an inline code span, exactly, with D-6 as the reference's support and in the recommendation's support. Its verification is stated_by_developer.",
+  "section": "IMPL §3.3.5 step 7 (REF-003 decision route, REF-004), §3.8",
+  "nearMissOf": "ref003-commands-a-decision-does-not-state.json",
+  "response": {
+    "recommendations": [
+      {
+        "key": "r1",
+        "kind": "policy",
+        "operation": "add",
+        "target": { "kind": "after", "block": "B-2" },
+        "content": "Type-check with `pnpm tsc --noEmit` before pushing.",
+        "rationale": "The developer said so.",
+        "support": ["D-6"],
+        "references": [{ "kind": "command", "value": "pnpm tsc --noEmit", "support": "D-6" }],
+        "scope": { "kind": "repository" }
+      }
+    ],
+    "heldBack": []
+  },
+  "expect": {
+    "status": "validated",
+    "events": [],
+    "accepted": { "recommendations": ["r1"], "heldBack": [], "noChangeReason": [] }
+  }
+}

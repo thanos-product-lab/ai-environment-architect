@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { comparePaths } from "../src/core/paths.js";
+import { coverageIndex } from "../src/core/validation/coverage.js";
 import { detectReferences } from "../src/core/validation/references.js";
 import { anchorablePaths, isListed, type SupportContext } from "../src/core/validation/support.js";
 
@@ -37,6 +38,17 @@ function load(name: string): unknown {
 
 const fixture = load("context.json") as { entries: string[] };
 const context: SupportContext = { anchorable: anchorablePaths(fixture.entries) };
+/** The snapshot's entries and their directories, any status, as the detector takes them (1.3.0). */
+const names: ReadonlySet<string> = new Set(
+  coverageIndex(
+    {
+      files: fixture.entries.map((path) => ({ path, status: "read", size: 0, hash: "sha256:0" })),
+      exclusions: [],
+      ignoreRules: { state: "applied" },
+    } as unknown as Parameters<typeof coverageIndex>[0],
+    [],
+  ).listed,
+);
 
 const cases = readdirSync(DIR)
   .filter((name) => name.endsWith(".json") && name !== "context.json")
@@ -49,7 +61,7 @@ describe("reference detector fixtures (IMPL §3.4)", () => {
   });
 
   it.each(cases)("%s", (_name, testCase) => {
-    const detection = detectReferences(testCase.content);
+    const detection = detectReferences(testCase.content, { names });
     expect(detection.references).toEqual(
       testCase.expect.references.map((r) => ({ ...r, match: r.match ?? r.value })),
     );

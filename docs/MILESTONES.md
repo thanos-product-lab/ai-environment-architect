@@ -1,7 +1,7 @@
 # Milestones
 
 **AI Environment Architect · First slice**  
-**Last updated:** 22 November 2026
+**Last updated:** 27 November 2026
 
 This is the build order for the first slice: inspect → clarify → recommend → review → apply, for one repository and its root `CLAUDE.md`. It says *what to build when*. *How it behaves* is in the specs. Each step points to a spec section rather than repeating it.
 
@@ -244,3 +244,4 @@ Maintenance checks for stale paths and commands; scoped rule files; a local web 
 - **21 November 2026:** `unmarkFinding` is added to core, for the M7 findings screen to take back a finding marked wrong (IMPL §4.5).
 - **21 November 2026:** M6's prompts step covers releasing and loading the prompts; passing them to the CLI's model calls moves to a new M7 step. The schema and prompt histories move to JSON Lines files, which a CI job keeps append-only (IMPL v0.67).
 - **22 November 2026:** the live-run tooling is built. The replay contract test becomes its own step, because replaying call 1 needs the repository's contents, which CI doesn't have, and how to rebuild a validation context without them isn't specified yet. Rebuilding call 1's context between phases stays live-run tooling; M7's resume specifies its own.
+- **27 November 2026:** the first live run (ofetch, `ses_dd088742`) led to the reference detector `references/1.3.0` and `REF-003`'s decision route (IMPL v0.70, DM v0.35). Its other observations wait in `docs/LIVE_RUNS.md` as calibration candidates until all three repositories have run.

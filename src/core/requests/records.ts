@@ -599,7 +599,11 @@ function recordBodies(numbered: NumberedRecords, context: RenderContext) {
       `${a}  [${record.operation} · ${record.kind}]  target: ${targetText}  scope: ${scopeText(record.scope)}`,
       ...(support.length === 0 ? [] : [`     support: ${support.join(", ")}`]),
       ...record.references.map((reference) => {
-        const by = alias(reference.supportingFindingId);
+        const by = alias(
+          "supportingFindingId" in reference
+            ? reference.supportingFindingId
+            : reference.supportingDecisionId,
+        );
         return `     reference: ${reference.kind} ${json(reference.value)}${by === undefined ? "" : ` (${by})`}`;
       }),
       `     rationale: ${field(record.rationale)}`,

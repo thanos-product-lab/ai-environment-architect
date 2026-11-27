@@ -4,12 +4,13 @@
     "references": [
       { "kind": "path", "value": "src/" },
       { "kind": "path", "value": "./src/" },
-      { "kind": "path", "value": "scripts/" }
+      { "kind": "path", "value": "scripts/" },
+      { "kind": "path", "value": "docs" }
     ],
-    "identifiers": ["docs"]
+    "identifiers": []
   },
-  "listed": { "src/": true, "./src/": true, "scripts/": true },
+  "listed": { "src/": true, "./src/": true, "scripts/": true, "docs": true },
   "nearMissOf": "REF-002",
   "section": "IMPL §3.4",
-  "note": "One leading `./` and one trailing `/` are removed, leaving directories that contain entries; `docs` without a slash or extension is an identifier, not a path."
+  "note": "One leading `./` and one trailing `/` are removed, leaving directories that contain entries; `docs`, without a slash or extension, is a path because it names a snapshot directory exactly (references/1.3.0; an identifier under 1.2.0)."
 }

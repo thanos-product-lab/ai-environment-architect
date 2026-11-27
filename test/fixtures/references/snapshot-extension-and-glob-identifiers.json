@@ -1,0 +1,19 @@
+{
+  "content": "Relative imports in `src` keep `.ts`, tests are `*.test.ts`, docs are `.md`, and `.eslintrc.json` and `src/*.ts` stay paths.\n",
+  "expect": {
+    "references": [
+      { "kind": "path", "value": "src" },
+      { "kind": "path", "value": ".eslintrc.json" },
+      { "kind": "path", "value": "src/*.ts" }
+    ],
+    "identifiers": [".ts", "*.test.ts", ".md"]
+  },
+  "listed": {
+    "src": true,
+    ".eslintrc.json": false,
+    "src/*.ts": false
+  },
+  "nearMissOf": "snapshot-names-are-paths.json",
+  "section": "IMPL §3.4",
+  "note": "references/1.3.0, from the ofetch run ses_dd088742 (r3): a span that is only an extension, or a glob with no `/`, is an identifier unless a file has that name, as in bare text since 1.2.0. A dotfile with a known extension is still a path, and a glob with a `/` still fails closed as a path that REF-002 rejects."
+}

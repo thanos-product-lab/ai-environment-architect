@@ -261,7 +261,9 @@
     },
     { "alias": "D-3", "statement": "The Workflow section no longer matches how the team works.", "exceptions": [], "current": true },
     { "alias": "D-4", "statement": "Lint is optional for draft branches.", "exceptions": [], "current": false },
-    { "alias": "D-5", "statement": "Lint runs on every branch, drafts included.", "exceptions": [], "current": true }
+    { "alias": "D-5", "statement": "Lint runs on every branch, drafts included.", "exceptions": [], "current": true },
+    { "alias": "D-6", "statement": "Type-check with `pnpm tsc --noEmit` before pushing.", "exceptions": ["Drafts skip `pnpm typecheck`."], "current": true },
+    { "alias": "D-7", "statement": "Type-check with pnpm tsc --noEmit.", "exceptions": [], "current": true }
   ],
   "conflicts": [
     { "alias": "C-1", "members": ["F-12", "F-13"], "status": "unresolved" },
