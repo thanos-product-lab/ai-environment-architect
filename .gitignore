@@ -4,3 +4,4 @@ coverage/
 .claude/settings.local.json
 # The coverage-validation fixtures, not test coverage output.
 !test/fixtures/coverage/
+.DS_Store
