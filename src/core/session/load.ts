@@ -364,6 +364,31 @@ function referencesOf(r: SessionRecord): { reference: Reference; id: string }[] 
         reference: record("attribution", "recommendation_revision"),
         id: entry.revisionId,
       });
+  // A recommendation revision's support: a finding by lineage, a decision by record ID; and each
+  // reference's finding and evidence, or the decision that states its command (§4.4.1).
+  // A failed revision has neither, being stored as written (§4.4.3).
+  if (r.type === "recommendation_revision" && "support" in r) {
+    for (const entry of r.support)
+      found.push(
+        entry.kind === "finding"
+          ? { reference: lineage("support", "finding"), id: entry.findingId }
+          : { reference: record("support", "decision"), id: entry.decisionId },
+      );
+    for (const reference of r.references)
+      if ("supportingDecisionId" in reference)
+        found.push({
+          reference: record("references.supportingDecisionId", "decision"),
+          id: reference.supportingDecisionId,
+        });
+      else
+        found.push(
+          {
+            reference: lineage("references.supportingFindingId", "finding"),
+            id: reference.supportingFindingId,
+          },
+          { reference: record("references.evidenceId", "evidence"), id: reference.evidenceId },
+        );
+  }
   // A withheld item is a finding, conflict or question by lineage, or a decision by record ID.
   if (r.type === "secret_withheld")
     found.push({
@@ -487,8 +512,26 @@ function checkReferences(records: readonly SessionRecord[]): void {
       }
     }
 
+  checkReferenceSupport(records);
   checkArtifacts(records, byId);
   checkTargets(records);
+}
+
+/** Each reference's supporting finding or decision is in its revision's support (§4.4.1). */
+function checkReferenceSupport(records: readonly SessionRecord[]): void {
+  for (const r of records) {
+    if (r.type !== "recommendation_revision" || !("support" in r)) continue;
+    const support = new Set(
+      r.support.map((entry) => (entry.kind === "finding" ? entry.findingId : entry.decisionId)),
+    );
+    for (const reference of r.references) {
+      const id =
+        "supportingDecisionId" in reference
+          ? reference.supportingDecisionId
+          : reference.supportingFindingId;
+      if (!support.has(id)) reject(4, `a reference names ${id}, which isn't in its support`, r);
+    }
+  }
 }
 
 type Snapshot = RecordOf<"snapshot">;

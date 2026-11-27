@@ -432,6 +432,103 @@ describe("recommend records (IMPL §3.3.5, §4.4.1)", () => {
     expect(result.ok).toBe(true);
   });
 
+  /** The recommend session with its revision edited, given the decision and evidence IDs. */
+  const editRevision = (
+    change: (revision: Json, ids: { decision: string; evidence: string }) => void,
+  ) => {
+    const json = JSON.parse(serialiseSession(fileOf(recommendLog())));
+    const decision = json.records.find((r: Json) => r.type === "decision").id;
+    const evidence = json.records.find((r: Json) => r.type === "evidence").id;
+    change(
+      json.records.find((r: Json) => r.type === "recommendation_revision"),
+      { decision, evidence },
+    );
+    return encode(JSON.stringify(json));
+  };
+  const stated = (decision: string) => ({
+    kind: "command",
+    value: "pnpm tsc --noEmit",
+    supportingDecisionId: decision,
+    verification: "stated_by_developer",
+  });
+
+  it("loads a command reference stated by a decision in the revision's support", async () => {
+    const bytes = editRevision((revision, ids) => {
+      revision.support.push({ kind: "decision", decisionId: ids.decision });
+      revision.references.push(stated(ids.decision));
+    });
+    expect((await loadSession(bytes, memoryContent())).ok).toBe(true);
+  });
+
+  type Change = (revision: Json, ids: { decision: string; evidence: string }) => void;
+
+  it("check 4 rejects support that names no finding or decision", async () => {
+    const cases: [string, Change][] = [
+      ["a missing finding", (r) => r.support.push({ kind: "finding", findingId: "fnd_9999" })],
+      ["a missing decision", (r) => r.support.push({ kind: "decision", decisionId: "dec_9999" })],
+    ];
+    for (const [name, change] of cases)
+      expect(await failure(editRevision(change)), name).toMatchObject({ check: 4 });
+  });
+
+  it("check 4 rejects a reference whose finding, evidence or decision is missing", async () => {
+    const cases: [string, Change][] = [
+      [
+        "a missing finding",
+        (r) => {
+          r.references[0].supportingFindingId = "fnd_9999";
+          r.support.push({ kind: "finding", findingId: "fnd_9999" });
+        },
+      ],
+      ["missing evidence", (r) => Object.assign(r.references[0], { evidenceId: "ev_9999" })],
+      [
+        "a missing decision",
+        (r) => {
+          r.support.push({ kind: "decision", decisionId: "dec_9999" });
+          r.references.push(stated("dec_9999"));
+        },
+      ],
+    ];
+    for (const [name, change] of cases)
+      expect(await failure(editRevision(change)), name).toMatchObject({ check: 4 });
+  });
+
+  it("refuses support or a reference naming a record of another type at the schema", async () => {
+    // Record IDs carry their type's prefix, so the schema (check 2) refuses them first.
+    const cases: [string, Change][] = [
+      [
+        "evidence as support",
+        (r, ids) => r.support.push({ kind: "decision", decisionId: ids.evidence }),
+      ],
+      [
+        "a decision as evidence",
+        (r, ids) => Object.assign(r.references[0], { evidenceId: ids.decision }),
+      ],
+      ["evidence as the stating decision", (r, ids) => r.references.push(stated(ids.evidence))],
+    ];
+    for (const [name, change] of cases)
+      expect(await failure(editRevision(change)), name).toMatchObject({ check: 2 });
+  });
+
+  it("check 4 rejects a reference whose finding or decision isn't in the revision's support", async () => {
+    const json = JSON.parse(serialiseSession(fileOf(recommendLog())));
+    const revision = json.records.find((r: Json) => r.type === "recommendation_revision");
+    const other = json.records.find(
+      (r: Json) =>
+        r.type === "finding" && r.findingId !== revision.references[0].supportingFindingId,
+    ).findingId;
+    revision.support = [{ kind: "finding", findingId: other }];
+    expect(await failure(encode(JSON.stringify(json)))).toMatchObject({
+      check: 4,
+      detail: expect.stringContaining("isn't in its support"),
+    });
+    const decision = editRevision((r, ids) => r.references.push(stated(ids.decision)));
+    expect(await failure(decision)).toMatchObject({
+      check: 4,
+      detail: expect.stringContaining("isn't in its support"),
+    });
+  });
+
   it("check 4 rejects a held-back blocker that names no question or conflict", async () => {
     const edit = (blocker: (json: Json) => string) => {
       const json = JSON.parse(serialiseSession(fileOf(recommendLog())));
