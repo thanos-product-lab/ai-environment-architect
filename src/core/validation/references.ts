@@ -280,7 +280,10 @@ export function detectReferences(content: string, options: DetectOptions = {}): 
 export interface SourcedDetection extends Detection {
   /** Commands from bare text; every other command is from an inline code span or a fence. */
   readonly proseCommands: ReadonlySet<DetectedReference>;
-  /** Inline code spans that are paths only because they name a snapshot entry (1.3.0). */
+  /**
+   * Inline code spans that are paths only because they name a snapshot entry, and would
+   * otherwise be identifiers (1.3.0). A runner word naming a directory, such as `go`, is not one.
+   */
   readonly namedPaths: ReadonlySet<DetectedReference>;
 }
 
@@ -359,7 +362,7 @@ export function detectWithSources(content: string, options: DetectOptions = {}):
         continue;
       }
       const reference = { kind, value, match };
-      if (kind === "path" && classifySpan(match) !== "path") namedPaths.add(reference);
+      if (kind === "path" && classifySpan(match) === "identifier") namedPaths.add(reference);
       events.push({ at: start, reference });
     }
     for (const link of masked.matchAll(LINK)) {

@@ -119,8 +119,12 @@ describe("classifySpan", () => {
 
   it("marks the spans that are paths only by naming a snapshot entry", () => {
     const detection = detectWithSources("See `src`, `src/index.ts` and `go`; [x](src).", { names });
-    expect([...detection.namedPaths].map((r) => r.match)).toEqual(["src", "go"]);
+    expect([...detection.namedPaths].map((r) => r.match)).toEqual(["src"]);
     expect(detection.references.map((r) => r.match)).toEqual(["src", "src/index.ts", "go", "src"]);
+  });
+
+  it("REF-001 keeps a runner word naming a directory a reference to declare", () => {
+    expect(detectWithSources("Build with `go`.", { names }).namedPaths.size).toBe(0);
   });
 
   it("gives a fenced runner line a command although a directory has its name", () => {
