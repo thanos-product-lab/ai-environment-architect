@@ -273,10 +273,15 @@ export function detectReferences(content: string, options: DetectOptions = {}): 
   return { references, identifiers };
 }
 
-/** As `detectReferences`, and which commands were found in plain text rather than in code. */
+/**
+ * As `detectReferences`, and which commands were found in plain text rather than in code, and
+ * which paths only because they name a snapshot entry.
+ */
 export interface SourcedDetection extends Detection {
   /** Commands from bare text; every other command is from an inline code span or a fence. */
   readonly proseCommands: ReadonlySet<DetectedReference>;
+  /** Inline code spans that are paths only because they name a snapshot entry (1.3.0). */
+  readonly namedPaths: ReadonlySet<DetectedReference>;
 }
 
 export interface DetectOptions {
@@ -291,6 +296,7 @@ export function detectWithSources(content: string, options: DetectOptions = {}):
   const names = options.names ?? NO_NAMES;
   const references: DetectedReference[] = [];
   const proseCommands = new Set<DetectedReference>();
+  const namedPaths = new Set<DetectedReference>();
   const identifiers: DetectedIdentifier[] = [];
 
   /** Bare text with no inline code or link in it: commands and path tokens, line by line. */
@@ -348,11 +354,13 @@ export function detectWithSources(content: string, options: DetectOptions = {}):
       const match = trim(value);
       if (match === "") continue;
       const kind = classifySpan(match, names);
-      events.push(
-        kind === "identifier"
-          ? { at: start, identifier: { value, match } }
-          : { at: start, reference: { kind, value, match } },
-      );
+      if (kind === "identifier") {
+        events.push({ at: start, identifier: { value, match } });
+        continue;
+      }
+      const reference = { kind, value, match };
+      if (kind === "path" && classifySpan(match) !== "path") namedPaths.add(reference);
+      events.push({ at: start, reference });
     }
     for (const link of masked.matchAll(LINK)) {
       const start = link.index;
@@ -388,7 +396,7 @@ export function detectWithSources(content: string, options: DetectOptions = {}):
       }
     } else prose(block.text);
   });
-  return { references, identifiers, proseCommands };
+  return { references, identifiers, proseCommands, namedPaths };
 }
 
 /** A block of content as the detector reads it: code lines, or prose text with its type. */

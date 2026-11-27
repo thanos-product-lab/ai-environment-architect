@@ -615,6 +615,14 @@ function holdingEvidence(
   return undefined;
 }
 
+/** The names of the call's command known facts (§3.2.5), for REF-001. */
+function commandNames(context: RecommendContext): ReadonlySet<string> {
+  const names = new Set<string>();
+  for (const finding of context.input.findings.values())
+    if (finding.command !== undefined) names.add(finding.command.name);
+  return names;
+}
+
 const namesByIndex = new WeakMap<CoverageContext["coverage"], ReadonlySet<string>>();
 
 /** The snapshot's entries and the directories that hold them, any status (§3.4, 1.3.0). */
@@ -634,8 +642,13 @@ const referenceCheck: Check = (value, context) => {
   const same = (d: DetectedReference, r: (typeof declared)[number]) =>
     d.kind === r.kind && d.match === r.value;
 
-  // REF-001: what the content mentions is declared, and what is declared is in the content.
-  if (!detected.every((d) => declared.some((r) => same(d, r))))
+  // REF-001: what the content mentions is declared, and what is declared is in the content. A
+  // span that is a path only by naming a snapshot entry, and also names a command known fact,
+  // may be left undeclared; it is then an identifier, for REF-005.
+  const scripts = commandNames(context);
+  const either = (d: DetectedReference) => detection.namedPaths.has(d) && scripts.has(d.match);
+  const undeclared = detected.filter((d) => !declared.some((r) => same(d, r)));
+  if (!undeclared.every(either))
     return reject("REF-001", "a path or command in the content is not declared");
   if (!declared.every((r) => detected.some((d) => same(d, r))))
     return reject("REF-001", "a declared reference is not in the content");
@@ -706,7 +719,7 @@ const referenceCheck: Check = (value, context) => {
     if (decision !== undefined) return [decision.statement, ...decision.exceptions];
     return excerpts(context.input.findings.get(alias));
   });
-  for (const identifier of detection.identifiers)
+  for (const identifier of [...detection.identifiers, ...undeclared])
     if (!texts.some((text) => text.includes(identifier.match)))
       return reject("REF-005", "an identifier not in the support");
 

@@ -3,6 +3,7 @@ import {
   classifySpan,
   DETECTOR_VERSION,
   detectReferences,
+  detectWithSources,
   KNOWN_FILE_EXTENSIONS,
   KNOWN_FILE_NAMES,
   RUNNERS,
@@ -115,6 +116,12 @@ describe("classifySpan", () => {
       expect(classifySpan(span, names)).toBe("path");
     },
   );
+
+  it("marks the spans that are paths only by naming a snapshot entry", () => {
+    const detection = detectWithSources("See `src`, `src/index.ts` and `go`; [x](src).", { names });
+    expect([...detection.namedPaths].map((r) => r.match)).toEqual(["src", "go"]);
+    expect(detection.references.map((r) => r.match)).toEqual(["src", "src/index.ts", "go", "src"]);
+  });
 
   it("gives a fenced runner line a command although a directory has its name", () => {
     expect(detectReferences("```sh\ngo\n```\n", { names }).references).toEqual([
